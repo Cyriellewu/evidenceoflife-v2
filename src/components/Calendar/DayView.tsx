@@ -11,6 +11,7 @@ import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { getActivityAccentColor, getActivityTextColor, getCalendarBlockChrome } from '@/lib/activityColors';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
+import { StorageImage } from "@/components/StorageImage";
 
 const DETAIL_SEPARATOR = '\n---DETAIL---\n';
 function getSubtitle(text?: string | null): string {
@@ -452,19 +453,19 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
                 >
                   {showPhotoCover && (
                     <>
-                      <img src={e.photos?.[0]} alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
+                      {e.photos?.[0] ? <StorageImage src={e.photos[0]} alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" /> : null}
                       <div className="absolute inset-0 bg-background/55" />
                     </>
                   )}
                   <div className="relative z-10 flex items-start gap-1.5">
-                    {showPhotoThumb && (
-                      <img
-                        src={e.photos?.[0]}
+                    {showPhotoThumb && e.photos?.[0] ? (
+                      <StorageImage
+                        src={e.photos[0]}
                         alt=""
                         className="flex-shrink-0 rounded-md object-cover border border-white/60"
                         style={{ width: thumbSizePx, height: thumbSizePx }}
                       />
-                    )}
+                    ) : null}
                     <div className="min-w-0 flex-1">
                       <p
                         className="min-w-0 leading-[1.15] overflow-hidden"

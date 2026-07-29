@@ -70,6 +70,7 @@ import { EvidenceReviewCard } from './today/EvidenceReviewCard';
 import { OnThisDayCard } from './today/OnThisDayCard';
 import { MemoryHorizonsCard } from './today/MemoryHorizonsCard';
 import { PlanDrift } from '@/components/today/PlanDrift';
+import { StorageImage } from "@/components/StorageImage";
 
 type TimeBreakdownRange = 'today' | 'week' | 'month';
 
@@ -956,7 +957,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             <X size={24} />
           </button>
           <div className="relative max-w-[90vw] max-h-[85vh]" onClick={e => e.stopPropagation()}>
-            <img src={lightboxPhotos.photos[lightboxPhotos.index]} alt="" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
+            <StorageImage src={lightboxPhotos.photos[lightboxPhotos.index]} alt="" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
             {lightboxPhotos.photos.length > 1 && (
               <div className="flex items-center justify-center gap-2 mt-3">
                 {lightboxPhotos.photos.map((_, i) => (
@@ -1118,7 +1119,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             <div className="flex gap-2 px-2.5 pt-2.5 overflow-x-auto">
               {selectedPhotos.map((photo, i) => (
                 <div key={i} className="relative flex-shrink-0">
-                  <img src={photo} alt="" className="w-14 h-14 object-cover rounded-lg" />
+                  <StorageImage src={photo} alt="" className="w-14 h-14 object-cover rounded-lg" />
                   <button
                     onClick={() => removePhoto(i)}
                     className="absolute -top-1 -right-1 w-5 h-5 bg-foreground text-background rounded-full flex items-center justify-center"
@@ -2223,7 +2224,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     <div className="flex gap-1.5 overflow-x-auto">
                                       {editPhotos.map((photo, pi) => (
                                         <div key={pi} className="relative flex-shrink-0">
-                                          <img src={photo} alt="" className="w-10 h-10 object-cover rounded-lg" />
+                                          <StorageImage src={photo} alt="" className="w-10 h-10 object-cover rounded-lg" />
                                           <button onClick={() => removeEditPhoto(pi)} className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background rounded-full flex items-center justify-center"><X size={10} /></button>
                                         </div>
                                       ))}

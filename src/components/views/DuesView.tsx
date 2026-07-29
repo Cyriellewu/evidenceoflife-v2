@@ -27,6 +27,7 @@ import { DueCard } from '@/components/views/dues/DueCard';
 import { SheetHeader, SheetEmptyState } from '@/components/sheet/SheetShell';
 import { SheetComposer } from '@/components/sheet/SheetComposer';
 import { toast } from 'sonner';
+import { StorageImage } from "@/components/StorageImage";
 
 type DuesViewMode = 'deadline' | 'habit';
 
@@ -107,12 +108,9 @@ export function DuesView({
 
   const uploadPhotoFile = useCallback(async (file: File): Promise<string | null> => {
     if (!user || file.size > 5 * 1024 * 1024) return null;
+    const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
     const ext = file.type.split('/')[1] || file.name.split('.').pop() || 'jpg';
-    const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from('moment-photos').upload(path, file);
-    if (error) return null;
-    const { data: urlData } = supabase.storage.from('moment-photos').getPublicUrl(path);
-    return urlData?.publicUrl ?? null;
+    return uploadMomentPhotoObject(user.id, file, file.type || `image/${ext}`, ext);
   }, [user]);
 
   const handlePhotoUploadForNew = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -708,7 +706,7 @@ export function DuesView({
               ))}
               {pendingPhotos.map((photo, i) => (
                 <div key={i} className="relative w-8 h-8 rounded-lg overflow-hidden">
-                  <img src={photo} alt="" className="w-full h-full object-cover" />
+                  <StorageImage src={photo} alt="" className="w-full h-full object-cover" />
                   <button onClick={() => setPendingPhotos(prev => prev.filter((_, idx) => idx !== i))} aria-label="Remove photo"
                     className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl"><X size={8} /></button>
                 </div>

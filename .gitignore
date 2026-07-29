@@ -40,3 +40,12 @@ supabase/.temp/
 # Local reference / scratch docs (not part of the product)
 .workbuddy/
 openclaw-*.md
+
+# Maintainer / agent scratch (not part of the product surface)
+.agent-handoff/
+.agents/
+.claude/
+Scratchpad/
+tasks.md
+loop.sh
+CLAUDE.md

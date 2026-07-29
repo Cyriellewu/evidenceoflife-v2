@@ -40,6 +40,7 @@ import { format } from 'date-fns';
 import { DayRecord, Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
+import { StorageImage } from "@/components/StorageImage";
 
 interface ProfileViewProps {
   stats: {
@@ -526,7 +527,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                     title={`${shortDate(photo.date)}${photo.momentText ? ' · ' + photo.momentText : ''}`}
                     className="group relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-[16px] border border-border/45 bg-secondary/30 transition-transform hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
-                    <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <StorageImage src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
                       {shortDate(photo.date)}
                     </span>
@@ -632,7 +633,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                         onClick={() => setLightboxPhoto(memory.photos[0])}
                         className="mt-2 block w-full overflow-hidden rounded-[14px] border border-border/40 bg-secondary/30"
                       >
-                        <img src={memory.photos[0]} alt="" loading="lazy" className="max-h-48 w-full object-contain" />
+                        <StorageImage src={memory.photos[0]} alt="" loading="lazy" className="max-h-48 w-full object-contain" />
                       </button>
                     )}
                   </div>
@@ -700,7 +701,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           <button onClick={() => setLightboxPhoto(null)} className="absolute top-4 right-4 z-10 p-2 text-muted-foreground hover:text-foreground">
             <X size={24} />
           </button>
-          <img src={lightboxPhoto} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" onClick={e => e.stopPropagation()} />
+          <StorageImage src={lightboxPhoto} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" onClick={e => e.stopPropagation()} />
         </div>
       )}
 
@@ -734,7 +735,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   title={`${shortDate(photo.date)}${photo.momentText ? ' · ' + photo.momentText : ''}`}
                   className="group relative aspect-square overflow-hidden rounded-[10px] border border-border/45 bg-secondary/30 transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
-                  <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <StorageImage src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
                     {shortDate(photo.date)}
                   </span>

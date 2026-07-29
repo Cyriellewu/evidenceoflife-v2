@@ -25,11 +25,11 @@ Evidence of Life is a daily life-tracking web app. You capture *moments* (what h
 
 ## Getting Started
 
-Requires Node.js 18+ and npm.
+Requires Node.js 20+ (18+ may work) and npm.
 
 ```sh
 # 1. Install dependencies
- 
+npm install
 
 # 2. Configure environment
 cp .env.example .env   # then fill in your Supabase project values
@@ -37,6 +37,10 @@ cp .env.example .env   # then fill in your Supabase project values
 # 3. Start the dev server (http://localhost:8080)
 npm run dev
 ```
+
+**Try without Supabase:** open [http://localhost:8080/demo-app](http://localhost:8080/demo-app) for the synthetic public demo.
+
+Full backend setup (migrations, Auth, edge functions, Google Calendar): see [docs/oss/self-hosting.md](docs/oss/self-hosting.md).
 
 ## Scripts
 
@@ -46,7 +50,8 @@ npm run dev
 | `npm run build` | Production build |
 | `npm run build:dev` | Development-mode build |
 | `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run ESLint |
+| `npm run typecheck` | TypeScript check (`tsconfig.app.json`) |
+| `npm run lint` | Run ESLint (non-blocking in CI until debt is cleared) |
 | `npm test` | Run the test suite once |
 | `npm run test:watch` | Run tests in watch mode |
 
@@ -70,6 +75,15 @@ supabase/
 ## Environment Variables
 
 See [`.env.example`](.env.example). All client variables are prefixed with `VITE_`. The Supabase **publishable** key is safe to expose in the browser; never commit service-role keys or other secrets.
+
+## Contributing & community
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — local setup and PR gates
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [SECURITY.md](SECURITY.md) — private vulnerability reporting
+- [PRIVACY.md](PRIVACY.md) — data-handling notes for operators
+- [LICENSE](LICENSE) — MIT
+- [docs/oss/roadmap.md](docs/oss/roadmap.md)
 
 ## Deployment
 

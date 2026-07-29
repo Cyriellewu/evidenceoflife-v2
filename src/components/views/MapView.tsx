@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
+import { StorageImage } from "@/components/StorageImage";
 
 interface MapViewProps {
   moments: Moment[];
@@ -1961,7 +1962,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                   >
                     {coverPhoto ? (
                       <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 border border-[rgba(214,190,172,0.34)] bg-[rgba(232,130,90,0.06)]">
-                        <img src={coverPhoto} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <StorageImage src={coverPhoto} alt="" className="w-full h-full object-cover" loading="lazy" />
                       </div>
                     ) : (
                       <div
@@ -2113,11 +2114,11 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                           {allPhotos.length > 0 ? (
                             <div className="grid grid-cols-2 gap-3">
                               <div className="col-span-2 overflow-hidden rounded-2xl border border-border/35 bg-secondary/20">
-                                <img src={allPhotos[0]} alt="" className="aspect-[4/3] h-full w-full object-cover" loading="lazy" />
+                                <StorageImage src={allPhotos[0]} alt="" className="aspect-[4/3] h-full w-full object-cover" loading="lazy" />
                               </div>
                               {allPhotos.slice(1).map((photo, index) => (
                                 <div key={`${photo}-${index}`} className="aspect-square overflow-hidden rounded-[18px] border border-border/35 bg-secondary/20">
-                                  <img src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                  <StorageImage src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
                                 </div>
                               ))}
                             </div>
@@ -2182,7 +2183,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                                     <div className="mt-3 grid grid-cols-3 gap-2">
                                       {visit.photos.map((photo, photoIndex) => (
                                         <div key={`${photo}-${photoIndex}`} className="aspect-square overflow-hidden rounded-[14px] border border-border/30 bg-secondary/20">
-                                          <img src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                          <StorageImage src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
                                         </div>
                                       ))}
                                     </div>

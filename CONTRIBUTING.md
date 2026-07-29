@@ -14,7 +14,7 @@ contributions focused and self-contained.
 
 ## Local setup
 
-Requires Node.js 18+ and npm.
+Requires Node.js 20+ (18+ may work) and npm.
 
 ```sh
 npm install
@@ -22,18 +22,21 @@ cp .env.example .env   # fill in your own Supabase project values
 npm run dev            # http://localhost:8080
 ```
 
-The app needs a Supabase project (Postgres + Auth + Storage). Apply the SQL in
-`supabase/migrations/` to a fresh project, and set the `VITE_SUPABASE_*` values
-in `.env`. Only the **publishable** (anon) key belongs in the browser.
+The app needs a Supabase project (Postgres + Auth + Storage). See
+[docs/oss/self-hosting.md](docs/oss/self-hosting.md) for migrations, Auth
+redirects, and edge-function deploy. Only the **publishable** (anon) key belongs
+in the browser.
+
+**UI-only contributors:** `npm run dev` then open `/demo-app` (no Supabase).
 
 ## Before you open a PR
 
-Run all three and make sure they pass:
+Run these and make sure typecheck + tests pass:
 
 ```sh
-npx tsc --noEmit -p tsconfig.app.json   # types (SWC does not type-check)
-npm test                                # vitest — currently 176 tests
-npm run lint                            # eslint
+npm run typecheck   # types (SWC does not type-check)
+npm test            # vitest
+npm run lint        # eslint — advisory in CI until the debt is cleared
 ```
 
 - Add or update tests for logic changes (pure helpers live in `src/lib`, tests

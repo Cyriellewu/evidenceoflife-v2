@@ -68,6 +68,7 @@ import {
   type SlotKey,
 } from './planTimeline/planTimelinePrimitives';
 import { buildPlanBlocks } from './planTimeline/buildPlanBlocks';
+import { StorageImage } from "@/components/StorageImage";
 
 interface PlanTimelineViewProps {
   todos: Todo[];
@@ -2593,7 +2594,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {block.photos && block.photos.length > 0 && height > 56 && !isEditingThis && (
             <div className="flex gap-1 mt-0.5">
               {block.photos.slice(0, Math.min(3, Math.floor((height - 48) / 20))).map((photo, idx) => (
-                <img key={idx} src={photo} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                <StorageImage key={idx} src={photo} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0" />
               ))}
               {block.photos.length > 3 && <span className="text-[9px] text-muted-foreground/60 self-end">+{block.photos.length - 3}</span>}
             </div>
@@ -3568,7 +3569,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       index === photoLightbox.index ? "border-primary opacity-100" : "border-border/50 opacity-60 hover:opacity-90"
                     )}
                   >
-                    <img src={photo} alt="" className="h-full w-full object-cover" />
+                    <StorageImage src={photo} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>

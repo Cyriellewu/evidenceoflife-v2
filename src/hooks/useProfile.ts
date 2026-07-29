@@ -113,14 +113,13 @@ export function useProfile() {
         reader.readAsDataURL(file);
       });
     }
-    const ext = file.name.split('.').pop();
+    const ext = file.name.split('.').pop() || 'jpg';
     const path = `${user.id}/homepage-${Date.now()}.${ext}`;
     const { error } = await supabase.storage
       .from('moment-photos')
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, contentType: file.type || undefined });
     if (error) { console.error('Upload failed:', error); return null; }
-    const { data: urlData } = supabase.storage.from('moment-photos').getPublicUrl(path);
-    return urlData.publicUrl;
+    return path;
   }, [user, isDemo]);
 
   return { profile, loading, updateProfile, updateSettings, uploadHomepageImage, refetch: fetchProfile };

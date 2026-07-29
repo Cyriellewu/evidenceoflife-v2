@@ -1,9 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { authorizeImageProxy, corsHeaders, jsonResponse } from "../_shared/auth.ts";
 
 // Block requests to private / loopback / link-local / cloud-metadata addresses (SSRF guard)
 function isBlockedHost(hostname: string): boolean {
@@ -26,13 +22,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const denied = authorizeImageProxy(req);
+    if (denied) return denied;
+
     const requestUrl = new URL(req.url);
     const rawUrl = requestUrl.searchParams.get("url");
     if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
-      return new Response(JSON.stringify({ error: "Invalid URL" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Invalid URL" }, 400);
     }
 
     if (isBlockedHost(new URL(rawUrl).hostname)) {

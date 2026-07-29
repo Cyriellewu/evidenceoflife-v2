@@ -6,6 +6,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useReminders } from '@/hooks/useReminders';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WorkType, WORK_TYPE_META } from '@/lib/workType';
+import { StorageImage } from "@/components/StorageImage";
 
 export interface CalendarEvent {
   id: string;
@@ -216,7 +217,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
           <div className="grid grid-cols-3 gap-1.5">
             {event.photos.map((photo, i) => (
               <button key={i} type="button" onClick={() => setSelectedPhoto(photo)} className="overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30">
-                <img src={photo} alt="" className="w-full aspect-square object-cover rounded-lg transition-transform hover:scale-[1.03]" />
+                <StorageImage src={photo} alt="" className="w-full aspect-square object-cover rounded-lg transition-transform hover:scale-[1.03]" />
               </button>
             ))}
           </div>
@@ -360,7 +361,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
           <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Close photo" className="absolute right-5 top-5 rounded-full bg-white/12 p-2 text-white/90 transition-colors hover:bg-white/20">
             <X size={18} />
           </button>
-          <img src={selectedPhoto} alt="" className="max-h-[88vh] max-w-[88vw] rounded-2xl object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <StorageImage src={selectedPhoto} alt="" className="max-h-[88vh] max-w-[88vw] rounded-2xl object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>

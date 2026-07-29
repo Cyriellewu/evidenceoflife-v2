@@ -18,6 +18,7 @@ import { hasRichPreview } from '@/components/views/dues/DueLinkItems';
 import { getTimeLeft, formatDuration, HabitPunchCard } from '@/components/views/dues/DueCards';
 import { useSpotlight } from '@/hooks/useSpotlight';
 import { toast } from 'sonner';
+import { StorageImage } from "@/components/StorageImage";
 
 /* ── Due Card (Redesigned) ── */
 export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueReminders, onUpsertReminder, onRemoveReminder, onAddStep, onToggleStep, onDeleteStep, onIncrementHabitCount, onSetHabitCount, bare = false }: {
@@ -186,16 +187,13 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
 
   const appendPhotoFiles = async (files: File[]) => {
     if (!files || !user) return;
+    const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
     const newPhotos = [...(due.photos || [])];
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) continue;
       const ext = file.name.split('.').pop() || 'jpg';
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('moment-photos').upload(path, file);
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('moment-photos').getPublicUrl(path);
-        if (urlData?.publicUrl) newPhotos.push(urlData.publicUrl);
-      }
+      const path = await uploadMomentPhotoObject(user.id, file, file.type || `image/${ext}`, ext);
+      if (path) newPhotos.push(path);
     }
     onUpdate(due.id, { photos: newPhotos });
   };
@@ -672,7 +670,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
               className="relative group/photo w-16 h-16 rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary/40"
               onClick={(e) => { e.stopPropagation(); setPreviewImage(photo); }}
             >
-              <img src={photo} alt="" className="w-full h-full object-cover" onClick={(e) => { e.stopPropagation(); setPreviewImage(photo); }} />
+              <StorageImage src={photo} alt="" className="w-full h-full object-cover" onClick={(e) => { e.stopPropagation(); setPreviewImage(photo); }} />
               <span className="absolute left-1 bottom-1 text-[11px] px-1 py-0.5 rounded-full bg-black/45 text-white opacity-0 group-hover/photo:opacity-100 transition-opacity">
                 View
               </span>
@@ -703,7 +701,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
           >
             <X size={20} />
           </button>
-          <img
+          <StorageImage
             src={previewImage}
             alt=""
             className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-xl bg-white"

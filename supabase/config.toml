@@ -1,4 +1,9 @@
-project_id = "roejikcahklpxjrapkvb"
+# Placeholder — set via `supabase link` locally. Do not commit a live project ref.
+project_id = "your-project-id"
+
+# JWT verification is handled inside each function (Bearer user check or
+# apikey + origin allowlist for image-proxy). Keep verify_jwt = false so
+# browser clients can call with the anon key + Authorization header.
 
 [functions.geo]
 verify_jwt = false
@@ -21,14 +26,5 @@ verify_jwt = false
 [functions.image-proxy]
 verify_jwt = false
 
-[functions.market-news-pipeline]
-verify_jwt = false
-
-[functions.market-price-snapshot]
-verify_jwt = false
-
-[functions.market-daily-digest]
-verify_jwt = false
-
-[functions.market-stock-picker]
+[functions.life-replay]
 verify_jwt = false

@@ -2395,12 +2395,9 @@ export function PlanView({
     .map(t => ({ id: t.id, title: t.title, elapsed: getElapsed(t), isPaused: pausedTimers.has(t.id) }));
   const uploadCapturePhoto = useCallback(async (file: File): Promise<string | null> => {
     if (!user || file.size > 5 * 1024 * 1024) return null;
+    const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
     const ext = file.type.split('/')[1] || file.name.split('.').pop() || 'jpg';
-    const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from('moment-photos').upload(path, file);
-    if (error) return null;
-    const { data } = supabase.storage.from('moment-photos').getPublicUrl(path);
-    return data?.publicUrl ?? null;
+    return uploadMomentPhotoObject(user.id, file, file.type || `image/${ext}`, ext);
   }, [user]);
 
   const handleCaptureFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {

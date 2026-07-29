@@ -5,10 +5,13 @@
 
 ## Now (stability & openness)
 
-- Complete the OSS foundation (license, governance docs, templates) — in progress.
+- Complete the OSS foundation (license, governance docs, templates) — largely done.
+- Apply pre-public hardening migration (private photos, calendar token policies)
+  and redeploy edge functions with auth helpers.
+- Enable GitHub Private Vulnerability Reporting in repo Settings → Security.
 - Phase 2 security/privacy audit: verify ownership-based RLS on all personal
-  tables, storage-bucket visibility, and Google Calendar token handling.
-- CI: lint + typecheck + test + build on every PR.
+  tables against the **live** database (migrations alone are not enough).
+- CI: lint remains advisory until the remaining eslint debt is cleared.
 
 ## Next (correctness & trust)
 

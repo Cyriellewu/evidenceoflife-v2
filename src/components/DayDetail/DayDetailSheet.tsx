@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { StorageImage } from "@/components/StorageImage";
 
 interface DayDetailSheetProps {
   open: boolean;
@@ -166,7 +167,7 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                 <div className="flex gap-2 p-3 border-b border-border/50 overflow-x-auto">
                   {selectedPhotos.map((photo, i) => (
                     <div key={i} className="relative flex-shrink-0">
-                      <img src={photo} alt="" className="w-14 h-14 object-cover rounded-lg" />
+                      <StorageImage src={photo} alt="" className="w-14 h-14 object-cover rounded-lg" />
                       <Button
                         type="button"
                         variant="ghost"

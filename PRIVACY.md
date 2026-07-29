@@ -21,7 +21,9 @@ Evidence of Life is a personal life-logging app. A user's own account may store:
 ## Where data lives
 
 - Stored in the operator's **Supabase** project (Postgres + Storage).
-- Photos are stored in Supabase Storage buckets.
+- Photos are stored in the private Supabase Storage bucket `moment-photos`.
+  The client stores object paths and requests short-lived **signed URLs** for
+  display (legacy public URLs in existing rows are still resolved when possible).
 - The browser client uses only the Supabase **publishable (anon)** key.
 
 ## Access model
@@ -51,3 +53,12 @@ Evidence of Life is a personal life-logging app. A user's own account may store:
   synthetic demo data.
 - Aggregate analytics must not expose individual names, emails, task/note text,
   photos, coordinates, or calendar contents.
+
+## Known limitations (operators)
+
+- Full live-DB RLS verification and complete account-deletion coverage remain
+  Phase 2 audit items (see `docs/oss/roadmap.md`).
+- AI features (`smart-input`, `life-replay`) call a third-party gateway when
+  `LOVABLE_API_KEY` is configured; omit the secret to disable them.
+- `image-proxy` is used from `<img src>` and therefore cannot attach a user JWT;
+  it requires the anon `apikey` query param and an Origin/Referer allowlist.

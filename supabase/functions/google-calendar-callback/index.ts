@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sanitizeRedirectTo, verifyOAuthState } from "../_shared/auth.ts";
 
 Deno.serve(async (req) => {
   try {
@@ -10,20 +11,13 @@ Deno.serve(async (req) => {
       return new Response("Missing code or state", { status: 400 });
     }
 
-    let userId: string | null = null;
-    let redirectTo: string | null = null;
-
-    try {
-      const parsed = JSON.parse(atob(state));
-      userId = typeof parsed?.userId === "string" ? parsed.userId : null;
-      redirectTo = typeof parsed?.redirectTo === "string" ? parsed.redirectTo : null;
-    } catch {
-      userId = state;
+    const payload = await verifyOAuthState(state);
+    if (!payload) {
+      return new Response("Invalid or expired state", { status: 400 });
     }
 
-    if (!userId) {
-      return new Response("Invalid state", { status: 400 });
-    }
+    const userId = payload.userId;
+    const redirectTo = sanitizeRedirectTo(payload.redirectTo);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -42,7 +36,6 @@ Deno.serve(async (req) => {
 
     const redirectUri = `${supabaseUrl}/functions/v1/google-calendar-callback`;
 
-    // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -69,14 +62,8 @@ Deno.serve(async (req) => {
 
     const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString();
 
-    // Store tokens using service role
-    const supabase = createClient(
-      supabaseUrl,
-      serviceRoleKey
-    );
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Google may omit refresh_token on repeat consent flows. Keep the old refresh token
-    // instead of overwriting the connection with an unusable value.
     const { data: existingToken } = await supabase
       .from("google_calendar_tokens")
       .select("refresh_token")
@@ -106,9 +93,7 @@ Deno.serve(async (req) => {
       return new Response("Failed to store tokens", { status: 500 });
     }
 
-    // Redirect back to the app
-    const appUrl = redirectTo || Deno.env.get("APP_URL") || "https://evidenceoflife.lovable.app";
-    const destination = new URL(appUrl);
+    const destination = new URL(redirectTo);
     destination.searchParams.set("gcal", "connected");
 
     return new Response(null, {

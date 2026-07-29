@@ -56,17 +56,11 @@ async function uploadPhotoToStorage(userId: string, dataUrl: string): Promise<st
     const blob = new Blob([bytes], { type: mimeType });
 
     for (let attempt = 0; attempt < 3; attempt++) {
-      const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage
-        .from('moment-photos')
-        .upload(fileName, blob, { contentType: mimeType, upsert: false });
+      const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
+      const path = await uploadMomentPhotoObject(userId, blob, mimeType, ext);
+      if (path) return path;
 
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('moment-photos').getPublicUrl(fileName);
-        return urlData.publicUrl;
-      }
-
-      console.error(`Photo upload failed (attempt ${attempt + 1}):`, error);
+      console.error(`Photo upload failed (attempt ${attempt + 1})`);
       if (attempt < 2) await wait(800 * (attempt + 1));
     }
 

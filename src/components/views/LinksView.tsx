@@ -11,6 +11,7 @@ import { showUndoToast } from '@/lib/undoToast';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SheetHeader, SheetEmptyState } from '@/components/sheet/SheetShell';
 import { SheetComposer } from '@/components/sheet/SheetComposer';
+import { StorageImage } from "@/components/StorageImage";
 
 /**
  * Each card cycles through one of these accent palettes for visual
@@ -74,12 +75,9 @@ async function fetchPreview(url: string) {
 }
 
 async function uploadPhoto(file: File, userId: string): Promise<string | null> {
+  const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
   const ext = file.type.split('/')[1] || 'jpg';
-  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from('moment-photos').upload(path, file);
-  if (error) return null;
-  const { data } = supabase.storage.from('moment-photos').getPublicUrl(path);
-  return data?.publicUrl ?? null;
+  return uploadMomentPhotoObject(userId, file, file.type || `image/${ext}`, ext);
 }
 
 type DragState = { groupId: string; sectionId: string; linkId: string } | null;
@@ -275,7 +273,7 @@ function SectionCard({
               {section.photos.map((photo, i) => (
                 <div key={i} className="group/ph relative h-7 w-7 flex-shrink-0 overflow-hidden rounded-[5px]">
                   <button type="button" onClick={() => setPreviewPhoto(photo)} className="h-full w-full">
-                    <img src={photo} alt="" className="h-full w-full object-cover" />
+                    <StorageImage src={photo} alt="" className="h-full w-full object-cover" />
                   </button>
                   <button onClick={() => onRemovePhoto(photo)} aria-label="Remove photo"
                     className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover/ph:opacity-100">
@@ -320,7 +318,7 @@ function SectionCard({
 
       <Dialog open={!!previewPhoto} onOpenChange={open => { if (!open) setPreviewPhoto(null); }}>
         <DialogContent className="max-w-4xl border-border/60 bg-background/95 p-2 shadow-2xl">
-          {previewPhoto && <img src={previewPhoto} alt="" className="max-h-[80vh] w-full rounded-[12px] object-contain" />}
+          {previewPhoto && <StorageImage src={previewPhoto} alt="" className="max-h-[80vh] w-full rounded-[12px] object-contain" />}
         </DialogContent>
       </Dialog>
     </div>

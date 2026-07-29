@@ -28,7 +28,7 @@ jobs:
         continue-on-error: true
 
       - name: Type check
-        run: npx tsc --noEmit -p tsconfig.app.json
+        run: npm run typecheck
 
       - name: Test
         run: npm test

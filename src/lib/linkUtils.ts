@@ -40,8 +40,11 @@ export function getDomain(url: string): string {
 /** Route an external image through the Supabase image-proxy edge function. */
 export function buildProxyImageUrl(imageUrl: string): string {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!supabaseUrl) return imageUrl;
-  return `${supabaseUrl}/functions/v1/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+  const params = new URLSearchParams({ url: imageUrl });
+  if (anonKey) params.set('apikey', anonKey);
+  return `${supabaseUrl}/functions/v1/image-proxy?${params.toString()}`;
 }
 
 /** Google favicon service URL for a given page url. */
