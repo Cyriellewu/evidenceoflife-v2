@@ -769,13 +769,21 @@ function SummaryMetric({ value, label, icon: Icon, primary = false }: { value: s
 function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean }) {
   const { config, setConfig, requestPermission } = useLifeReminder();
   const intervals = [1, 2, 3, 4];
+  const [ntfyDraft, setNtfyDraft] = useState(config.ntfyTopic);
+
+  useEffect(() => {
+    setNtfyDraft(config.ntfyTopic);
+  }, [config.ntfyTopic]);
 
   const handleToggle = async () => {
     if (!config.enabled) {
-      const granted = await requestPermission();
-      if (!granted) {
-        toast(lang === 'zh' ? '请允许通知权限' : 'Please allow notification permission');
-        return;
+      const wantsNtfy = config.ntfyEnabled && !!config.ntfyTopic.trim();
+      if (!wantsNtfy) {
+        const granted = await requestPermission();
+        if (!granted) {
+          toast(lang === 'zh' ? '请允许通知权限，或先配置 ntfy topic' : 'Allow notifications, or configure an ntfy topic first');
+          return;
+        }
       }
       setConfig({ enabled: true });
       toast.success(lang === 'zh' ? '生活提醒已开启' : 'Life reminders enabled');
@@ -783,6 +791,11 @@ function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean
       setConfig({ enabled: false });
       toast(lang === 'zh' ? '生活提醒已关闭' : 'Life reminders disabled');
     }
+  };
+
+  const saveNtfyTopic = () => {
+    setConfig({ ntfyTopic: ntfyDraft.trim(), ntfyEnabled: ntfyDraft.trim().length > 0 ? config.ntfyEnabled : false });
+    toast.success(lang === 'zh' ? '已保存 ntfy topic' : 'ntfy topic saved');
   };
 
   return (
@@ -806,18 +819,56 @@ function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean
       </div>
 
       {config.enabled && (
-        <div className={cn('mt-3 flex flex-wrap items-center gap-2', flat ? '' : 'border-t border-border/55 pt-3')}>
-          <span className="text-[12px] font-medium text-muted-foreground/55">{lang === 'zh' ? '每' : 'Every'}</span>
-          {intervals.map(h => (
-            <button
-              key={h}
-              onClick={() => setConfig({ intervalHours: h })}
-              className={cn('rounded-full px-3 py-1 text-[12px] font-semibold transition-colors', config.intervalHours === h ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground')}
-            >
-              {h}h
-            </button>
-          ))}
-          <span className="text-[12px] font-medium text-muted-foreground/55">{lang === 'zh' ? '提醒一次' : 'reminder'}</span>
+        <div className={cn('mt-3 space-y-3', flat ? '' : 'border-t border-border/55 pt-3')}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[12px] font-medium text-muted-foreground/55">{lang === 'zh' ? '每' : 'Every'}</span>
+            {intervals.map(h => (
+              <button
+                key={h}
+                onClick={() => setConfig({ intervalHours: h })}
+                className={cn('rounded-full px-3 py-1 text-[12px] font-semibold transition-colors', config.intervalHours === h ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground')}
+              >
+                {h}h
+              </button>
+            ))}
+            <span className="text-[12px] font-medium text-muted-foreground/55">{lang === 'zh' ? '提醒一次' : 'reminder'}</span>
+          </div>
+
+          <div className="rounded-2xl border border-border/50 bg-background/40 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[12px] font-semibold text-foreground">ntfy</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground/55">
+                  {lang === 'zh' ? '推送到手机（可选，可与浏览器通知并用）' : 'Optional phone push (works with or without browser notifications)'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfig({ ntfyEnabled: !config.ntfyEnabled })}
+                aria-pressed={config.ntfyEnabled}
+                className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', config.ntfyEnabled ? 'bg-primary' : 'bg-muted')}
+              >
+                <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', config.ntfyEnabled ? 'translate-x-[22px]' : 'translate-x-0.5')} />
+              </button>
+            </div>
+            {config.ntfyEnabled && (
+              <div className="mt-2.5 flex gap-2">
+                <input
+                  value={ntfyDraft}
+                  onChange={(e) => setNtfyDraft(e.target.value)}
+                  placeholder={lang === 'zh' ? 'topic 或 https://ntfy.sh/topic' : 'topic or https://ntfy.sh/topic'}
+                  className="min-w-0 flex-1 rounded-xl border border-border/55 bg-background px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/45 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+                <button
+                  type="button"
+                  onClick={saveNtfyTopic}
+                  className="shrink-0 rounded-xl bg-secondary px-3 py-2 text-[12px] font-semibold text-foreground hover:bg-secondary/80"
+                >
+                  {lang === 'zh' ? '保存' : 'Save'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

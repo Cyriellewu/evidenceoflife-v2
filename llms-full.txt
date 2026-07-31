@@ -49,11 +49,12 @@ npm run build
 
 ### Hooks (`src/hooks/`)
 Auth: useAuth.tsx  
-Data: useTodos, useMoments, useDues, useDueReminders, usePlaces, useLinks, useStickyNotes, useImportedEvents, useGoogleCalendar, useProfile, useReminders, useLifeReminder  
+Data: useTodos, useMoments, useDues, useDueReminders, usePlaces, useLinks, useStickyNotes, useImportedEvents, useGoogleCalendar, useProfile, useReminders, useLifeReminder (browser + optional ntfy)  
 UX: useLanguage, useTheme, useAccentColor, useSpeechRecognition, useSpotlight  
 
 ### Lib highlights (`src/lib/`)
 momentPhotos.ts — upload path + signed URL resolve  
+ntfy.ts — optional ntfy.sh / self-hosted push for life reminders  
 autoSchedule.ts / freeRegions.ts / recurringTodos.ts / carryTodos.ts — planning math  
 exportEvidence.ts — user data export  
 analytics.ts — optional GA4 / Amplitude  

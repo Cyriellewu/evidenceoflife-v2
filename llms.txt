@@ -30,6 +30,8 @@
 - src/hooks/useTodos.ts — plan tasks + timers + demo data
 - src/hooks/useMoments.ts — moments CRUD
 - src/hooks/useDues.ts / useDueReminders.ts — dues
+- src/hooks/useLifeReminder.ts — browser + optional ntfy life-capture nudges
+- src/lib/ntfy.ts — ntfy topic URL normalize + publish
 - src/hooks/usePlaces.ts — map places
 - src/hooks/useGoogleCalendar.ts — calendar sync client
 - src/lib/momentPhotos.ts — private storage paths + signed URLs

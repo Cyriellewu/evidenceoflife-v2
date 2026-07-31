@@ -12,7 +12,7 @@
 
 > Not therapy. Evidence of a life well-lived.
 
-**[Live demo](https://evidenceoflife.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)** · **[Agents](AGENTS.md)**
+**[Live demo](https://evidenceoflife-v2.vercel.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)** · **[Agents](AGENTS.md)**
 
 ## For AI coding agents
 
@@ -59,7 +59,7 @@ Implemented in the current codebase (nothing invented):
 - **Calendar & year views** — browse history by day, month, and year-at-a-glance
 - **Google Calendar sync** — OAuth import of external events into the timeline
 - **Authentication** — Supabase Auth (email and/or providers you configure)
-- **Reminders** — in-app / browser notification reminders (and email-typed due reminders in the product UI)
+- **Reminders** — in-app / browser notification reminders; optional [ntfy](https://ntfy.sh/) push for life-capture nudges (Profile → Life Capture Reminder); due reminders in the product UI
 - **Smart input** — optional AI-assisted classification of free text / voice into moments, plans, or dues
 - **Public synthetic demo** — `/demo-app` runs without a real backend for UI exploration
 - **Evidence export** — JSON export helpers for user-owned data
@@ -83,7 +83,8 @@ Implemented in the current codebase (nothing invented):
 ### Integrations
 
 - **Google Calendar API** — OAuth connect + sync (HMAC-signed OAuth `state`, redirect allowlist)
-- **Optional AI gateway** — `LOVABLE_API_KEY` for smart-input / life-replay (omit to disable)
+- **Optional AI gateway** — `LOVABLE_API_KEY` for smart-input / life-replay (omit to disable; env name is historical)
+- **Optional ntfy** — client publishes life reminders to a user-chosen topic (ntfy.sh or self-hosted); no server secret required
 - **Optional analytics** — Amplitude / GA4 public measurement IDs via `VITE_*` (client-side only)
 
 ## Architecture

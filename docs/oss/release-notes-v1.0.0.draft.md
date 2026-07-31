@@ -38,7 +38,7 @@ hardening. See `docs/SECURITY_MODEL.md` and `docs/oss/self-hosting.md`.
 ## Release gate (human)
 
 - [ ] Production Supabase has latest migrations + redeployed functions
-- [ ] Live demo URL resolves (`https://evidenceoflife.app/demo-app` or updated homepage)
+- [ ] Live demo URL resolves (`https://evidenceoflife-v2.vercel.app/demo-app`)
 - [ ] README screenshots reviewed (no real personal data)
 - [ ] Private Vulnerability Reporting enabled on GitHub
 - [ ] Tag only from `main` after CI green: `git tag -a v1.0.0 -m "Evidence of Life v1.0.0"`

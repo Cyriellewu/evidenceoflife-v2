@@ -233,7 +233,7 @@ export default function Landing() {
                 <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
                 <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
                 <div className="ml-3 flex-1 truncate rounded-full bg-[rgb(var(--lp-mockup-input))] px-4 py-1 text-center text-[11px] text-[rgb(var(--lp-mockup-url))]">
-                  evidenceoflife.app/demo
+                  evidenceoflife-v2.vercel.app/demo-app
                 </div>
               </div>
 

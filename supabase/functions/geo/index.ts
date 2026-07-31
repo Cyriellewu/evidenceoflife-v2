@@ -1,4 +1,4 @@
-// Lovable Cloud Function: Nominatim proxy (search + reverse)
+// Nominatim proxy (search + reverse)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders: Record<string, string> = {
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
 
     const headers = {
       Accept: 'application/json',
-      'User-Agent': 'evidence-of-life (lovable cloud)',
+      'User-Agent': 'EvidenceOfLife/1.0 (https://github.com/Cyriellewu/evidenceoflife-v2)',
     };
 
     // Fetch with retry on 429

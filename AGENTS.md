@@ -15,7 +15,7 @@ Read `llms.txt` first for a compact map. Human product docs: `README.md`.
 
 1. **No secrets.** Never commit `.env`, service-role keys, OAuth client secrets, or real user data. Only `.env.example` is tracked.
 2. **No fabricated success.** Do not claim UI/tests/CI passed without running them. For UI, verify on `http://localhost:8080/demo-app` when relevant.
-3. **No fake features or metrics.** Do not document APIs, integrations (e.g. ntfy), or benchmarks that are not in the tree.
+3. **No fake features or metrics.** Do not document APIs, integrations, or benchmarks that are not in the tree. Optional ntfy for life reminders lives in `src/lib/ntfy.ts` + Profile settings.
 4. **Security-sensitive paths need separate PRs:** `supabase/migrations/**`, RLS/storage policies, Auth flows, edge-function auth (`supabase/functions/_shared/**`, `google-calendar-*`).
 5. **Do not weaken auth.** Keep JWT checks / OAuth HMAC / private photo signed URLs intact unless explicitly tasked to change them with tests.
 6. **Do not rewrite product design** unless asked. Dark mode is the primary surface; prefer existing tokens over hardcoded hex.

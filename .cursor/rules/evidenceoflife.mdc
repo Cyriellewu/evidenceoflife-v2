@@ -29,7 +29,7 @@ Treat these as security-sensitive — do not mix into unrelated feature PRs:
 
 ## Do not
 
-- Invent integrations that are not in the repo (e.g. ntfy)
+- Invent integrations that are not in the repo
 - Weaken JWT / HMAC OAuth / private photo signed-URL model without explicit task + tests
 - Refactor large view files when a local fix suffices
 - Add markdown docs unless asked (except when the task is documentation)
