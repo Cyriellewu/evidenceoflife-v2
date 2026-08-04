@@ -55,6 +55,19 @@ const sheetGroups: { labelKey: string; items: SheetItem[] }[] = [
 ];
 const TAB_ORDER_KEY = 'side-nav-tab-order';
 
+// Shared sidebar state styles. Kept together so the three call sites
+// (primary tabs, sheet openers, profile) can't drift apart again.
+//
+// ROUTE_ACTIVE: the currently selected full-page route (Today / Calendar / Map /
+// Profile). Strongest signal — only one at a time. Paired with a left rail.
+// SHEET_OPEN: a sheet-opener whose sheet is currently open. Intentionally quieter
+// than ROUTE_ACTIVE so the sidebar never shows two things as "selected" at once
+// when e.g. Today is the route and Links is the open sheet.
+// HOVER: shared hover for every interactive row.
+const ROUTE_ACTIVE_CLS = 'bg-primary/12 text-primary';
+const SHEET_OPEN_CLS = 'bg-[hsl(var(--surface-soft))] text-foreground';
+const HOVER_CLS = 'hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground';
+
 export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -175,13 +188,13 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
             onClick={() => setExpanded((prev) => !prev)}
             className={cn(
               'flex h-10 w-full items-center rounded-[12px] transition-colors',
-              expanded ? 'justify-between gap-2 bg-[hsl(var(--surface-soft))] px-2' : 'justify-center'
+              expanded ? `justify-between gap-2 px-2 ${HOVER_CLS}` : 'justify-center'
             )}
             title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
           >
             <span className={cn(
               'flex items-center justify-center rounded-[10px]',
-              expanded ? 'h-10 w-10 bg-[hsl(var(--surface-contrast))] shadow-[0_1px_2px_hsl(var(--foreground)/0.08)]' : 'h-11 w-11'
+              expanded ? 'h-10 w-10' : 'h-11 w-11'
             )}>
               {logoVisible ? (
                 <span onError={() => setLogoVisible(false) as never}>
@@ -248,8 +261,8 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
                 expanded && 'cursor-grab active:cursor-grabbing',
                 draggedTab === id && 'opacity-60',
                 activeTab === id
-                  ? 'bg-primary/12 text-primary'
-                  : 'text-muted-foreground hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground'
+                  ? ROUTE_ACTIVE_CLS
+                  : `text-muted-foreground ${HOVER_CLS}`
               )}
             >
               {activeTab === id && (
@@ -291,8 +304,8 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
                         className={cn(
                           "group/lib flex h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left transition-colors",
                           isOpen
-                            ? "bg-primary/10 text-primary"
-                            : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                            ? SHEET_OPEN_CLS
+                            : `text-[hsl(var(--text-soft))] ${HOVER_CLS}`
                         )}
                       >
                         <Icon size={17} strokeWidth={isOpen ? 2 : 1.6} className="flex-shrink-0" />
@@ -321,17 +334,11 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
                       className={cn(
                         "relative flex h-10 w-10 items-center justify-center self-center rounded-[10px] transition-colors",
                         isOpen
-                          ? "bg-primary/12 text-primary"
-                          : "text-muted-foreground hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                          ? SHEET_OPEN_CLS
+                          : `text-muted-foreground ${HOVER_CLS}`
                       )}
                     >
-                      {isOpen && (
-                        <span
-                          aria-hidden
-                          className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 -translate-x-1.5 rounded-full bg-primary"
-                        />
-                      )}
-                      <Icon size={19} strokeWidth={isOpen ? 2.2 : 1.85} />
+                      <Icon size={19} strokeWidth={isOpen ? 2 : 1.85} />
                     </button>
                   );
                 })
@@ -386,8 +393,8 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
               'flex h-9 items-center rounded-[10px] transition-colors overflow-hidden',
               expanded ? 'w-full justify-start gap-2 px-3' : 'w-9 justify-center self-center',
               activeTab === 'profile'
-                ? 'bg-[hsl(var(--surface-soft))]'
-                : 'hover:bg-[hsl(var(--surface-soft-hover))]'
+                ? ROUTE_ACTIVE_CLS
+                : HOVER_CLS
             )}
           >
             {profile?.avatar_url ? (
