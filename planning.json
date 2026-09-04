@@ -1,0 +1,900 @@
+{
+  "project": {
+    "name": "Evidence of Life",
+    "repository": "Cyriellewu/evidenceoflife-v2",
+    "category": [
+      "Visual planning",
+      "Personal life management",
+      "Life logging",
+      "Spatial memory",
+      "ADHD-friendly productivity",
+      "Self-hosted personal software"
+    ],
+    "current_stage": "Public open-source project with approximately 30–40 early users",
+    "primary_maintainer": true
+  },
+  "core_positioning": {
+    "primary_statement": "Evidence of Life is an ADHD-friendly visual planning and life-memory system that combines task lists, a draggable daily timeline, planned-versus-actual tracking, and map-based moments.",
+    "short_statement": "A visual system for turning intended time into lived memory.",
+    "product_thesis": "Most productivity tools record what people intend to do, while journals record memories after they happen. Evidence of Life connects planning, lived time, photos, places, and memory in one private system.",
+    "medical_disclaimer": "Designed around challenges commonly experienced by people with ADHD. It is not a diagnostic, clinical, or treatment tool.",
+    "recommended_tagline": "See where your time went. Remember where life happened.",
+    "alternative_taglines": [
+      "A timeline for where your time went, and a map of where your life happened.",
+      "From intended time to lived time.",
+      "Plan visually. Live flexibly. Remember spatially.",
+      "Turn plans into time, and moments into places."
+    ]
+  },
+  "visual_product_model": {
+    "formula": [
+      {
+        "layer": "Lists",
+        "question_answered": "What needs to be done?",
+        "purpose": "Capture tasks, habits, dues, goals, and intentions."
+      },
+      {
+        "layer": "Timeline",
+        "question_answered": "When can it realistically happen?",
+        "purpose": "Turn abstract tasks into visible time blocks."
+      },
+      {
+        "layer": "Actual activity",
+        "question_answered": "What really happened?",
+        "purpose": "Preserve completed, delayed, moved, interrupted, and unfinished activity."
+      },
+      {
+        "layer": "Map",
+        "question_answered": "Where did life happen?",
+        "purpose": "Connect photos, moments, activities, and memories to places."
+      },
+      {
+        "layer": "Recap",
+        "question_answered": "Where did time go?",
+        "purpose": "Help users understand the difference between intention and lived experience."
+      }
+    ],
+    "core_copy": [
+      "Lists show what.",
+      "Timelines reveal when.",
+      "Actual records show where time went.",
+      "Maps preserve where life happened."
+    ],
+    "data_flow": [
+      "Task or intention",
+      "Dragged into planned timeline",
+      "Adjusted as the day changes",
+      "Converted into actual activity",
+      "Connected with a note, photo, focus session, or location",
+      "Revisited through recap, calendar, and map"
+    ]
+  },
+  "target_users": [
+    {
+      "segment": "People with ADHD or time blindness",
+      "need": "Externalize time and reduce dependence on internal time estimation."
+    },
+    {
+      "segment": "People overwhelmed by traditional task lists",
+      "need": "See whether tasks realistically fit into the available day."
+    },
+    {
+      "segment": "Students and knowledge workers",
+      "need": "Manage fragmented schedules, changing priorities, and short work windows."
+    },
+    {
+      "segment": "People who struggle to remember what they did",
+      "need": "Use calendar events, photos, focus sessions, notes, and places as contextual evidence."
+    },
+    {
+      "segment": "People interested in lifelogging or quantified self",
+      "need": "Understand patterns across time, activity, focus, and location."
+    },
+    {
+      "segment": "People who want private personal software",
+      "need": "Own and self-host their personal records instead of publishing them to a social feed."
+    }
+  ],
+  "adhd_pain_points": [
+    {
+      "id": "abstract_time",
+      "problem": "Time feels abstract and difficult to perceive.",
+      "user_experience": "A person may know what they need to do but cannot clearly see how the work fits into the day.",
+      "product_response": "A visible timeline externalizes time as concrete blocks.",
+      "visual_proof": "Show the same tasks as a plain list and then placed into a daily timeline."
+    },
+    {
+      "id": "unrealistic_lists",
+      "problem": "Task lists show workload but not feasibility.",
+      "user_experience": "Users create long lists without seeing conflicts, duration, transitions, or available gaps.",
+      "product_response": "Tasks can be dragged from a list directly into realistic time windows.",
+      "visual_proof": "Before-and-after comparison of a task list versus a scheduled timeline."
+    },
+    {
+      "id": "poor_time_estimation",
+      "problem": "Users may underestimate or overestimate how long activities take.",
+      "user_experience": "A one-hour plan may actually take two hours, causing the rest of the day to collapse.",
+      "product_response": "Planned-versus-actual views make estimation patterns visible.",
+      "visual_proof": "Display planned duration beside actual start, end, and elapsed time."
+    },
+    {
+      "id": "task_initiation",
+      "problem": "Starting a task can require too much activation energy.",
+      "user_experience": "Users may avoid starting because the task feels too large or the available time feels too small.",
+      "product_response": "Drag-and-drop scheduling, visible next actions, and short focus sessions lower the cost of starting.",
+      "visual_proof": "Show a small task dragged into a 15-minute opening and started immediately."
+    },
+    {
+      "id": "fragmented_time",
+      "problem": "Small time windows are difficult to recognize and use.",
+      "user_experience": "Five, fifteen, or thirty-minute gaps may disappear without meaningful progress.",
+      "product_response": "The timeline makes available gaps visible and allows appropriately sized tasks to be placed into them.",
+      "visual_proof": "Highlight an open time gap and drag a short task into it."
+    },
+    {
+      "id": "frequent_plan_changes",
+      "problem": "Plans change throughout the day.",
+      "user_experience": "Rigid planning tools make users rebuild the schedule or feel that the day has failed.",
+      "product_response": "Tasks can be moved, resized, deferred, or left unfinished without deleting the original intention.",
+      "visual_proof": "Show a task being moved later while the original plan remains part of the record."
+    },
+    {
+      "id": "memory_burden",
+      "problem": "Reconstructing the day from memory requires too much effort.",
+      "user_experience": "At night, users may remember being busy but not what happened, when it happened, or where they were.",
+      "product_response": "Calendar events, focus sessions, photos, notes, and locations preserve contextual evidence.",
+      "visual_proof": "Show an automatically assembled recap created from multiple evidence sources."
+    },
+    {
+      "id": "context_switching",
+      "problem": "Activities are spread across separate tools.",
+      "user_experience": "Tasks, calendars, photos, notes, and locations have no shared context.",
+      "product_response": "Evidence of Life connects these records through time and place.",
+      "visual_proof": "Select one activity and show its task, focus time, photo, note, and map location."
+    },
+    {
+      "id": "all_or_nothing",
+      "problem": "Productivity systems often treat unfinished plans as failure.",
+      "user_experience": "Partial work and changed plans disappear or create guilt.",
+      "product_response": "The product preserves partial progress and deviations as evidence of the real day.",
+      "visual_proof": "Show a partially completed task and the actual activity recorded without a failure state."
+    },
+    {
+      "id": "lost_memories",
+      "problem": "Completed tasks disappear without becoming part of a meaningful personal history.",
+      "user_experience": "People optimize completion but lose the story of their lives.",
+      "product_response": "Moments, photos, activities, and places remain visible over time and across the map.",
+      "visual_proof": "Zoom from a daily moment to a city map and then to a global history."
+    }
+  ],
+  "adhd_friendly_design_principles": [
+    {
+      "principle": "Externalize time",
+      "implementation": [
+        "Daily timeline",
+        "Visible task duration",
+        "Planned-versus-actual comparison",
+        "Focus-session history",
+        "Calendar integration"
+      ]
+    },
+    {
+      "principle": "Reduce activation cost",
+      "implementation": [
+        "Drag tasks directly into time",
+        "Minimal steps to reschedule",
+        "Quick capture",
+        "Short focus sessions",
+        "Clear next action"
+      ]
+    },
+    {
+      "principle": "Make small progress visible",
+      "implementation": [
+        "Short task durations",
+        "Partial completion",
+        "Progress retention",
+        "Visible open time gaps",
+        "No requirement for a perfect completed day"
+      ]
+    },
+    {
+      "principle": "Use context as a cue",
+      "implementation": [
+        "Photos",
+        "Locations",
+        "Calendar events",
+        "Focus sessions",
+        "Tags",
+        "Time of day"
+      ]
+    },
+    {
+      "principle": "Preserve reality over perfection",
+      "implementation": [
+        "Keep original plans",
+        "Record moved tasks",
+        "Show unexpected activities",
+        "Retain unfinished work",
+        "Compare intention with reality without judgment"
+      ]
+    },
+    {
+      "principle": "Lower memory burden",
+      "implementation": [
+        "In-the-moment capture",
+        "Automatic contextual metadata",
+        "Map-linked moments",
+        "Calendar-assisted recap",
+        "Evidence-based day reconstruction"
+      ]
+    }
+  ],
+  "unique_product_features": [
+    {
+      "feature": "Draggable timeline planning",
+      "value": "Users can drag tasks from lists into visible time blocks and rearrange the day without rewriting the plan.",
+      "differentiation": "Unlike a traditional list, the interface exposes duration, available time, conflicts, and feasibility.",
+      "recommended_label": "Plan visually with drag-and-drop time blocks"
+    },
+    {
+      "feature": "Lists alongside timelines",
+      "value": "Users retain a flexible backlog while planning only the tasks that realistically fit today.",
+      "differentiation": "The product does not force users to choose between a task manager and calendar.",
+      "recommended_label": "Keep intentions flexible and time concrete"
+    },
+    {
+      "feature": "Planned versus actual tracking",
+      "value": "Users can see when work actually started, how long it lasted, and how the day changed.",
+      "differentiation": "The system records lived time instead of only completion status.",
+      "recommended_label": "Understand where time actually went"
+    },
+    {
+      "feature": "Map-based moments",
+      "value": "Photos and moments leave visible traces across neighborhoods, cities, countries, and the globe.",
+      "differentiation": "The product organizes memory through both time and space.",
+      "recommended_label": "Remember where life happened"
+    },
+    {
+      "feature": "Contextual day reconstruction",
+      "value": "Calendar events, focus sessions, moments, photos, and places can help rebuild the story of a day.",
+      "differentiation": "Users do not need to write a complete journal entry from a blank page.",
+      "recommended_label": "Reconstruct the day from real evidence"
+    },
+    {
+      "feature": "Private life archive",
+      "value": "Users can privately host and retain their own records.",
+      "differentiation": "There is no social feed or pressure to perform life publicly.",
+      "recommended_label": "A private record, not a social feed"
+    }
+  ],
+  "map_positioning": {
+    "current_problem": "A standard map with pins can appear decorative or similar to ordinary travel tracking.",
+    "desired_positioning": "The map should be presented as a spatial memory layer and a record of lived context.",
+    "core_statement": "Memories do not live only in dates. They also live in places.",
+    "user_value": [
+      "Photos and moments become easier to remember through location cues.",
+      "Users can see traces across a city and eventually across the globe.",
+      "Places can reveal patterns in focus, activity, mood, and routines.",
+      "A city becomes a visual record of lived experience rather than a collection of anonymous pins."
+    ],
+    "recommended_visual_states": [
+      {
+        "state": "Neighborhood view",
+        "content": "Detailed moments, photos, cafés, campus locations, parks, or workspaces."
+      },
+      {
+        "state": "City view",
+        "content": "Clusters showing where daily life is concentrated."
+      },
+      {
+        "state": "Global view",
+        "content": "Cities and countries connected through long-term personal traces."
+      },
+      {
+        "state": "Selected place",
+        "content": "Photo, date, note, linked activity, time spent, and related memories."
+      }
+    ],
+    "future_feature_ideas": [
+      "Place Patterns",
+      "Context Map",
+      "Focus by location",
+      "Frequently revisited places",
+      "Moments by city",
+      "Time spent across places",
+      "Location-assisted recap",
+      "City and globe life trails"
+    ],
+    "avoid": [
+      "Do not describe the map only as visited places.",
+      "Do not imply constant surveillance or automatic tracking unless the feature actually supports it.",
+      "Do not present the map as an ADHD treatment feature.",
+      "Do not use real personal location data in the public demo."
+    ]
+  },
+  "customer_validation": {
+    "estimated_early_users": "Approximately 30–40",
+    "feedback_collection": "Informal direct conversations and product testing",
+    "historical_limitation": "Early individual feedback was not consistently archived or converted into public GitHub issues.",
+    "honest_public_statement": "Evidence of Life has been tested by approximately 30–40 early users and has evolved through direct, informal feedback, particularly around visual timeline planning, drag-and-drop scheduling, reminders, lower-friction capture, and map-based memory.",
+    "feedback_influenced_features": [
+      {
+        "user_need": "Lists alone did not make the day feel realistic.",
+        "product_change": "Added and refined draggable timeline planning."
+      },
+      {
+        "user_need": "Plans changed too frequently.",
+        "product_change": "Made tasks easier to move and rearrange visually."
+      },
+      {
+        "user_need": "Users could not understand where time went.",
+        "product_change": "Strengthened planned-versus-actual and recap views."
+      },
+      {
+        "user_need": "Capturing moments required too much effort.",
+        "product_change": "Added quicker capture, smart input, and reminders."
+      },
+      {
+        "user_need": "Photos and memories felt disconnected.",
+        "product_change": "Connected moments and photos to map locations."
+      },
+      {
+        "user_need": "Users wanted a visual representation rather than only lists.",
+        "product_change": "Designed timeline and calendar views alongside traditional task organization."
+      }
+    ],
+    "future_feedback_workflow": {
+      "labels": [
+        "user-feedback",
+        "validated",
+        "enhancement",
+        "good-first-issue",
+        "help-wanted"
+      ],
+      "recommended_files": [
+        "docs/USER_FEEDBACK.md",
+        ".github/ISSUE_TEMPLATE/user-feedback.yml"
+      ],
+      "issue_fields": [
+        "Feedback source",
+        "Observed problem",
+        "Frequency or repetition",
+        "Current workaround",
+        "Product implication",
+        "Acceptance criteria",
+        "Related pull request",
+        "Release included"
+      ]
+    }
+  },
+  "visual_storytelling": {
+    "primary_goal": "A reviewer should understand the project's unique value within 10 seconds and its complete user flow within 60 seconds.",
+    "visual_sequence": [
+      {
+        "step": 1,
+        "title": "Start with intentions",
+        "visual": "Task list containing several unscheduled tasks.",
+        "message": "Lists show what needs to be done."
+      },
+      {
+        "step": 2,
+        "title": "Turn tasks into time",
+        "visual": "Drag a task from the list into a specific daily time block.",
+        "message": "Timelines reveal whether the plan realistically fits."
+      },
+      {
+        "step": 3,
+        "title": "Adapt without failure",
+        "visual": "Move or resize a task after the schedule changes.",
+        "message": "Plans can change without rebuilding the entire day."
+      },
+      {
+        "step": 4,
+        "title": "Capture lived time",
+        "visual": "Record focus time or mark what actually happened.",
+        "message": "The real day remains visible alongside the planned day."
+      },
+      {
+        "step": 5,
+        "title": "Attach evidence",
+        "visual": "Add a moment with a photo, note, and place.",
+        "message": "Everyday activities become personal evidence."
+      },
+      {
+        "step": 6,
+        "title": "Leave a trace",
+        "visual": "Open the map and reveal photo-linked locations.",
+        "message": "Maps preserve where life happened."
+      },
+      {
+        "step": 7,
+        "title": "Revisit the story",
+        "visual": "Show recap, calendar history, or global map.",
+        "message": "Plans, lived time, and memories become one private archive."
+      }
+    ],
+    "required_visual_assets": [
+      {
+        "filename": "docs/screenshots/hero-timeline-map.png",
+        "purpose": "Primary hero combining timeline and map."
+      },
+      {
+        "filename": "docs/screenshots/list-vs-timeline.png",
+        "purpose": "Explain why timeline planning is more realistic than lists alone."
+      },
+      {
+        "filename": "docs/screenshots/planned-vs-actual.png",
+        "purpose": "Show the central planned-versus-lived-time concept."
+      },
+      {
+        "filename": "docs/screenshots/map-city-traces.png",
+        "purpose": "Show photos and moments across one city."
+      },
+      {
+        "filename": "docs/screenshots/map-world-traces.png",
+        "purpose": "Show long-term traces across cities or countries."
+      },
+      {
+        "filename": "docs/screenshots/contextual-moment.png",
+        "purpose": "Show a photo, note, date, activity, and place connected together."
+      },
+      {
+        "filename": "docs/screenshots/product-flow.png",
+        "purpose": "Visualize list to timeline to actual activity to map and recap."
+      }
+    ]
+  },
+  "demo_strategy": {
+    "existing_demo": true,
+    "recommendation": "Do not automatically rerecord the demo. First edit the existing recording into a short README preview and confirm it tells the correct visual story.",
+    "readme_preview_duration_seconds": "15–25",
+    "full_demo_duration_seconds": "45–75",
+    "silent_comprehension_required": true,
+    "recommended_timeline": [
+      {
+        "time": "0–4 seconds",
+        "action": "Drag a task from the list into the daily timeline.",
+        "caption": "Drag tasks into time"
+      },
+      {
+        "time": "4–8 seconds",
+        "action": "Move or resize the task.",
+        "caption": "Adjust plans visually"
+      },
+      {
+        "time": "8–13 seconds",
+        "action": "Show planned versus actual activity or a focus session.",
+        "caption": "See where time went"
+      },
+      {
+        "time": "13–18 seconds",
+        "action": "Add a moment with a photo and location.",
+        "caption": "Capture lived moments"
+      },
+      {
+        "time": "18–23 seconds",
+        "action": "Open the map and zoom from city to wider geography.",
+        "caption": "Remember where life happened"
+      }
+    ],
+    "ending_text": [
+      "See where your time went.",
+      "Remember where life happened."
+    ],
+    "demo_quality_checks": [
+      "The first action should not be login or settings.",
+      "Use synthetic data only.",
+      "The drag-and-drop action must be clearly visible.",
+      "The map must show photo or moment context, not only generic pins.",
+      "Captions should remain readable without audio.",
+      "Avoid mouse movement that does not contribute to the story.",
+      "Keep the product name visible at the end.",
+      "Link both the short preview and the full demo from the README."
+    ]
+  },
+  "readme_plan": {
+    "goal": "Transform the README from a complete technical document into an immediate product and open-source proof page.",
+    "recommended_order": [
+      "Project name and tagline",
+      "One-paragraph positioning",
+      "Short demo GIF or video preview",
+      "Live demo, full demo, and self-host links",
+      "Why it is different",
+      "Three or four visual product pillars",
+      "List versus timeline visual",
+      "Planned versus actual visual",
+      "Map and spatial memory visual",
+      "ADHD-friendly by design",
+      "Early validation and user-feedback influence",
+      "Implemented features",
+      "Architecture",
+      "Privacy and security",
+      "Local development",
+      "Testing and quality gates",
+      "Contributing",
+      "Roadmap",
+      "Active maintenance"
+    ],
+    "hero_copy": {
+      "title": "Evidence of Life",
+      "tagline": "See where your time went. Remember where life happened.",
+      "description": "Evidence of Life is an ADHD-friendly visual planning and life-memory system that combines task lists with a draggable daily timeline, planned-versus-actual tracking, and map-based moments. Instead of keeping plans, activities, photos, and places in separate tools, it connects them into one private record of lived time.",
+      "calls_to_action": [
+        "Try the live demo",
+        "Watch the full demo",
+        "Self-host"
+      ]
+    },
+    "why_different_copy": [
+      {
+        "heading": "Lists show what",
+        "body": "Capture tasks, habits, deadlines, and intentions without forcing everything into today's schedule."
+      },
+      {
+        "heading": "Timelines reveal when",
+        "body": "Drag tasks into visible time blocks, understand whether the day is realistic, and rearrange plans as life changes."
+      },
+      {
+        "heading": "Actual records show where time went",
+        "body": "Compare intended activity with focus sessions, completed work, delays, interruptions, and unexpected moments."
+      },
+      {
+        "heading": "Maps preserve where life happened",
+        "body": "Attach photos and moments to locations, leaving a personal trace across neighborhoods, cities, and the globe."
+      }
+    ],
+    "adhd_table": [
+      {
+        "challenge": "Time feels abstract",
+        "product_response": "A visible daily timeline externalizes time."
+      },
+      {
+        "challenge": "Long lists feel overwhelming",
+        "product_response": "Tasks can be placed into concrete time windows."
+      },
+      {
+        "challenge": "Plans change frequently",
+        "product_response": "Drag-and-drop rescheduling avoids rebuilding the day."
+      },
+      {
+        "challenge": "Small time windows are difficult to use",
+        "product_response": "Visible gaps make short tasks easier to identify and start."
+      },
+      {
+        "challenge": "The day is difficult to remember later",
+        "product_response": "Calendar events, focus sessions, photos, and places preserve context."
+      },
+      {
+        "challenge": "Deviation feels like failure",
+        "product_response": "Planned and actual activity are both retained without judgment."
+      },
+      {
+        "challenge": "Memories are disconnected",
+        "product_response": "Moments are organized through both time and place."
+      }
+    ],
+    "early_validation_copy": "Evidence of Life has been tested by approximately 30–40 early users. The product has evolved through direct, informal feedback, especially around visual timeline planning, drag-and-drop scheduling, lower-friction capture, reminders, understanding where time goes, and map-based memory. Earlier feedback was not consistently archived as public issues, so these themes are presented as a qualitative summary rather than formal research metrics.",
+    "avoid": [
+      "Do not lead with a long badge row before explaining the product.",
+      "Do not describe the project as only a full-stack life management platform.",
+      "Do not bury the timeline and map below a generic feature list.",
+      "Do not make unverified medical or clinical claims.",
+      "Do not invent retention, active-user, or self-hosting statistics.",
+      "Do not use real personal photos or location history in public screenshots."
+    ]
+  },
+  "github_visibility": {
+    "about_description": "ADHD-friendly visual planning with draggable timelines, planned-versus-actual tracking, and map-based memories.",
+    "website": "Use the public synthetic demo URL",
+    "recommended_topics": [
+      "productivity",
+      "adhd",
+      "time-management",
+      "visual-planning",
+      "lifelogging",
+      "quantified-self",
+      "personal-knowledge-management",
+      "timeline",
+      "digital-journal",
+      "spatial-memory",
+      "self-hosted",
+      "react",
+      "typescript",
+      "supabase"
+    ],
+    "social_preview": {
+      "recommended_size": "1280x640",
+      "left_side": [
+        "Evidence of Life",
+        "See where your time went.",
+        "Remember where life happened."
+      ],
+      "right_side": [
+        "Draggable timeline screenshot",
+        "Map with photo-linked moments"
+      ],
+      "footer": "Draggable planning · Planned vs actual · Spatial memories",
+      "avoid": [
+        "Logo-only social preview",
+        "Tiny unreadable full-app screenshot",
+        "Generic gradient background",
+        "Too many technical badges",
+        "Real user data"
+      ]
+    },
+    "profile_visibility": [
+      "Pin the repository on the maintainer's GitHub profile.",
+      "Add the product screenshot and tagline to the profile README.",
+      "Include live demo and repository links.",
+      "Mention approximately 30–40 early users with careful wording.",
+      "Describe the product problem before listing the technology stack."
+    ],
+    "release_visibility": {
+      "recommended_initial_version": "v0.1.0 or another honest pre-1.0 release",
+      "release_contents": [
+        "Draggable timeline planning",
+        "Planned-versus-actual tracking",
+        "Map-based moments",
+        "Public synthetic demo",
+        "Privacy and self-hosting",
+        "ADHD-friendly design goals",
+        "Known limitations",
+        "Contributor credits",
+        "Next roadmap items"
+      ]
+    }
+  },
+  "open_source_evidence": {
+    "strengths_to_show": [
+      "Public repository",
+      "MIT License",
+      "Primary maintainer ownership",
+      "Active commits and pull requests",
+      "CI-backed workflow",
+      "TypeScript verification",
+      "Unit testing",
+      "Playwright E2E testing",
+      "Security tests",
+      "Security model",
+      "Self-hosting documentation",
+      "Contributing guide",
+      "Code of conduct",
+      "Privacy documentation",
+      "AGENTS.md",
+      "llms.txt",
+      "Codex-specific instructions"
+    ],
+    "missing_or_weak_signals": [
+      "Publicly archived user feedback",
+      "Tagged releases",
+      "External contributors",
+      "External pull requests",
+      "Good first issues",
+      "Public roadmap discussion",
+      "Verified self-hosting reports",
+      "Consistent release notes"
+    ],
+    "recommended_additions": [
+      {
+        "file": "docs/USER_FEEDBACK.md",
+        "purpose": "Summarize recurring feedback themes and resulting changes without inventing historical quotes."
+      },
+      {
+        "file": "docs/PRODUCT_PHILOSOPHY.md",
+        "purpose": "Explain the list, timeline, actual activity, memory, and map model."
+      },
+      {
+        "file": ".github/ISSUE_TEMPLATE/user-feedback.yml",
+        "purpose": "Create a repeatable workflow for converting user input into public product evidence."
+      },
+      {
+        "file": ".github/ISSUE_TEMPLATE/bug-report.yml",
+        "purpose": "Make reporting structured and contributor-friendly."
+      },
+      {
+        "file": ".github/ISSUE_TEMPLATE/feature-request.yml",
+        "purpose": "Separate user problem from proposed implementation."
+      },
+      {
+        "file": "docs/oss/roadmap.md",
+        "purpose": "Expose the next ADHD-friendly, timeline, and map-memory improvements."
+      }
+    ]
+  },
+  "codex_application_story": {
+    "project_summary": "Evidence of Life is a public, single-maintainer, ADHD-friendly visual planning and life-memory platform used by approximately 30–40 early users. It combines task lists, draggable timeline planning, planned-versus-actual tracking, photos, moments, calendar context, and spatial memory in one private system.",
+    "why_open_source_matters": [
+      "Users can inspect and control software holding sensitive personal records.",
+      "The project can be self-hosted rather than requiring a closed platform.",
+      "The planning and spatial-memory design can be extended by contributors.",
+      "Public security and privacy practices are especially important for personal data."
+    ],
+    "why_codex_is_relevant": [
+      "Improve regression coverage across complex timeline interactions.",
+      "Strengthen calendar and timezone testing.",
+      "Expand security verification for authentication and private data.",
+      "Improve accessibility for visual planning interfaces.",
+      "Create contributor-sized issues and implementation plans.",
+      "Refactor complex UI without changing product behavior.",
+      "Maintain accurate documentation and release notes.",
+      "Help review pull requests while preserving human ownership of product and privacy decisions."
+    ],
+    "maintenance_workflow": [
+      "User feedback or issue",
+      "Scoped implementation plan",
+      "Codex follows AGENTS.md and repository instructions",
+      "Implementation branch",
+      "Typecheck, lint, unit, E2E, and security checks",
+      "Human review",
+      "Pull request",
+      "Release notes",
+      "User validation"
+    ]
+  },
+  "recommended_product_enhancements": {
+    "highest_value": [
+      {
+        "feature": "Plan versus actual visual overlay",
+        "reason": "Makes the unique product thesis immediately visible.",
+        "visual_form": "Side-by-side or layered timeline."
+      },
+      {
+        "feature": "Contextual Day Replay",
+        "reason": "Connects calendar, focus sessions, moments, photos, and places into an evidence-backed daily reconstruction.",
+        "visual_form": "Chronological story with source indicators."
+      },
+      {
+        "feature": "Place Patterns",
+        "reason": "Makes the map analytically useful rather than decorative.",
+        "visual_form": "Places associated with focus, routines, activity types, or repeated memories."
+      },
+      {
+        "feature": "Short-window planning",
+        "reason": "Directly supports fragmented time and task initiation.",
+        "visual_form": "Filters or suggestions for 5, 15, and 30-minute openings."
+      },
+      {
+        "feature": "Time-estimation reflection",
+        "reason": "Helps users recognize patterns without claiming treatment.",
+        "visual_form": "Planned duration versus actual duration over time."
+      }
+    ],
+    "unique_metrics": [
+      {
+        "name": "Plan Fit",
+        "meaning": "Whether planned tasks fit within the available timeline."
+      },
+      {
+        "name": "Time Drift",
+        "meaning": "Difference between planned and actual start time or duration."
+      },
+      {
+        "name": "Recall Coverage",
+        "meaning": "How much of the day has contextual evidence attached."
+      },
+      {
+        "name": "Place Trace",
+        "meaning": "Locations connected to recorded moments over a selected period."
+      },
+      {
+        "name": "Fragment Use",
+        "meaning": "Small available windows that became meaningful activity."
+      }
+    ],
+    "metric_warning": "Present these as personal reflection indicators, not scientifically validated ADHD or health measurements."
+  },
+  "implementation_priority": {
+    "phase_1_immediate": [
+      {
+        "priority": 1,
+        "action": "Rewrite the README hero and top-level narrative.",
+        "expected_impact": "Reviewer understands the product within 10 seconds."
+      },
+      {
+        "priority": 2,
+        "action": "Place the existing short demo near the top of the README.",
+        "expected_impact": "Provides immediate visual proof of drag-and-drop planning and map-based memory."
+      },
+      {
+        "priority": 3,
+        "action": "Create the list-versus-timeline and planned-versus-actual visuals.",
+        "expected_impact": "Explains why the product is different from a normal todo app."
+      },
+      {
+        "priority": 4,
+        "action": "Add the ADHD-friendly design table.",
+        "expected_impact": "Connects real user pain points to concrete design choices."
+      },
+      {
+        "priority": 5,
+        "action": "Add the early-validation and feedback-informed iteration section.",
+        "expected_impact": "Makes the 30–40 early users visible and credible."
+      }
+    ],
+    "phase_2_visibility": [
+      {
+        "priority": 6,
+        "action": "Create a GitHub social preview image.",
+        "expected_impact": "Improves visibility when the repository is shared."
+      },
+      {
+        "priority": 7,
+        "action": "Update repository description, website, and topics.",
+        "expected_impact": "Improves discovery and positioning."
+      },
+      {
+        "priority": 8,
+        "action": "Publish an honest tagged release.",
+        "expected_impact": "Shows release management and active maintenance."
+      },
+      {
+        "priority": 9,
+        "action": "Add structured feedback issue templates and labels.",
+        "expected_impact": "Creates a visible future feedback loop."
+      },
+      {
+        "priority": 10,
+        "action": "Pin the project and enhance the maintainer profile README.",
+        "expected_impact": "Improves reviewer confidence and external discovery."
+      }
+    ],
+    "phase_3_community": [
+      {
+        "priority": 11,
+        "action": "Create three contributor-ready good-first issues.",
+        "expected_impact": "Makes external contribution realistic."
+      },
+      {
+        "priority": 12,
+        "action": "Invite current users to provide structured follow-up feedback.",
+        "expected_impact": "Creates current and verifiable adoption evidence."
+      },
+      {
+        "priority": 13,
+        "action": "Seek one or two external documentation, accessibility, test, or localization pull requests.",
+        "expected_impact": "Moves the repository beyond single-maintainer activity."
+      },
+      {
+        "priority": 14,
+        "action": "Publish one technical article explaining the product model.",
+        "expected_impact": "Builds external visibility and public technical contribution."
+      }
+    ]
+  },
+  "success_criteria": {
+    "ten_second_test": [
+      "A reviewer understands that the project is not only a todo list.",
+      "A reviewer sees drag-and-drop timeline planning.",
+      "A reviewer sees that actual activity is preserved.",
+      "A reviewer understands that the map connects memories to places."
+    ],
+    "sixty_second_test": [
+      "The product problem is clear.",
+      "The ADHD-friendly design rationale is concrete.",
+      "The 30–40 early-user validation is visible.",
+      "The demo shows a complete list-to-timeline-to-map flow.",
+      "The repository appears actively maintained and contributor-ready."
+    ],
+    "application_readiness": [
+      "README visual hierarchy updated",
+      "Demo prominently embedded",
+      "Social preview configured",
+      "Early validation documented",
+      "Tagged release published",
+      "Feedback workflow created",
+      "Repository topics and About section updated",
+      "No unverified medical or adoption claims"
+    ]
+  },
+  "final_message_hierarchy": [
+    "Evidence of Life helps people see where their time went.",
+    "Task lists remain flexible while the timeline makes plans concrete.",
+    "Drag-and-drop planning lowers the friction of building and changing a day.",
+    "Planned-versus-actual records preserve reality instead of only completed tasks.",
+    "Photos and moments leave meaningful traces across cities and the globe.",
+    "The product has evolved through feedback from approximately 30–40 early users.",
+    "It is ADHD-friendly by design, but it is not a diagnostic or treatment tool.",
+    "It is private, open source, self-hostable, and actively maintained."
+  ]
+}

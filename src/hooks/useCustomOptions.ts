@@ -120,7 +120,7 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
   return result;
 }
 
-export function useCustomOptions() {
+export function useCustomOptions(enabled = true) {
   const { user, isDemo, authReady } = useAuth();
   const [data, setData] = useState<CustomOptionsData>(() => loadLocal());
   const [profileSettings, setProfileSettings] = useState<Record<string, unknown>>({});
@@ -130,7 +130,7 @@ export function useCustomOptions() {
 
   useEffect(() => {
     const hydrate = async () => {
-      if (!authReady) return;
+      if (!enabled || !authReady) return;
 
       if (!user || isDemo) {
         const local = loadLocal();
@@ -190,10 +190,10 @@ export function useCustomOptions() {
     };
 
     void hydrate();
-  }, [authReady, isDemo, user]);
+  }, [enabled, authReady, isDemo, user]);
 
   useEffect(() => {
-    if (!hydratedRef.current || !authReady) return;
+    if (!enabled || !hydratedRef.current || !authReady) return;
 
     const serialized = JSON.stringify(data);
     if (serialized === lastSavedRef.current) return;
@@ -208,7 +208,7 @@ export function useCustomOptions() {
       if (!error) setProfileSettings(nextSettings);
     };
     void persist();
-  }, [authReady, data, isDemo, profileSettings, user]);
+  }, [enabled, authReady, data, isDemo, profileSettings, user]);
 
   const update = useCallback((fn: (prev: CustomOptionsData) => CustomOptionsData) => setData(fn), []);
 

@@ -35,6 +35,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { getMomentDisplayTags } from '@/lib/momentTags';
 import { buildEvidenceExport, serializeEvidenceExport, evidenceExportFilename } from '@/lib/exportEvidence';
+import { isLegacyKeyedMapImageUrl } from '@/lib/dailyArtwork';
 import { buildLocalLifeReplay } from '@/components/views/today/todayHelpers';
 import { format } from 'date-fns';
 import { DayRecord, Moment } from '@/types';
@@ -301,12 +302,15 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   }
 
   const displayTitle = profile?.display_name || (lang === 'zh' ? '我的 Summary' : 'My Summary');
+  const safeHomepageImageUrl = isLegacyKeyedMapImageUrl(profile?.homepage_image_url)
+    ? null
+    : profile?.homepage_image_url;
 
   return (
     <div className="flex-1 w-full overflow-y-auto bg-[hsl(var(--surface-soft))] px-4 pb-14 pt-4 sm:px-5 lg:px-7">
-      <div className="mx-auto max-w-[1120px] space-y-4">
+      <div className="mx-auto max-w-[1360px] space-y-5">
         <section className="overflow-hidden rounded-3xl border border-border/60 bg-background shadow-[0_24px_80px_-62px_rgba(88,70,54,0.42)]">
-          <div className="grid gap-0 lg:grid-cols-[1fr_340px]">
+          <div className="grid gap-0 lg:grid-cols-[1fr_400px]">
             <div className="p-5 sm:p-6 lg:p-7">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3.5">
@@ -327,7 +331,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
 
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/42">
+                    <p className="text-[13px] font-semibold text-muted-foreground">
                       {lang === 'zh' ? '生活证据总览' : 'Evidence dashboard'}
                     </p>
                     {isEditingName ? (
@@ -350,7 +354,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                         <Pencil size={14} className="flex-shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground/55" />
                       </button>
                     )}
-                    <p className="mt-2 max-w-[54ch] text-[13px] font-medium leading-5 text-muted-foreground/58">
+                    <p className="mt-2 max-w-[54ch] text-[14px] font-medium leading-6 text-muted-foreground">
                       {lang === 'zh' ? '看你最近留下了什么，以及今天有没有真的发生。' : 'A quiet view of what happened, and what needs attention.'}
                     </p>
                   </div>
@@ -358,7 +362,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 
                 <button
                   onClick={() => setSettingsOpen(v => !v)}
-                  className="inline-flex h-10 items-center gap-2 rounded-full border border-border/65 bg-card/80 px-3.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-border/65 bg-card/80 px-4 text-[14px] font-semibold text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
                 >
                   <Settings size={15} />
                   {lang === 'zh' ? '设置' : 'Settings'}
@@ -378,13 +382,13 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
               className="group relative min-h-[170px] overflow-hidden border-t border-border/55 lg:border-l lg:border-t-0"
             >
               <img
-                src={profile?.homepage_image_url || monetPainting}
+                src={safeHomepageImageUrl || monetPainting}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.025]"
               />
               <div className="absolute inset-0 bg-gradient-to-br from-background/20 via-background/0 to-background/38" />
               <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-3">
-                <span className="rounded-full bg-background/76 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground backdrop-blur-md">
+                <span className="rounded-full bg-background/82 px-3 py-1.5 text-[12px] font-semibold text-muted-foreground backdrop-blur-md">
                   {lang === 'zh' ? '主页氛围图' : 'Home image'}
                 </span>
                 <span className="rounded-full bg-background/76 p-2 text-muted-foreground backdrop-blur-md">
@@ -396,29 +400,38 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
         </section>
 
         {settingsOpen && (
-          <section className="rounded-3xl border border-border/60 bg-background/92 p-4 shadow-[0_18px_60px_-48px_rgba(88,70,54,0.34)]">
-            <div className="space-y-4">
+          <section className="py-2">
+            <div className="mb-4 px-1">
+              <h2 className="text-[20px] font-semibold tracking-[-0.035em] text-foreground">
+                {lang === 'zh' ? '设置' : 'Settings'}
+              </h2>
+              <p className="mt-1 max-w-[60ch] text-[13px] leading-5 text-muted-foreground">
+                {lang === 'zh' ? '调整外观、每日节奏和连接。更改会在对应位置自动保存。' : 'Adjust appearance, daily rhythm, and connections. Changes save where they apply.'}
+              </p>
+            </div>
+
+            <div className="grid items-start gap-4 xl:grid-cols-[minmax(300px,0.9fr)_minmax(420px,1.1fr)]">
               <AppearanceEditor
                 lang={lang}
-                homepageImageUrl={profile?.homepage_image_url}
+                homepageImageUrl={safeHomepageImageUrl}
                 uploading={uploading}
                 onUploadImage={handleImageUpload}
                 onResetImage={handleResetHomepageImage}
               />
 
-              <div className="rounded-3xl border border-border/55 bg-card/72 p-4">
+              <div className="rounded-[24px] border border-border/70 bg-card p-4 sm:p-5">
                 <div className="mb-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                  <h3 className="text-[16px] font-semibold tracking-[-0.02em] text-foreground">
                     {lang === 'zh' ? '每日节奏' : 'Daily flow'}
-                  </p>
-                  <p className="mt-1 text-[12px] text-muted-foreground/58">
+                  </h3>
+                  <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
                     {lang === 'zh' ? '作息、提醒、语言与连接的服务。' : 'Day rhythm, reminders, language, and connected tools.'}
                   </p>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
                   <div>
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+                    <p className="mb-2 text-[13px] font-semibold text-foreground/80">
                       {lang === 'zh' ? '作息时间' : 'Day rhythm'}
                     </p>
                     <CircularTimeRing
@@ -429,10 +442,10 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                       onBedtimeChange={(h, m) => { setBedtimeHour(h); setBedtimeMinute(m); }}
                     />
                     <div className="mt-3 flex gap-2">
-                      <button onClick={handleSaveTimeTodayOnly} className="flex-1 rounded-full border border-border/55 px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:bg-muted/55 hover:text-foreground">
+                      <button onClick={handleSaveTimeTodayOnly} className="min-h-10 flex-1 rounded-full border border-border/55 px-3.5 py-2 text-[14px] font-semibold text-muted-foreground hover:bg-muted/55 hover:text-foreground">
                         {lang === 'zh' ? '仅今天' : 'Today only'}
                       </button>
-                      <button onClick={handleSave} className="flex-1 rounded-full bg-foreground px-3 py-2 text-[12px] font-semibold text-background hover:opacity-90">
+                      <button onClick={handleSave} className="min-h-10 flex-1 rounded-full bg-foreground px-3.5 py-2 text-[14px] font-semibold text-background hover:opacity-90">
                         {lang === 'zh' ? '全部应用' : 'Apply to all'}
                       </button>
                     </div>
@@ -442,13 +455,13 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                     <LifeReminderCard lang={lang} flat />
 
                     <div>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+                      <p className="mb-2 text-[13px] font-semibold text-foreground/80">
                         {lang === 'zh' ? '语言与连接' : 'Language & connections'}
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="flex h-10 items-center rounded-full border border-border/65 bg-secondary/30 p-1">
-                          <button onClick={() => setLang('zh')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'zh' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>中文</button>
-                          <button onClick={() => setLang('en')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>EN</button>
+                          <button onClick={() => setLang('zh')} className={cn('rounded-full px-3.5 py-1.5 text-[14px] font-semibold transition-colors', lang === 'zh' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>中文</button>
+                          <button onClick={() => setLang('en')} className={cn('rounded-full px-3.5 py-1.5 text-[14px] font-semibold transition-colors', lang === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>EN</button>
                         </div>
                         <GoogleCalendarButton />
                       </div>
@@ -456,23 +469,25 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="rounded-3xl border border-border/55 bg-card/72 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+            <div className="mt-4 flex flex-col gap-3 border-t border-border/70 px-1 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-[14px] font-semibold text-foreground">
                   {lang === 'zh' ? '你的数据' : 'Your data'}
-                </p>
-                <p className="mt-1 text-[12px] text-muted-foreground/58">
+                </h3>
+                <p className="mt-1 max-w-[68ch] text-[13px] leading-5 text-muted-foreground">
                   {lang === 'zh'
                     ? '私密优先。随时把全部记忆导出为一份 JSON——即使有一天我们不在了，它仍然属于你。'
                     : 'Private by default. Export everything as one JSON file anytime — even if we disappear, your evidence stays yours.'}
                 </p>
-                <button
-                  onClick={handleExportEvidence}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  <Download size={13} /> {lang === 'zh' ? '导出我的证据' : 'Export my evidence'}
-                </button>
               </div>
+              <button
+                onClick={handleExportEvidence}
+                className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-border/80 bg-card px-4 py-2 text-[14px] font-semibold text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Download size={13} /> {lang === 'zh' ? '导出我的证据' : 'Export my evidence'}
+              </button>
             </div>
           </section>
         )}
@@ -481,10 +496,10 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           <section className="rounded-3xl border border-border/60 bg-background p-4 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
             <div className="mb-3 flex items-end justify-between gap-3 px-1">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">
+                <p className="text-[13px] font-semibold text-muted-foreground">
                   {lang === 'zh' ? '最近的照片' : 'Recent photos'}
                 </p>
-                <h2 className="mt-0.5 text-[17px] font-semibold tracking-[-0.03em] text-foreground">
+                <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-foreground">
                   {lang === 'zh' ? `共 ${recentPhotos.length} 张` : `${recentPhotos.length} captured`}
                 </h2>
               </div>
@@ -509,7 +524,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   <button
                     type="button"
                     onClick={() => setAlbumOpen(true)}
-                    className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-border/55 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+                    className="ml-1 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border/55 px-3.5 py-1.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
                   >
                     <Images size={13} />
                     {lang === 'zh' ? '看全部' : 'View all'}
@@ -528,7 +543,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                     className="group relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-[16px] border border-border/45 bg-secondary/30 transition-transform hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
                     <StorageImage src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
                       {shortDate(photo.date)}
                     </span>
                   </button>
@@ -543,12 +558,12 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
             <button onClick={() => setShowLifeCalendar(true)} className="group w-full text-left">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Evidence Calendar</p>
+                  <p className="text-[13px] font-semibold text-muted-foreground">Evidence Calendar</p>
                   <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">
                     {lang === 'zh' ? '最近半年留下的痕迹' : 'The last half-year of proof'}
                   </h2>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full border border-border/65 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors group-hover:text-foreground">
+                <span className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border/65 bg-card px-3.5 py-1.5 text-[14px] font-semibold text-muted-foreground transition-colors group-hover:text-foreground">
                   {lang === 'zh' ? '全年' : 'Year'} <ChevronRight size={13} />
                 </span>
               </div>
@@ -559,7 +574,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Upcoming Attention</p>
+                <p className="text-[13px] font-semibold text-muted-foreground">Upcoming Attention</p>
                 <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">
                   {lang === 'zh' ? '接下来最该看见的事' : 'What should stay visible'}
                 </h2>
@@ -571,12 +586,12 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   <div key={due.id} className="rounded-[18px] border border-border/55 bg-card/72 px-3.5 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground">{due.title}</p>
-                      <span className="flex-shrink-0 rounded-full bg-[rgba(232,130,90,0.08)] px-2 py-1 text-[11px] font-semibold text-[#c86e4a]">
+                      <span className="flex-shrink-0 rounded-full bg-[rgba(232,130,90,0.08)] px-2.5 py-1 text-[12px] font-semibold text-[#c86e4a]">
                         {due.due_date ? shortDate(due.due_date) : ''}
                       </span>
                     </div>
                     {due.steps?.length > 0 && (
-                      <p className="mt-1 text-[12px] font-medium text-muted-foreground/52">{due.steps.filter(s => s.is_completed).length}/{due.steps.length} steps</p>
+                      <p className="mt-1 text-[13px] font-medium text-muted-foreground">{due.steps.filter(s => s.is_completed).length}/{due.steps.length} steps</p>
                     )}
                   </div>
                 ))}
@@ -593,12 +608,12 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
         <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Recent Proof</p>
+              <p className="text-[13px] font-semibold text-muted-foreground">Recent Proof</p>
               <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">
                 {lang === 'zh' ? '最近真的发生过的东西' : 'Things that actually happened'}
               </h2>
             </div>
-            <button onClick={() => setReflectionOpen(v => !v)} className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-foreground">
+            <button onClick={() => setReflectionOpen(v => !v)} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border/65 bg-card px-3.5 py-1.5 text-[14px] font-semibold text-muted-foreground hover:text-foreground">
               <BookOpen size={13} /> {lang === 'zh' ? '反思' : 'Reflect'}
             </button>
           </div>
@@ -609,7 +624,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                 {visibleEvidence.map(memory => (
                   <div key={memory.id} className="rounded-2xl border border-border/55 bg-card/72 p-3.5">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="font-mono text-[11px] text-muted-foreground/48">{shortDate(memory.createdAt || memory.date)}</span>
+                      <span className="font-mono text-[12px] text-muted-foreground">{shortDate(memory.createdAt || memory.date)}</span>
                       {memory.emoji && <span className="text-[18px]">{memory.emoji}</span>}
                     </div>
                     <p className="line-clamp-3 text-[13px] font-medium leading-5 text-foreground/82">
@@ -620,7 +635,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                       return displayTags.length > 0 ? (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {displayTags.slice(0, 2).map((tag, i) => (
-                            <span key={i} className="rounded-full bg-secondary/65 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground/64">
+                            <span key={i} className="rounded-full bg-secondary/65 px-2 py-0.5 text-[12px] font-semibold text-muted-foreground">
                               {TAG_CATEGORY_ICONS[tag] || '•'} {tag}
                             </span>
                           ))}
@@ -643,7 +658,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                 <div className="mt-3 flex justify-center">
                   <button
                     onClick={() => setShowAllEvidence(v => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border/65 bg-card px-3.5 py-1.5 text-[14px] font-semibold text-muted-foreground hover:text-foreground"
                   >
                     {showAllEvidence
                       ? (lang === 'zh' ? '收起' : 'Show less')
@@ -666,10 +681,10 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
             <div className="rounded-3xl border border-border/60 bg-background p-5">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Life Replay</p>
-                  <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-foreground">{lang === 'zh' ? '把今天讲成一段话' : 'Turn today into a short replay'}</h2>
+                  <p className="text-[13px] font-semibold text-muted-foreground">Life Replay</p>
+                  <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">{lang === 'zh' ? '把今天讲成一段话' : 'Turn today into a short replay'}</h2>
                 </div>
-                <button onClick={generateLifeReplay} disabled={replayLoading} className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-foreground">
+                <button onClick={generateLifeReplay} disabled={replayLoading} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border/65 bg-card px-3.5 py-1.5 text-[14px] font-semibold text-muted-foreground hover:text-foreground">
                   <RefreshCw size={13} className={replayLoading ? 'animate-spin' : ''} />
                   {lang === 'zh' ? '生成' : 'Generate'}
                 </button>
@@ -681,10 +696,10 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 
             {randomMemory && (
               <div className="rounded-3xl border border-border/60 bg-background p-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Memory</p>
-                <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-foreground">{t('profile.memory')}</h2>
+                <p className="text-[13px] font-semibold text-muted-foreground">Memory</p>
+                <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">{t('profile.memory')}</h2>
                 <div className="mt-4 rounded-[18px] bg-card/62 px-4 py-4">
-                  <p className="font-mono text-[11px] text-muted-foreground/48">{randomMemory.date}</p>
+                  <p className="font-mono text-[12px] text-muted-foreground">{randomMemory.date}</p>
                   <p className="mt-2 text-[14px] font-medium leading-6 text-foreground/82">
                     {randomMemory.emoji && <span className="mr-1.5">{randomMemory.emoji}</span>}
                     {randomMemory.text?.split('---DETAIL---')[0] || ''}
@@ -709,10 +724,10 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
         <div className="fixed inset-0 z-[55] flex flex-col bg-background/97 backdrop-blur-sm animate-fade-in">
           <div className="flex items-center justify-between border-b border-border/45 px-5 py-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/55">
+              <p className="text-[13px] font-semibold text-muted-foreground">
                 {lang === 'zh' ? '相册' : 'Album'}
               </p>
-              <h2 className="mt-0.5 text-[17px] font-semibold tracking-[-0.03em] text-foreground">
+              <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-foreground">
                 {lang === 'zh' ? `共 ${recentPhotos.length} 张` : `${recentPhotos.length} captured`}
               </h2>
             </div>
@@ -736,7 +751,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   className="group relative aspect-square overflow-hidden rounded-[10px] border border-border/45 bg-secondary/30 transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
                   <StorageImage src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
                     {shortDate(photo.date)}
                   </span>
                 </button>
@@ -761,7 +776,7 @@ function SummaryMetric({ value, label, icon: Icon, primary = false }: { value: s
         <Icon size={15} className={primary ? 'text-[#c86e4a]' : 'text-muted-foreground/52'} />
       </div>
       <p className="truncate text-[24px] font-semibold leading-none tracking-[-0.045em] text-foreground">{value}</p>
-      <p className="mt-1.5 truncate text-[11px] font-semibold text-muted-foreground/52">{label}</p>
+      <p className="mt-1.5 truncate text-[13px] font-semibold text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -801,7 +816,7 @@ function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean
   return (
     <div className={flat ? '' : 'rounded-3xl border border-border/55 bg-card/72 p-4'}>
       {flat && (
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+        <p className="mb-2 text-[13px] font-semibold text-foreground/80">
           {lang === 'zh' ? '生活提醒' : 'Reminder'}
         </p>
       )}
@@ -809,8 +824,8 @@ function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean
         <div className="flex items-center gap-2.5">
           {config.enabled ? <Bell size={17} className="text-primary" /> : <BellOff size={17} className="text-muted-foreground/58" />}
           <div>
-            <p className="text-[13px] font-semibold text-foreground">{lang === 'zh' ? '生活捕捉提醒' : 'Life Capture Reminder'}</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground/52">{lang === 'zh' ? '轻轻提醒你记录瞬间' : 'A gentle nudge to log moments'}</p>
+            <p className="text-[14px] font-semibold text-foreground">{lang === 'zh' ? '生活捕捉提醒' : 'Life Capture Reminder'}</p>
+            <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground">{lang === 'zh' ? '轻轻提醒你记录瞬间' : 'A gentle nudge to log moments'}</p>
           </div>
         </div>
         <button onClick={handleToggle} aria-pressed={config.enabled} aria-label={config.enabled ? 'Disable reminder' : 'Enable reminder'} className={cn('relative h-6 w-11 rounded-full transition-colors', config.enabled ? 'bg-primary' : 'bg-muted')}>
@@ -821,24 +836,24 @@ function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean
       {config.enabled && (
         <div className={cn('mt-3 space-y-3', flat ? '' : 'border-t border-border/55 pt-3')}>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[12px] font-medium text-muted-foreground/55">{lang === 'zh' ? '每' : 'Every'}</span>
+            <span className="text-[13px] font-medium text-muted-foreground">{lang === 'zh' ? '每' : 'Every'}</span>
             {intervals.map(h => (
               <button
                 key={h}
                 onClick={() => setConfig({ intervalHours: h })}
-                className={cn('rounded-full px-3 py-1 text-[12px] font-semibold transition-colors', config.intervalHours === h ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground')}
+                className={cn('rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors', config.intervalHours === h ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground')}
               >
                 {h}h
               </button>
             ))}
-            <span className="text-[12px] font-medium text-muted-foreground/55">{lang === 'zh' ? '提醒一次' : 'reminder'}</span>
+            <span className="text-[13px] font-medium text-muted-foreground">{lang === 'zh' ? '提醒一次' : 'reminder'}</span>
           </div>
 
           <div className="rounded-2xl border border-border/50 bg-background/40 p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[12px] font-semibold text-foreground">ntfy</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground/55">
+                <p className="text-[13px] font-semibold text-foreground">ntfy</p>
+                <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground">
                   {lang === 'zh' ? '推送到手机（可选，可与浏览器通知并用）' : 'Optional phone push (works with or without browser notifications)'}
                 </p>
               </div>
@@ -857,12 +872,12 @@ function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean
                   value={ntfyDraft}
                   onChange={(e) => setNtfyDraft(e.target.value)}
                   placeholder={lang === 'zh' ? 'topic 或 https://ntfy.sh/topic' : 'topic or https://ntfy.sh/topic'}
-                  className="min-w-0 flex-1 rounded-xl border border-border/55 bg-background px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/45 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="min-h-10 min-w-0 flex-1 rounded-xl border border-border/65 bg-background px-3.5 py-2 text-[14px] text-foreground placeholder:text-muted-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <button
                   type="button"
                   onClick={saveNtfyTopic}
-                  className="shrink-0 rounded-xl bg-secondary px-3 py-2 text-[12px] font-semibold text-foreground hover:bg-secondary/80"
+                  className="min-h-10 shrink-0 rounded-xl bg-secondary px-3.5 py-2 text-[14px] font-semibold text-foreground hover:bg-secondary/80"
                 >
                   {lang === 'zh' ? '保存' : 'Save'}
                 </button>

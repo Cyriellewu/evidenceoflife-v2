@@ -7,26 +7,26 @@
 /* Evidence of Life - A warm, intimate memory system */
 @layer base {
   :root {
-    /* Clean white palette */
-    --background: 0 0% 100%;
-    --foreground: 30 8% 14%;
+    /* Soft daylight palette: layered neutral surfaces, never white-on-white. */
+    --background: 24 8% 94%;
+    --foreground: 24 10% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 30 8% 14%;
+    --card: 24 10% 98%;
+    --card-foreground: 24 10% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 30 8% 14%;
+    --popover: 24 10% 99%;
+    --popover-foreground: 24 10% 12%;
 
     /* Terracotta - warm, grounding */
     --primary: 18 45% 55%;
     --primary-foreground: 36 33% 97%;
 
     /* Soft neutral */
-    --secondary: 30 12% 95%;
-    --secondary-foreground: 30 8% 24%;
+    --secondary: 24 8% 89%;
+    --secondary-foreground: 24 9% 20%;
 
-    --muted: 30 10% 96%;
-    --muted-foreground: 30 8% 45%;
+    --muted: 24 7% 91%;
+    --muted-foreground: 24 7% 32%;
 
     /* Sage green for map/nature */
     --accent: 120 20% 55%;
@@ -35,8 +35,8 @@
     --destructive: 0 65% 55%;
     --destructive-foreground: 36 33% 97%;
 
-    --border: 30 10% 90%;
-    --input: 30 10% 90%;
+    --border: 24 7% 81%;
+    --input: 24 7% 81%;
     --ring: 18 45% 55%;
 
     --radius: 0.625rem;
@@ -44,20 +44,20 @@
     /* Custom tokens */
     --dot-recorded: 18 45% 55%;
     --dot-photo: 35 80% 60%;
-    --surface-elevated: 0 0% 100%;
-    --text-secondary: 30 8% 50%;
+    --surface-elevated: 24 10% 98%;
+    --text-secondary: 24 7% 34%;
     --shadow-soft: 0 4px 20px -4px hsl(30 20% 20% / 0.08);
     --shadow-elevated: 0 8px 32px -8px hsl(30 20% 20% / 0.12);
 
     /* Unified app surfaces */
-    --surface-soft: 30 20% 98%;
-    --surface-soft-hover: 30 18% 95%;
-    --surface-contrast: 0 0% 100%;
-    --surface-inset: 30 16% 94%;
-    --text-soft: 30 9% 42%;
+    --surface-soft: 24 7% 92%;
+    --surface-soft-hover: 24 7% 88%;
+    --surface-contrast: 24 10% 98%;
+    --surface-inset: 24 7% 87%;
+    --text-soft: 24 7% 30%;
     --chip-background: 216 100% 96%;
     --chip-foreground: 216 84% 56%;
-    --toolbar-background: 30 22% 97%;
+    --toolbar-background: 24 9% 96%;
     --overlay-backdrop: 30 20% 12% / 0.52;
     --focus-green: 145 63% 49%;
     --focus-track: 240 10% 91%;
@@ -70,13 +70,13 @@
     --deadline-foreground: 36 33% 97%;
 
     /* Sidebar tokens */
-    --sidebar-background: 0 0% 99%;
-    --sidebar-foreground: 30 10% 25%;
+    --sidebar-background: 24 7% 91%;
+    --sidebar-foreground: 24 9% 20%;
     --sidebar-primary: 18 45% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 30 12% 96%;
-    --sidebar-accent-foreground: 30 10% 25%;
-    --sidebar-border: 30 10% 91%;
+    --sidebar-accent: 24 7% 86%;
+    --sidebar-accent-foreground: 24 9% 18%;
+    --sidebar-border: 24 7% 80%;
     --sidebar-ring: 18 45% 55%;
   }
 
@@ -95,7 +95,7 @@
        primary / accent  unchanged → stay as branded color accents
   ───────────────────────────────────────────────────────────────── */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not(.light) {
       --background: 0 0% 0%;
       --foreground: 0 0% 97%;
 

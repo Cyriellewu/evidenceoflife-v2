@@ -37,15 +37,18 @@ export function DuesView({
   voiceSheetOpen,
   initialMode = 'deadline',
   lockedMode = false,
+  dueStore,
 }: {
   onBack?: () => void;
   onOpenVoiceSheet?: () => void;
   voiceSheetOpen?: boolean;
   initialMode?: DuesViewMode;
   lockedMode?: boolean;
+  dueStore?: ReturnType<typeof useDues>;
 }) {
   const { t, lang } = useLanguage();
-  const { dues, addDue, addToToday, deleteDue, updateDue, addStep, toggleStep, deleteStep, reorderDues, incrementHabitCount, setHabitCount, refetch } = useDues();
+  const fallbackDueStore = useDues(!dueStore);
+  const { dues, loading, addDue, addToToday, deleteDue, updateDue, addStep, toggleStep, deleteStep, reorderDues, incrementHabitCount, setHabitCount, refetch } = dueStore ?? fallbackDueStore;
   const { getRemindersForDue, upsertReminder, removeReminder } = useDueReminders();
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -540,7 +543,14 @@ export function DuesView({
         </div>
       )}
 
-      {!hasFutureCommitments && lockedMode && (
+      {loading && (
+        <div className="mt-8 space-y-3" aria-label={lang === 'zh' ? '正在加载截止任务' : 'Loading deadlines'}>
+          <div className="h-24 animate-pulse rounded-3xl bg-muted/55 motion-reduce:animate-none" />
+          <div className="h-24 animate-pulse rounded-3xl bg-muted/40 motion-reduce:animate-none" />
+        </div>
+      )}
+
+      {!loading && !hasFutureCommitments && lockedMode && (
         <SheetEmptyState
           className="mt-8"
           icon={isDeadlineMode ? <Clock size={20} /> : <Repeat size={20} />}
@@ -801,7 +811,7 @@ export function DuesView({
                 <Target size={14} />
                 {t('dues.todayUrgent')}
               </h2>
-              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
+              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))]">
                 {todayUrgent.map(due => (
                   <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                     onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
@@ -825,7 +835,7 @@ export function DuesView({
                 {upcomingCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
               {!upcomingCollapsed && (
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))]">
                   {upcoming.map(due => (
                     <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                       onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
@@ -850,7 +860,7 @@ export function DuesView({
                 {noDateCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
               {!noDateCollapsed && (
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))]">
                   {noDateDeadlines.map(due => (
                     <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                       onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
@@ -928,7 +938,7 @@ export function DuesView({
       </div>
 
       {/* Empty */}
-      {visibleActiveCount === 0 && !lockedMode && (
+      {!loading && visibleActiveCount === 0 && !lockedMode && (
         <div>
           <p className="text-[13px] text-muted-foreground/65 text-center py-10">
             {t('dues.empty')}
@@ -945,7 +955,7 @@ export function DuesView({
             {completedCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>
           {!completedCollapsed && (
-            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))]">
               {completedDues.map(due => (
                 <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                   onAddToToday={handleAddToToday} justAdded={false}

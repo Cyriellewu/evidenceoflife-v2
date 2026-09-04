@@ -20,6 +20,23 @@ function isoDayKey(iso: string | null | undefined): string | null {
   return format(d, 'yyyy-MM-dd');
 }
 
+function intervalOverlapOnDay(
+  startIso: string | null | undefined,
+  endIso: string | null | undefined,
+  dayKey: string | undefined,
+): { startMin: number; endMin: number } | null {
+  if (!startIso || !endIso || !dayKey) return null;
+  const start = parseISO(startIso).getTime();
+  const end = parseISO(endIso).getTime();
+  const dayStart = new Date(`${dayKey}T00:00:00`).getTime();
+  const dayEnd = dayStart + DAY_MIN * 60_000;
+  if (![start, end, dayStart].every(Number.isFinite) || start >= dayEnd || end <= dayStart) return null;
+  return {
+    startMin: Math.max(0, Math.floor((start - dayStart) / 60_000)),
+    endMin: Math.min(DAY_MIN, Math.ceil((end - dayStart) / 60_000)),
+  };
+}
+
 /** Given a session's start-minute (relative to its own calendar day) and the
  *  raw ISO start + end timestamps, compute the end-minute on the same continuous
  *  axis. Uses the real elapsed duration between the two ISO timestamps rather
@@ -161,6 +178,10 @@ function buildRawBlocks(
       if (!dayKey) return true;
       const anchorDay = isoDayKey(t.plan_started_at) || isoDayKey(t.timer_started_at);
       if (anchorDay === dayKey) return true;
+      if (
+        intervalOverlapOnDay(t.plan_started_at, t.plan_ended_at, dayKey) ||
+        intervalOverlapOnDay(t.timer_started_at, t.timer_ended_at, dayKey)
+      ) return true;
       // A timer still running from an earlier day also surfaces on TODAY as a
       // strip from midnight to now — "the thing you're doing right now" belongs
       // where the user is, not only on the day it happened to start. Guarded to
@@ -174,9 +195,15 @@ function buildRawBlocks(
       let planStartMin: number | undefined;
       let planEndMin: number | undefined;
       if (t.plan_started_at) {
-        const pd = parseISO(t.plan_started_at);
-        planStartMin = pd.getHours() * 60 + pd.getMinutes();
-        if (t.plan_ended_at) {
+        const overlap = intervalOverlapOnDay(t.plan_started_at, t.plan_ended_at, dayKey);
+        if (overlap && isoDayKey(t.plan_started_at) !== dayKey) {
+          planStartMin = overlap.startMin;
+          planEndMin = overlap.endMin;
+        } else {
+          const pd = parseISO(t.plan_started_at);
+          planStartMin = pd.getHours() * 60 + pd.getMinutes();
+        }
+        if (planEndMin == null && t.plan_ended_at) {
           planEndMin = endMinFromDuration(planStartMin, t.plan_started_at, t.plan_ended_at);
         }
       }
@@ -195,6 +222,7 @@ function buildRawBlocks(
         const d = parseISO(t.timer_started_at);
         const anchorDay = isoDayKey(t.timer_started_at);
         const isRunning = !t.timer_ended_at && !!activeTimerIds?.has(t.id);
+        const overlap = intervalOverlapOnDay(t.timer_started_at, t.timer_ended_at, dayKey);
         const isCrossDayRunningToday =
           isRunning && !!dayKey && !!anchorDay && anchorDay < dayKey;
         if (isCrossDayRunningToday) {
@@ -205,6 +233,9 @@ function buildRawBlocks(
           const now = new Date();
           actualStartMin = 0;
           actualEndMin = Math.max(5, now.getHours() * 60 + now.getMinutes());
+        } else if (overlap && anchorDay !== dayKey) {
+          actualStartMin = overlap.startMin;
+          actualEndMin = overlap.endMin;
         } else {
           actualStartMin = d.getHours() * 60 + d.getMinutes();
           const liveElapsedSec = activeTimerIds?.has(t.id) && getTimerElapsed ? getTimerElapsed(t.id) : 0;
@@ -223,7 +254,7 @@ function buildRawBlocks(
         }
       }
 
-      const hasPlan = !!planStartMin;
+      const hasPlan = planStartMin !== undefined;
       const hasActual = actualStartMin !== undefined;
 
       // 如果只有计划，用计划时间；如果有 actual，就按 plan/actual 包络算容器高度
@@ -261,15 +292,25 @@ function buildRawBlocks(
     .filter(t => {
       if (!dayKey) return true;
       const anchorDay = isoDayKey(t.plan_started_at) || isoDayKey(t.timer_started_at);
-      return anchorDay === dayKey;
+      return (
+        anchorDay === dayKey ||
+        !!intervalOverlapOnDay(t.plan_started_at, t.plan_ended_at, dayKey) ||
+        !!intervalOverlapOnDay(t.timer_started_at, t.timer_ended_at, dayKey)
+      );
     })
     .forEach(t => {
       let planStartMin: number | undefined;
       let planEndMin: number | undefined;
       if (t.plan_started_at) {
-        const pd = parseISO(t.plan_started_at);
-        planStartMin = pd.getHours() * 60 + pd.getMinutes();
-        if (t.plan_ended_at) {
+        const overlap = intervalOverlapOnDay(t.plan_started_at, t.plan_ended_at, dayKey);
+        if (overlap && isoDayKey(t.plan_started_at) !== dayKey) {
+          planStartMin = overlap.startMin;
+          planEndMin = overlap.endMin;
+        } else {
+          const pd = parseISO(t.plan_started_at);
+          planStartMin = pd.getHours() * 60 + pd.getMinutes();
+        }
+        if (planEndMin == null && t.plan_ended_at) {
           planEndMin = endMinFromDuration(planStartMin, t.plan_started_at, t.plan_ended_at);
         }
       }
@@ -298,13 +339,19 @@ function buildRawBlocks(
         return;
       }
 
+      const actualOverlap = intervalOverlapOnDay(t.timer_started_at, t.timer_ended_at, dayKey);
+      const actualStartsBeforeDay = isoDayKey(t.timer_started_at) !== dayKey;
       const d = parseISO(t.timer_started_at!);
-      const startMin = d.getHours() * 60 + d.getMinutes();
-      let endMin = startMin + 5;
-      if (t.timer_ended_at) {
+      const startMin = actualOverlap && actualStartsBeforeDay
+        ? actualOverlap.startMin
+        : d.getHours() * 60 + d.getMinutes();
+      let endMin = actualOverlap && actualStartsBeforeDay
+        ? actualOverlap.endMin
+        : startMin + 5;
+      if (!(actualOverlap && actualStartsBeforeDay) && t.timer_ended_at) {
         const derived = endMinFromDuration(startMin, t.timer_started_at!, t.timer_ended_at);
         if (derived != null) endMin = derived;
-      } else if (t.timer_seconds && t.timer_seconds > 0) {
+      } else if (!(actualOverlap && actualStartsBeforeDay) && t.timer_seconds && t.timer_seconds > 0) {
         endMin = startMin + Math.ceil(t.timer_seconds / 60);
       }
 

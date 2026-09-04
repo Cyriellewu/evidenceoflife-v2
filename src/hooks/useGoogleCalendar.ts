@@ -50,6 +50,7 @@ export function useGoogleCalendar() {
   const [syncing, setSyncing] = useState(false);
   const [calendars, setCalendars] = useState<Array<{ id: string; summary: string; primary: boolean }>>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [showInApp, setShowInApp] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     const stored = window.localStorage.getItem('gcal.showInApp');
@@ -93,10 +94,11 @@ export function useGoogleCalendar() {
         if (error) {
           console.error('Failed to list calendars:', error);
           const message = await getFunctionErrorMessage(error, 'Failed to load Google calendars');
-          toast.error(message);
+          setConnectionError(message);
           setConnected(false);
           return;
         }
+        setConnectionError(null);
         const list = (data.calendars || []) as Array<{ id: string; summary: string; primary?: boolean }>;
         setCalendars(list.map(c => ({ id: c.id, summary: c.summary, primary: !!c.primary })));
 
@@ -110,13 +112,13 @@ export function useGoogleCalendar() {
         }
       } catch (err) {
         console.error('Error loading calendars:', err);
-        toast.error(err instanceof Error ? err.message : 'Failed to load Google calendars');
+        setConnectionError(err instanceof Error ? err.message : 'Failed to load Google calendars');
         setConnected(false);
       }
     };
 
     loadCalendars();
-  }, [connected, session]);
+  }, [connected, session?.access_token]);
 
   const connect = useCallback(async () => {
     if (!session?.access_token) {
@@ -227,6 +229,7 @@ export function useGoogleCalendar() {
     events,
     syncing,
     calendars,
+    connectionError,
     selectedCalendarId,
     showInApp,
     connect,

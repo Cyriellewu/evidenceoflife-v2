@@ -116,19 +116,19 @@ export function CircularTimeRing({
     <div className="flex flex-col items-center gap-3">
       {/* Time chips */}
       <div className="w-full grid grid-cols-2 gap-2">
-        <div className="flex flex-col items-center gap-1 rounded-2xl bg-muted/40 px-3 py-2.5 border border-border/40">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/55">
+        <div className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl border border-border/55 bg-muted/40 px-3 py-2.5">
+          <span className="text-[12px] font-medium text-muted-foreground">
             {lang === 'zh' ? '睡觉' : 'Bedtime'}
           </span>
-          <span className="text-[1.05rem] font-bold tabular-nums leading-none text-foreground">
+          <span className="text-[18px] font-semibold tabular-nums leading-none text-foreground">
             {fmt12(bedtimeHour, bedtimeMinute)}
           </span>
         </div>
-        <div className="flex flex-col items-center gap-1 rounded-2xl bg-muted/40 px-3 py-2.5 border border-border/40">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/55">
+        <div className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl border border-border/55 bg-muted/40 px-3 py-2.5">
+          <span className="text-[12px] font-medium text-muted-foreground">
             {lang === 'zh' ? '起床' : 'Wake up'}
           </span>
-          <span className="text-[1.05rem] font-bold tabular-nums leading-none text-foreground">
+          <span className="text-[18px] font-semibold tabular-nums leading-none text-foreground">
             {fmt12(wakeHour, wakeMinute)}
           </span>
         </div>
@@ -207,9 +207,9 @@ export function CircularTimeRing({
           x={CX} y={CY + 15}
           textAnchor="middle" dominantBaseline="central"
           className="fill-muted-foreground"
-          fontSize={10}
+          fontSize={12}
           fontFamily="'Outfit', sans-serif"
-          opacity={0.5}
+          opacity={0.72}
         >
           {lang === 'zh' ? '清醒时长' : 'awake'}
         </text>

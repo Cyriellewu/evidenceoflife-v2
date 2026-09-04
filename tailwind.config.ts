@@ -92,22 +92,12 @@ export default {
           from: { opacity: "0", transform: "translateY(20px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
-        "today-rule-breathe": {
-          "0%, 100%": { width: "10px", opacity: "0.45" },
-          "50%":      { width: "20px", opacity: "0.85" },
-        },
-        "today-label-breathe": {
-          "0%, 100%": { letterSpacing: "0.16em", opacity: "0.75" },
-          "50%":      { letterSpacing: "0.20em", opacity: "1" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
         "slide-up": "slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-        "today-rule-breathe":  "today-rule-breathe 4s ease-in-out infinite",
-        "today-label-breathe": "today-label-breathe 4s ease-in-out infinite",
       },
     },
   },

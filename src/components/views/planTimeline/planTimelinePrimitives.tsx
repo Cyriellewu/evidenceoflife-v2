@@ -11,8 +11,8 @@ export const REST_COLOR = 'hsl(195, 50%, 55%)';
 export const SHOW_FREE_TIME_LABELS = true;
 /** Left time column — matches timeline grid proportions in light mode */
 export const TIME_RAIL_WIDTH_PX = 56;
-/** Calm planner canvas (light only — cool neutral, avoid heavy gray cast) */
-export const TIMELINE_CANVAS_LIGHT = '#f9fafc';
+/** Calm planner canvas (light only — lifted from the app shell without turning stark white) */
+export const TIMELINE_CANVAS_LIGHT = 'hsl(24 10% 97%)';
 /** X-offset of the spine inside the timeline content column, in px.
  *  Sits just inside the content column's left edge so blocks (which start
  *  at left: calc(0% + gap/2)) still have room to read. */
@@ -129,10 +129,10 @@ export function TimelineIntervalPill({
 /**
  * "Today remaining" indicator. No container — pure typography:
  *   `7h 39m  ──  LEFT TODAY`
- * A hairline rule between the number and the micro-label breathes in width
- * (10 ↔ 20px), and the label tracking eases (0.16 ↔ 0.20em) on the same
- * 4s cycle — the whole element gently "inhales / exhales" without ever
- * moving position or overpowering the now-line. `subtle` variant (used
+ * A static 14px hairline rule sits between the number and the micro-label
+ * (an earlier version animated its width and the label tracking on a 4s
+ * "breathing" cycle; that decorative motion was removed because it did not
+ * convey state). `subtle` variant (used
  * when < 45min remain) shrinks the number, tightens the rule, and softens
  * both colors — the closer to bedtime, the quieter it gets.
  */
@@ -178,11 +178,12 @@ export function TimelineTodayRemainingPill({
       <span
         aria-hidden
         className={cn(
-          'self-center animate-today-rule-breathe',
+          'self-center',
           subtle && 'scale-y-50',
         )}
         style={{
           display: 'inline-block',
+          width: 14,
           height: 1,
           background: ruleColor,
           borderRadius: 1,
@@ -190,7 +191,7 @@ export function TimelineTodayRemainingPill({
       />
       <span
         className={cn(
-          'font-medium uppercase animate-today-label-breathe',
+          'font-medium uppercase',
           subtle ? 'text-[9px]' : 'text-[10px]',
         )}
         style={{ color: labelColor, lineHeight: 1 }}

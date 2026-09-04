@@ -1,11 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
-import { format, isSameDay, subDays } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { hasTrackedFirstAction, markFirstActionTracked, trackEvent } from '@/lib/analytics';
-import { selectRedundantEmptyCarriedIds } from '@/lib/carryTodos';
-import { partitionRunningTimers, selectCorruptTimerIds, type RunningTimerRow } from '@/lib/staleTimers';
+import { mergeCarriedTodos, planCrossesIntoDate, selectRedundantEmptyCarriedIds, selectRolloverTodos } from '@/lib/carryTodos';
+import { partitionRunningTimers, selectCorruptTimerIds } from '@/lib/staleTimers';
 import {
   pickRecurringSourcesNeedingClone,
   buildClonedTodoInsert,
@@ -15,6 +14,8 @@ import {
   RECURRING_PROMOTION_THRESHOLD,
   RECURRING_HABIT_CATEGORY,
 } from '@/lib/recurringTodos';
+
+const AUTO_REFRESH_STALE_MS = 5 * 60_000;
 
 export interface Todo {
   id: string;
@@ -39,10 +40,10 @@ export interface Todo {
   location_category?: string | null;
   note?: string | null;
   habit_category?: string | null;
-  parent_due_id?: string | null;
   is_recurring?: boolean;
   recurrence_source_id?: string | null;
   promoted_to_habit_id?: string | null;
+  parent_due_id?: string | null;
 }
 
 export interface TodoStep {
@@ -56,14 +57,6 @@ export interface TodoStep {
   plan_started_at?: string | null;
   plan_ended_at?: string | null;
 }
-
-type TodoRow = Database['public']['Tables']['todos']['Row'];
-type TodoInsert = Database['public']['Tables']['todos']['Insert'];
-type RecurringSourceRow = Pick<TodoRow, 'id' | 'user_id' | 'title' | 'time_segment' | 'date' | 'sort_order'>;
-type RecurringExistingRow = Pick<TodoRow, 'id' | 'recurrence_source_id' | 'title'>;
-type RecurringInstanceRow = Pick<TodoRow, 'date' | 'is_completed' | 'id'>;
-type SourceStepSeedRow = Pick<TodoRow, 'title' | 'sort_order'>;
-type StepSelectRow = Pick<TodoRow, 'id' | 'title' | 'is_completed' | 'sort_order' | 'parent_due_id' | 'timer_started_at' | 'timer_seconds' | 'plan_started_at' | 'plan_ended_at'>;
 
 function buildDemoTodos(targetDate: string): Todo[] {
   const localTime = (time: string) => `${targetDate}T${time}:00`;
@@ -123,253 +116,79 @@ function buildDemoTodos(targetDate: string): Todo[] {
   ];
 }
 
-function moveIsoToDateKeepingLocalTime(isoString: string | null | undefined, newDate: string): string | null {
-  if (!isoString) return null;
-  const original = new Date(isoString);
-  if (Number.isNaN(original.getTime())) return null;
-  const hh = String(original.getHours()).padStart(2, '0');
-  const mm = String(original.getMinutes()).padStart(2, '0');
-  const ss = String(original.getSeconds()).padStart(2, '0');
-  return new Date(`${newDate}T${hh}:${mm}:${ss}`).toISOString();
-}
-
-export function useTodos(date?: string) {
+export function useTodos(date?: string, enabled = true) {
   const { user, isDemo, authReady } = useAuth();
   const targetDate = date || format(new Date(), 'yyyy-MM-dd');
   const [todos, setTodos] = useState<Todo[]>([]);
   const [pastDayOpenTodos, setPastDayOpenTodos] = useState<Todo[]>([]);
   const [stepsByParent, setStepsByParent] = useState<Record<string, TodoStep[]>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
+  const refreshTimerRef = useRef<number | null>(null);
+  const fetchInFlightRef = useRef(false);
+  const lastFetchedAtRef = useRef(0);
 
   const rollOverYesterdayTodos = useCallback(async () => {
-    if (!user || isDemo) return;
-    if (!isSameDay(new Date(`${targetDate}T00:00:00`), new Date())) return;
+    if (!user || isDemo) return [] as Todo[];
+    if (!isSameDay(new Date(`${targetDate}T00:00:00`), new Date())) return [] as Todo[];
 
-    // Run the carry-over at most once per day per user. fetchTodos re-runs on
-    // every tab switch / window focus / visibility change / minute sync, and
-    // without this guard each of those re-issued the DB "move yesterday→today"
-    // mutation — thrashing the data and making refreshes feel unstable. The
-    // localStorage flag makes repeat fetches read-only.
-    const rollKey = `todos-rollover-done-v2:${user.id}:${targetDate}`;
-    try {
-      if (localStorage.getItem(rollKey)) return;
-    } catch {
-      /* localStorage unavailable — fall through and just run it */
+    const { data: carryovers, error } = await supabase
+      .from('todos')
+      .select('*')
+      .lt('date', targetDate)
+      .eq('is_completed', false)
+      .order('date', { ascending: true })
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('Failed to load unfinished tasks for rollover:', error);
+      return [] as Todo[];
     }
+    if (!carryovers?.length) return [] as Todo[];
 
-    const previousDate = format(subDays(new Date(`${targetDate}T00:00:00`), 1), 'yyyy-MM-dd');
-    const { data: existingToday } = await supabase
+    // Carry every unfinished past task forward as one row. Looking across all
+    // earlier dates repairs tasks stranded by an interrupted rollover or an old
+    // cleanup pass; completed tasks remain on their historical day.
+    const movable = selectRolloverTodos(carryovers as Todo[]);
+    if (!movable.length) return [] as Todo[];
+
+    const { data: existingToday, error: sortError } = await supabase
       .from('todos')
       .select('sort_order')
       .eq('date', targetDate)
       .order('sort_order', { ascending: false })
       .limit(1);
-
+    if (sortError) {
+      console.error('Failed to determine rollover order:', sortError);
+      return movable;
+    }
     const nextSortOrder = ((existingToday?.[0]?.sort_order as number | undefined) ?? -1) + 1;
-    const { data: carryovers, error } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('date', previousDate)
-      .eq('is_completed', false)
-      .eq('is_recurring', false)
-      .is('due_date', null)
-      .is('parent_due_id', null)
-      .is('habit_category', null)
-      .order('sort_order', { ascending: true });
-
-    if (error) return;
-    // Mark done even when there was nothing to carry over, so we don't re-query
-    // on every refresh for the rest of the day.
-    try { localStorage.setItem(rollKey, '1'); } catch { /* ignore */ }
-    if (!carryovers?.length) return;
-
-    // Carry ALL unfinished tasks forward — including those that had a plan slot
-    // yesterday. We clear their plan_started_at / plan_ended_at on the way over,
-    // so they arrive today as floating "anytime" tasks (no time anchor) instead
-    // of relocating yesterday's 22:30 plan slot to today's 22:30. Tasks that
-    // already have a `timer_started_at` are excluded — a started timer means the
-    // task has a real actual recording on that day, and rewriting `date` would
-    // corrupt the historical timeline. Those tasks surface via the inline
-    // past-day-open section instead of being date-rewritten. `created_at` filter
-    // kept so we only pull rows that legitimately belong to the previous day
-    // (not older rolled-over ghosts).
-    const carryoverRows = (carryovers ?? []) as TodoRow[];
-    const freshlyDue = carryoverRows.filter(
-      (todo) =>
-        todo.created_at &&
-        format(new Date(todo.created_at), 'yyyy-MM-dd') === previousDate &&
-        !todo.timer_started_at
+    const { toStop: staleRunningIds } = partitionRunningTimers(
+      movable
+        .filter(todo => todo.timer_started_at && !todo.timer_ended_at)
+        .map(todo => ({ id: todo.id, timer_started_at: todo.timer_started_at })),
+      Date.now(),
     );
-    if (!freshlyDue.length) return;
+    const staleRunningSet = new Set(staleRunningIds);
 
-    await Promise.all(
-      freshlyDue.map((todo, index) =>
-        supabase
+    const results = await Promise.all(
+      movable.map((todo, index) => {
+        const staleRunning = staleRunningSet.has(todo.id);
+        const keepCrossDayPlan = !staleRunning && planCrossesIntoDate(todo, targetDate);
+        return supabase
           .from('todos')
           .update({
             date: targetDate,
             sort_order: nextSortOrder + index,
-            plan_started_at: null,
-            plan_ended_at: null,
-          })
-          .eq('id', todo.id)
-      )
-    );
-  }, [user, isDemo, targetDate]);
-
-  // One-time cleanup for todos that were incorrectly rolled forward by a
-  // previous version of rollOverYesterdayTodos. Truth source is `created_at`:
-  // the old rollover rewrote `date` and `plan_started_at` in-place (keeping
-  // wall-clock but overwriting the day), so the timestamps themselves can't
-  // testify to the original day. `created_at` was never touched by rollover
-  // and is set by Supabase to the row's actual insert timestamp — so a todo
-  // whose `date` differs from format(created_at) AND that carries a plan or
-  // timer slot is a rolled-over ghost. Send it back: rewrite `date` to the
-  // created_at day and shift plan_started_at/plan_ended_at wall-clocks onto
-  // that same day so the renderer paints them where they actually happened.
-  const unrollMisrolledTodos = useCallback(async () => {
-    if (!user || isDemo) return;
-    if (!isSameDay(new Date(`${targetDate}T00:00:00`), new Date())) return;
-
-    // v2: previous versions of this cleanup used timestamp-derived dates as
-    // the truth source, which is wrong because rollover also mutates those
-    // timestamps. Bump the storage key so users whose v1 flag was already
-    // set still get the corrected pass exactly once.
-    const unrollKey = `todos-unroll-v2:${user.id}:${targetDate}`;
-    try {
-      if (localStorage.getItem(unrollKey)) return;
-    } catch {
-      /* localStorage unavailable — fall through and just run it */
-    }
-
-    const { data: candidates, error } = await supabase
-      .from('todos')
-      .select('id, date, created_at, plan_started_at, plan_ended_at, timer_started_at, timer_ended_at')
-      .eq('date', targetDate);
-
-    try { localStorage.setItem(unrollKey, '1'); } catch { /* ignore */ }
-
-    if (error || !candidates?.length) return;
-
-    const misrolled = ((candidates ?? []) as Array<Pick<TodoRow, 'id' | 'date' | 'created_at' | 'plan_started_at' | 'plan_ended_at' | 'timer_started_at' | 'timer_ended_at'>>)
-      .map(t => {
-        if (!t.created_at) return null;
-        if (!t.plan_started_at && !t.timer_started_at) return null;
-        // A timer that is still running (started, never ended) is intentionally
-        // pulled onto today by pullRunningTimersToToday — "the thing you're
-        // doing right now" belongs on today, not the day it happened to start.
-        // Never send those back, or the unroll pass would immediately undo the
-        // pull and the live timer would vanish from today again.
-        if (t.timer_started_at && !t.timer_ended_at) return null;
-        const createdDay = format(new Date(t.created_at), 'yyyy-MM-dd');
-        if (createdDay === t.date) return null;
-        return {
-          id: t.id,
-          correctDate: createdDay,
-          plan_started_at: moveIsoToDateKeepingLocalTime(t.plan_started_at, createdDay),
-          plan_ended_at: moveIsoToDateKeepingLocalTime(t.plan_ended_at, createdDay),
-        };
+            plan_started_at: keepCrossDayPlan ? todo.plan_started_at : null,
+            plan_ended_at: keepCrossDayPlan ? todo.plan_ended_at : null,
+            ...(staleRunning ? { timer_started_at: null } : {}),
+          } as any)
+          .eq('id', todo.id);
       })
-      .filter((x): x is {
-        id: string;
-        correctDate: string;
-        plan_started_at: string | null;
-        plan_ended_at: string | null;
-      } => x !== null);
-
-    if (!misrolled.length) return;
-
-    await Promise.all(
-      misrolled.map(m =>
-        supabase
-          .from('todos')
-          .update({
-            date: m.correctDate,
-            plan_started_at: m.plan_started_at,
-            plan_ended_at: m.plan_ended_at,
-          })
-          .eq('id', m.id)
-      )
     );
-  }, [user, isDemo, targetDate]);
-
-  // A focus timer left running past midnight keeps counting, but its todo row
-  // stays filed under the day it started. That makes the "thing you're doing
-  // right now" invisible on today — no floating pill, no row in today's list,
-  // and stopping it records the time back onto the old day. Pull every
-  // still-running timer (started, never ended, not finished) that sits on an
-  // earlier day onto today, so it surfaces where the user actually is and the
-  // stop lands on today. timer_started_at is an absolute timestamp left intact,
-  // so elapsed = now - started stays correct across the boundary. Completed /
-  // stopped historical sessions are NOT touched — those are real past records.
-  //
-  // Exception: a timer that has been "running" for many hours is one the user
-  // forgot to stop before walking away (or sleeping). Pulling those onto today
-  // would flood the view with timers counting 20+, 40+ hours. Those are
-  // auto-stopped instead — the bogus session is discarded (timer_started_at
-  // cleared, timer_seconds/progress kept) and the task is left as a normal
-  // unfinished carry-over so it still shows on today without a runaway clock.
-  const pullRunningTimersToToday = useCallback(async () => {
-    if (!user || isDemo) return;
-    if (!isSameDay(new Date(`${targetDate}T00:00:00`), new Date())) return;
-
-    const { data: running, error } = await supabase
-      .from('todos')
-      .select('id, timer_started_at')
-      .lt('date', targetDate)
-      .not('timer_started_at', 'is', null)
-      .is('timer_ended_at', null)
-      .eq('is_completed', false)
-      .is('parent_due_id', null)
-      .is('habit_category', null);
-
-    if (error || !running?.length) return;
-
-    const { toPull, toStop } = partitionRunningTimers(
-      running as RunningTimerRow[],
-      Date.now(),
-    );
-
-    // Auto-stop the forgotten timers: discard the bogus running session but keep
-    // the task (and any real time already banked in timer_seconds). Clearing the
-    // plan slot avoids relocating a stale plan window; leaving `date` untouched
-    // lets it surface on today via the past-day-open carry-over path.
-    if (toStop.length > 0) {
-      await supabase
-        .from('todos')
-        .update({
-          timer_started_at: null,
-          plan_started_at: null,
-          plan_ended_at: null,
-        })
-        .in('id', toStop);
-    }
-
-    if (toPull.length === 0) return;
-
-    const { data: existingToday } = await supabase
-      .from('todos')
-      .select('sort_order')
-      .eq('date', targetDate)
-      .order('sort_order', { ascending: false })
-      .limit(1);
-    const base = ((existingToday?.[0]?.sort_order as number | undefined) ?? -1) + 1;
-
-    await Promise.all(
-      toPull.map((id, index) =>
-        supabase
-          .from('todos')
-          .update({
-            date: targetDate,
-            sort_order: base + index,
-            // Clear yesterday's plan slot so it doesn't relocate a stale plan
-            // window onto today; the running timer draws its own actual strip.
-            plan_started_at: null,
-            plan_ended_at: null,
-          })
-          .eq('id', id)
-      )
-    );
+    const updateError = results.find(result => result.error)?.error;
+    if (updateError) console.error('Failed to roll unfinished tasks into today:', updateError);
+    return movable.filter((_, index) => results[index].error);
   }, [user, isDemo, targetDate]);
 
   // Recurring todos: on the first fetch of a given day, clone every source
@@ -396,18 +215,16 @@ export function useTodos(date?: string) {
     try { localStorage.setItem(cloneKey, '1'); } catch { /* ignore */ }
     if (srcErr || !sources || sources.length === 0) return;
 
-    const recurringSources = (sources ?? []) as RecurringSourceRow[];
-    const sourceIds = recurringSources.map(s => s.id);
+    const sourceIds = (sources as any[]).map(s => s.id as string);
     const { data: existingToday } = await supabase
       .from('todos')
       .select('id, recurrence_source_id, title')
       .eq('date', targetDate)
       .in('recurrence_source_id', sourceIds);
 
-    const existingRows = (existingToday ?? []) as RecurringExistingRow[];
     const needed = pickRecurringSourcesNeedingClone(
-      recurringSources.map(s => ({ id: s.id, date: s.date })),
-      existingRows.map(r => ({ id: r.id, recurrence_source_id: r.recurrence_source_id })),
+      (sources as any[]).map(s => ({ id: s.id, date: s.date })),
+      ((existingToday as any[]) || []).map(r => ({ id: r.id, recurrence_source_id: r.recurrence_source_id })),
       targetDate,
     );
     if (needed.length === 0) return;
@@ -420,7 +237,7 @@ export function useTodos(date?: string) {
       .limit(1);
     let nextSort = ((existingTodayForSort?.[0]?.sort_order as number | undefined) ?? -1) + 1;
 
-    const neededSources = recurringSources.filter(s => needed.includes(s.id));
+    const neededSources = (sources as any[]).filter(s => needed.includes(s.id));
     for (const src of neededSources) {
       // Inherit the source's sort_order so a daily-recurring task lands in the
       // SAME slot every day (same time_segment + same rank) rather than being
@@ -435,11 +252,11 @@ export function useTodos(date?: string) {
       nextSort += 1;
       const { data: newRow, error: insErr } = await supabase
         .from('todos')
-        .insert(insertPayload as TodoInsert)
+        .insert(insertPayload as any)
         .select('id')
         .single();
       if (insErr || !newRow) continue;
-      const newParentId = (newRow as Pick<TodoRow, 'id'>).id;
+      const newParentId = (newRow as any).id as string;
 
       const { data: srcSteps } = await supabase
         .from('todos')
@@ -448,13 +265,12 @@ export function useTodos(date?: string) {
         .eq('parent_due_id', src.id)
         .order('sort_order', { ascending: true });
       if (srcSteps && srcSteps.length > 0) {
-        const sourceSteps = srcSteps as SourceStepSeedRow[];
         const stepInserts = buildClonedStepInserts(
-          sourceSteps.map(s => ({ title: s.title, sort_order: s.sort_order })),
+          (srcSteps as any[]).map(s => ({ title: s.title as string, sort_order: s.sort_order as number })),
           newParentId,
           user.id,
         );
-        await supabase.from('todos').insert(stepInserts as TodoInsert[]);
+        await supabase.from('todos').insert(stepInserts as any);
       }
     }
   }, [user, isDemo, targetDate]);
@@ -483,8 +299,8 @@ export function useTodos(date?: string) {
     try { localStorage.setItem(promoteKey, '1'); } catch { /* ignore */ }
     if (srcErr || !sources || sources.length === 0) return;
 
-    for (const src of (sources as Array<Pick<TodoRow, 'id' | 'title'>>)) {
-      const srcId = src.id;
+    for (const src of sources as any[]) {
+      const srcId = src.id as string;
       const { data: instances } = await supabase
         .from('todos')
         .select('date, is_completed, id')
@@ -492,7 +308,7 @@ export function useTodos(date?: string) {
         .or(`id.eq.${srcId},recurrence_source_id.eq.${srcId}`);
       if (!instances) continue;
       const streak = computeConsecutiveCompletedDays(
-        (instances as RecurringInstanceRow[]).map(r => ({ date: r.date, is_completed: !!r.is_completed })),
+        (instances as any[]).map(r => ({ date: r.date as string, is_completed: !!r.is_completed })),
         targetDate,
       );
       if (streak < RECURRING_PROMOTION_THRESHOLD) continue;
@@ -501,44 +317,47 @@ export function useTodos(date?: string) {
         .from('todos')
         .insert({
           user_id: user.id,
-          title: src.title,
+          title: src.title as string,
           date: '_due_none',
           time_segment: 'anytime',
           due_date: null,
           sort_order: 0,
           progress: 1,
           habit_category: RECURRING_HABIT_CATEGORY,
-        })
+        } as any)
         .select('id')
         .single();
       if (habitErr || !habitRow) continue;
-      const habitId = (habitRow as Pick<TodoRow, 'id'>).id;
+      const habitId = (habitRow as any).id as string;
 
       await supabase
         .from('todos')
-        .update({ promoted_to_habit_id: habitId })
+        .update({ promoted_to_habit_id: habitId } as any)
         .or(`id.eq.${srcId},recurrence_source_id.eq.${srcId}`);
     }
   }, [user, isDemo, targetDate]);
 
   const fetchTodos = useCallback(async () => {
+    if (!enabled) return;
     if (!authReady) {
       setLoading(true);
       return;
     }
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
 
     if (!user || isDemo) {
       setTodos(isDemo ? buildDemoTodos(targetDate) : []);
       setPastDayOpenTodos([]);
       setStepsByParent({});
       setLoading(false);
+      lastFetchedAtRef.current = Date.now();
+      fetchInFlightRef.current = false;
       return;
     }
 
     try {
-      await rollOverYesterdayTodos();
-      await unrollMisrolledTodos();
-      await pullRunningTimersToToday();
+      const rolloverFallback = await rollOverYesterdayTodos();
       await cloneRecurringSourcesForToday();
       await promoteEligibleRecurringToHabits();
 
@@ -549,21 +368,21 @@ export function useTodos(date?: string) {
         .order('sort_order', { ascending: true });
 
       if (!error && data) {
-        const filtered = (data as Todo[]).filter(t => !(t.due_date && !t.parent_due_id));
+        const filtered = (data as any[]).filter(t => !(t.due_date && !t.parent_due_id));
 
         // Historical bugs/data races could leave multiple recurring rows for
         // one logical loop title on the same day. Keep a single best survivor
         // per title in today's view (prefer rows with real work/running state),
         // and clean up only pure-empty duplicates from DB.
         const recurringRows = filtered.filter(t => t.is_recurring || t.recurrence_source_id);
-        const recurringGroups = new Map<string, Todo[]>();
+        const recurringGroups = new Map<string, any[]>();
         const recurringDupIds = new Set<string>();
         const recurringBlankDupIds: string[] = [];
-        const recurringScore = (t: Todo) =>
+        const recurringScore = (t: any) =>
           (t.timer_started_at ? 1_000_000_000 : 0) +
           ((t.progress || 0) * 100000) +
           (t.timer_seconds || 0);
-        const isRecurringBlank = (t: Todo) =>
+        const isRecurringBlank = (t: any) =>
           (t.progress || 0) === 0 &&
           (t.timer_seconds || 0) === 0 &&
           !t.timer_started_at;
@@ -611,7 +430,7 @@ export function useTodos(date?: string) {
         if (corruptIds.length > 0) {
           void supabase
             .from('todos')
-            .update({ timer_seconds: 0, timer_started_at: null, timer_ended_at: null })
+            .update({ timer_seconds: 0, timer_started_at: null, timer_ended_at: null } as any)
             .in('id', corruptIds);
           const corruptSet = new Set(corruptIds);
           for (const t of filteredDeduped) {
@@ -623,31 +442,10 @@ export function useTodos(date?: string) {
           }
         }
 
-        setTodos(filteredDeduped);
-
         // Only surface past-day-open when viewing today. Historical days
         // shouldn't advertise "past-day open" from an even earlier day.
         const isToday = targetDate === format(new Date(), 'yyyy-MM-dd');
-        let pastOpen: Todo[] = [];
-        if (isToday) {
-          const windowStart = format(subDays(new Date(`${targetDate}T00:00:00`), 7), 'yyyy-MM-dd');
-          const previousDate = format(subDays(new Date(`${targetDate}T00:00:00`), 1), 'yyyy-MM-dd');
-          const { data: pastData, error: pastError } = await supabase
-            .from('todos')
-            .select('*')
-            .gte('date', windowStart)
-            .lte('date', previousDate)
-            .eq('is_completed', false)
-            .eq('is_recurring', false)
-            .is('due_date', null)
-            .is('parent_due_id', null)
-            .is('habit_category', null)
-            .order('date', { ascending: false })
-            .order('sort_order', { ascending: true });
-          if (!pastError && pastData) {
-            pastOpen = pastData as Todo[];
-          }
-        }
+        let pastOpen = isToday ? rolloverFallback : [];
 
         // Same corrupt-timer heal for carried-over rows shown inline on today.
         if (pastOpen.length > 0) {
@@ -657,7 +455,7 @@ export function useTodos(date?: string) {
           if (corruptPastIds.length > 0) {
             void supabase
               .from('todos')
-              .update({ timer_seconds: 0, timer_started_at: null, timer_ended_at: null })
+              .update({ timer_seconds: 0, timer_started_at: null, timer_ended_at: null } as any)
               .in('id', corruptPastIds);
             const corruptPastSet = new Set(corruptPastIds);
             pastOpen = pastOpen.map(t =>
@@ -667,6 +465,7 @@ export function useTodos(date?: string) {
             );
           }
         }
+        setTodos(mergeCarriedTodos(filteredDeduped as Todo[], pastOpen));
         setPastDayOpenTodos(pastOpen);
 
         // Fetch step children for BOTH today's parents and past-day-open
@@ -685,9 +484,8 @@ export function useTodos(date?: string) {
             .in('parent_due_id', parentIds);
           if (!stepError && stepData) {
             const grouped: Record<string, TodoStep[]> = {};
-            for (const s of stepData as StepSelectRow[]) {
-              const pid = s.parent_due_id;
-              if (!pid) continue;
+            (stepData as any[]).forEach(s => {
+              const pid = s.parent_due_id as string;
               if (!grouped[pid]) grouped[pid] = [];
               grouped[pid].push({
                 id: s.id,
@@ -700,7 +498,7 @@ export function useTodos(date?: string) {
                 plan_started_at: s.plan_started_at ?? null,
                 plan_ended_at: s.plan_ended_at ?? null,
               });
-            }
+            });
             Object.values(grouped).forEach(arr => arr.sort((a, b) => a.sort_order - b.sort_order));
             setStepsByParent(grouped);
             parentIdsWithSteps = new Set(Object.keys(grouped));
@@ -733,12 +531,32 @@ export function useTodos(date?: string) {
       console.error('Failed to fetch todos (exception):', err);
     } finally {
       setLoading(false);
+      lastFetchedAtRef.current = Date.now();
+      fetchInFlightRef.current = false;
     }
-  }, [user, targetDate, isDemo, authReady, rollOverYesterdayTodos, unrollMisrolledTodos, pullRunningTimersToToday, cloneRecurringSourcesForToday, promoteEligibleRecurringToHabits]);
+  }, [enabled, user, targetDate, isDemo, authReady, rollOverYesterdayTodos, cloneRecurringSourcesForToday, promoteEligibleRecurringToHabits]);
 
   useEffect(() => {
-    fetchTodos();
-  }, [fetchTodos]);
+    if (enabled) void fetchTodos();
+  }, [enabled, fetchTodos]);
+
+  useEffect(() => {
+    const refreshVisibleDay = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastFetchedAtRef.current < AUTO_REFRESH_STALE_MS) return;
+      if (refreshTimerRef.current != null) window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        void fetchTodos();
+      }, 100);
+    };
+    if (!enabled) return;
+    document.addEventListener('visibilitychange', refreshVisibleDay);
+    return () => {
+      if (refreshTimerRef.current != null) window.clearTimeout(refreshTimerRef.current);
+      document.removeEventListener('visibilitychange', refreshVisibleDay);
+    };
+  }, [enabled, fetchTodos]);
 
   const addTodo = useCallback(async (title: string, timeSegment: Todo['time_segment'] = 'anytime', dueDate?: string, options?: { isRecurring?: boolean }): Promise<Todo | null> => {
     if (!user) return null;
@@ -920,7 +738,7 @@ export function useTodos(date?: string) {
       .select('id, title, is_completed, sort_order, parent_due_id, timer_started_at, timer_seconds, plan_started_at, plan_ended_at')
       .single();
     if (!error && data) {
-      const row = data as StepSelectRow;
+      const row = data as any;
       setStepsByParent(prev => ({
         ...prev,
         [parentId]: (prev[parentId] || []).map(s => s.id === tempId ? {
@@ -966,8 +784,8 @@ export function useTodos(date?: string) {
     if (isDemo) return;
     const update: Record<string, unknown> = { is_completed: completed };
     if (timerStop) {
-      update.timer_started_at = timerStop.timer_started_at;
-      update.timer_seconds = timerStop.timer_seconds;
+      update.timer_started_at = (timerStop as { timer_started_at: null }).timer_started_at;
+      update.timer_seconds = (timerStop as { timer_seconds: number }).timer_seconds;
     }
     await supabase.from('todos').update(update).eq('id', stepId);
   }, [isDemo]);
@@ -1051,7 +869,8 @@ export function useTodos(date?: string) {
       return next;
     });
     if (isDemo || !dbWrite) return;
-    await supabase.from('todos').update({ timer_started_at: dbWrite.timer_started_at, timer_seconds: dbWrite.timer_seconds }).eq('id', stepId);
+    const w = dbWrite as { timer_started_at: string; timer_seconds: number };
+    await supabase.from('todos').update({ timer_started_at: w.timer_started_at, timer_seconds: w.timer_seconds }).eq('id', stepId);
   }, [isDemo]);
 
   const stopStepTimer = useCallback(async (stepId: string) => {
@@ -1071,7 +890,7 @@ export function useTodos(date?: string) {
       return next;
     });
     if (isDemo || !dbWrite) return;
-    await supabase.from('todos').update({ timer_started_at: dbWrite.timer_started_at, timer_seconds: dbWrite.timer_seconds }).eq('id', stepId);
+    await supabase.from('todos').update({ timer_started_at: (dbWrite as { timer_started_at: null }).timer_started_at, timer_seconds: (dbWrite as { timer_seconds: number }).timer_seconds }).eq('id', stepId);
   }, [isDemo]);
 
   // Toggle a task's daily-repeat state. Because a recurring series is one
@@ -1093,7 +912,7 @@ export function useTodos(date?: string) {
     if (plan.action === 'enable') {
       setTodos(prev => prev.map(t => t.id === id ? { ...t, is_recurring: true } : t));
       if (isDemo || !user) return;
-      await supabase.from('todos').update({ is_recurring: true }).eq('id', id);
+      await supabase.from('todos').update({ is_recurring: true } as any).eq('id', id);
       return;
     }
 
@@ -1105,8 +924,8 @@ export function useTodos(date?: string) {
         : t
     ));
     if (isDemo || !user) return;
-    await supabase.from('todos').update({ is_recurring: false }).eq('id', sourceId);
-    await supabase.from('todos').update({ recurrence_source_id: null }).eq('recurrence_source_id', sourceId);
+    await supabase.from('todos').update({ is_recurring: false } as any).eq('id', sourceId);
+    await supabase.from('todos').update({ recurrence_source_id: null } as any).eq('recurrence_source_id', sourceId);
   }, [user, isDemo, todos]);
 
 

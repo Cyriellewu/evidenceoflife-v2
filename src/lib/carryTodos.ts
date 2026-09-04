@@ -1,6 +1,7 @@
 import type { Todo } from '@/hooks/useTodos';
 
 const VALID_SEGMENTS = new Set(['anytime', 'morning', 'afternoon', 'evening']);
+const CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const normTitle = (s: string) => s.trim().toLowerCase();
 
@@ -8,6 +9,27 @@ const normTitle = (s: string) => s.trim().toLowerCase();
 // (weighted heavily), then any recorded timer seconds. Used to pick the single
 // survivor when the same task title appears on several past days.
 const workScore = (t: Todo) => (t.timer_seconds || 0) + (t.progress || 0) * 100000;
+const isRunning = (t: Todo) => !!t.timer_started_at && !t.timer_ended_at;
+
+/** Completed tasks stay on their original day; every unfinished task moves. */
+export function selectRolloverTodos(todos: Todo[]): Todo[] {
+  return todos.filter(todo =>
+    !todo.is_completed &&
+    CALENDAR_DATE_PATTERN.test(todo.date) &&
+    !todo.is_recurring &&
+    !todo.due_date &&
+    !todo.parent_due_id &&
+    !todo.habit_category
+  );
+}
+
+export function planCrossesIntoDate(todo: Todo, targetDate: string): boolean {
+  if (!todo.plan_started_at || !todo.plan_ended_at) return false;
+  const start = new Date(todo.plan_started_at).getTime();
+  const end = new Date(todo.plan_ended_at).getTime();
+  const midnight = new Date(`${targetDate}T00:00:00`).getTime();
+  return Number.isFinite(start) && Number.isFinite(end) && start < midnight && end > midnight;
+}
 
 /**
  * Merge unfinished tasks carried over from previous days into today's list.
@@ -25,15 +47,24 @@ export function mergeCarriedTodos(todos: Todo[], pastDayOpenTodos: Todo[]): Todo
   if (!pastDayOpenTodos.length) return todos;
 
   const existing = new Set(todos.map(t => t.id));
-  const todayTitles = new Set(
-    todos.filter(t => !t.is_completed).map(t => normTitle(t.title))
-  );
+  const todayByTitle = new Map<string, Todo[]>();
+  for (const todo of todos) {
+    if (todo.is_completed) continue;
+    const key = normTitle(todo.title);
+    const rows = todayByTitle.get(key);
+    if (rows) rows.push(todo);
+    else todayByTitle.set(key, [todo]);
+  }
 
   const byTitle = new Map<string, Todo>();
   for (const t of pastDayOpenTodos) {
     if (existing.has(t.id) || t.is_completed) continue;
     const key = normTitle(t.title);
-    if (todayTitles.has(key)) continue;
+    const matchingToday = todayByTitle.get(key) || [];
+    // Never hide a live cross-day timer behind a same-title task already
+    // created for today. The running row is the user's current activity and
+    // must remain reachable even if the physical date move failed.
+    if (matchingToday.length > 0 && (!isRunning(t) || matchingToday.some(isRunning))) continue;
     const prev = byTitle.get(key);
     if (!prev) {
       byTitle.set(key, t);

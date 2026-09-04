@@ -3,7 +3,7 @@ import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
-import { MapPin, Image, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { MapPin, Image, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronRight, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
 import { InputPlusMenu, detectAutoTags } from '@/components/InputPlusMenu';
 import { useReminders } from '@/hooks/useReminders';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,7 @@ import { OnThisDayCard } from './today/OnThisDayCard';
 import { MemoryHorizonsCard } from './today/MemoryHorizonsCard';
 import { PlanDrift } from '@/components/today/PlanDrift';
 import { StorageImage } from "@/components/StorageImage";
+import { DAILY_ARTWORKS, getDailyArtwork, isLegacyKeyedMapImageUrl, isMuseumArtworkUrl } from '@/lib/dailyArtwork';
 
 type TimeBreakdownRange = 'today' | 'week' | 'month';
 
@@ -112,6 +113,7 @@ interface TodayViewProps {
   bedtimeHour?: number;
   bedtimeMinute?: number;
   homepageImageUrl?: string;
+  dueStore?: ReturnType<typeof useDues>;
   onOpenVoiceSheet?: () => void;
   voiceSheetOpen?: boolean;
 }
@@ -124,12 +126,13 @@ const DEFAULT_BEDTIME_MINUTE = 30;
 const DEFAULT_WAKE_HOUR = 8;
 const DEFAULT_WAKE_MINUTE = 0;
 
-export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, onFocusLocationOnMap, todayMode, onTodayModeChange, todosDone, todosTotal, completedTodos, allTodos, allMoments, historyMoments, importedEvents = [], onUpdateTodo, onUpdateImportedEvent, wakeHour: propWakeHour, wakeMinute: propWakeMinute, bedtimeHour: propBedtimeHour, bedtimeMinute: propBedtimeMinute, homepageImageUrl, onOpenVoiceSheet, voiceSheetOpen }: TodayViewProps) {
+export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, onFocusLocationOnMap, todayMode, onTodayModeChange, todosDone, todosTotal, completedTodos, allTodos, allMoments, historyMoments, importedEvents = [], onUpdateTodo, onUpdateImportedEvent, wakeHour: propWakeHour, wakeMinute: propWakeMinute, bedtimeHour: propBedtimeHour, bedtimeMinute: propBedtimeMinute, homepageImageUrl, dueStore, onOpenVoiceSheet, voiceSheetOpen }: TodayViewProps) {
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
   const isDarkMode = useIsDarkMode();
   const { getWorkType } = useWorkTypes();
-  const { dues, addDue, updateDue, incrementHabitCount, setHabitCount } = useDues();
+  const fallbackDueStore = useDues(!dueStore);
+  const { dues, addDue, updateDue, incrementHabitCount, setHabitCount } = dueStore ?? fallbackDueStore;
   const { defaultRecapTags, customRecapTags, allEmojis, orderedRecapTags } = useCustomOptions();
   const emojis = allEmojis;
   const quickTags = orderedRecapTags.map(key => {
@@ -300,12 +303,17 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const recapContentRef = useRef<HTMLDivElement>(null);
   const recapRightColRef = useRef<HTMLDivElement>(null);
   const [recapInputDock, setRecapInputDock] = useState<{ left: number; width: number } | null>(null);
-  const [headerImageSrc, setHeaderImageSrc] = useState(homepageImageUrl || monetPainting);
-  const [timeBreakdownRange, setTimeBreakdownRange] = useState<TimeBreakdownRange>('today');
-  
-  
   const today = selectedDate;
   const selectedDateStr = format(today, 'yyyy-MM-dd');
+  const customHomepageImageUrl = isLegacyKeyedMapImageUrl(homepageImageUrl) ? undefined : homepageImageUrl;
+  const [artworkOffset, setArtworkOffset] = useState(0);
+  const [failedArtworkCount, setFailedArtworkCount] = useState(0);
+  const dailyArtwork = useMemo(
+    () => getDailyArtwork(selectedDateStr, artworkOffset),
+    [artworkOffset, selectedDateStr],
+  );
+  const [headerImageSrc, setHeaderImageSrc] = useState(customHomepageImageUrl || dailyArtwork.imageUrl);
+  const [timeBreakdownRange, setTimeBreakdownRange] = useState<TimeBreakdownRange>('today');
   const todayMoments = getMomentsForDate(format(today, 'yyyy-MM-dd'));
   const recapHabits = useMemo(
     () => dues.filter(due => due.habit_category !== null && due.show_in_recap_daily && !due.is_completed),
@@ -313,8 +321,13 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   );
 
   useEffect(() => {
-    setHeaderImageSrc(homepageImageUrl || monetPainting);
-  }, [homepageImageUrl]);
+    setArtworkOffset(0);
+    setFailedArtworkCount(0);
+  }, [selectedDateStr]);
+
+  useEffect(() => {
+    setHeaderImageSrc(customHomepageImageUrl || dailyArtwork.imageUrl);
+  }, [customHomepageImageUrl, dailyArtwork.imageUrl]);
 
   // Sort moments by effective start time (timer_started_at or createdAt), chronologically
   const sortedMoments = useMemo(() => {
@@ -1015,14 +1028,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         <div className="flex items-start gap-3 sm:gap-5 px-4 sm:px-6">
           {/* Left: homepage image */}
           <div
-            className="w-[58%] lg:w-[66%] flex-shrink-0 overflow-hidden rounded-2xl select-none"
+            className="group relative w-[58%] lg:w-[66%] flex-shrink-0 overflow-hidden rounded-2xl select-none"
             style={{ height: 84 }}
             onDragStart={(e) => e.preventDefault()}
             onMouseDown={(e) => e.preventDefault()}
           >
             <img
               src={headerImageSrc}
-              alt="Daily painting"
+              alt={customHomepageImageUrl ? (lang === 'zh' ? '主页氛围图' : 'Home image') : `${dailyArtwork.title} — ${dailyArtwork.artist}`}
               draggable={false}
               style={{
                 width: '100%',
@@ -1034,13 +1047,47 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 pointerEvents: 'none',
               } as React.CSSProperties}
               onError={() => {
-                setHeaderImageSrc((current) => {
-                  if (!current || current === dailyPainting) return '';
-                  if (current === monetPainting) return dailyPainting;
-                  return monetPainting;
-                });
+                if (customHomepageImageUrl && headerImageSrc === customHomepageImageUrl) {
+                  setHeaderImageSrc(dailyArtwork.imageUrl);
+                  return;
+                }
+                if (isMuseumArtworkUrl(headerImageSrc) && failedArtworkCount < DAILY_ARTWORKS.length - 1) {
+                  setFailedArtworkCount(count => count + 1);
+                  setArtworkOffset(offset => offset + 1);
+                  return;
+                }
+                if (headerImageSrc === dailyPainting) {
+                  setHeaderImageSrc('');
+                } else {
+                  setHeaderImageSrc(headerImageSrc === monetPainting ? dailyPainting : monetPainting);
+                }
               }}
             />
+            {!customHomepageImageUrl && isMuseumArtworkUrl(headerImageSrc) && (
+              <>
+                <a
+                  href={dailyArtwork.artworkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="absolute bottom-1.5 left-1.5 max-w-[calc(100%-42px)] truncate rounded-full bg-background/80 px-2 py-1 text-[9px] font-medium text-foreground/75 shadow-sm backdrop-blur-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  title={`${dailyArtwork.title}, ${dailyArtwork.date} — ${dailyArtwork.artist}. Cleveland Museum of Art`}
+                >
+                  {dailyArtwork.title} · {dailyArtwork.artist}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFailedArtworkCount(0);
+                    setArtworkOffset(offset => offset + 1);
+                  }}
+                  className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-foreground/65 shadow-sm backdrop-blur-sm transition-[color,transform] duration-200 hover:scale-105 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                  aria-label={lang === 'zh' ? '换一幅馆藏作品' : 'Show another museum artwork'}
+                  title={lang === 'zh' ? '换一幅' : 'Shuffle artwork'}
+                >
+                  <RefreshCw size={12} strokeWidth={2} />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Right: date info */}
@@ -1390,7 +1437,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                   <p className="mt-3 text-[12px] leading-6 text-muted-foreground/70">
                     {lang === 'zh' ? '还没有记录。在下方添加一条 moment。' : 'Nothing logged yet. Add a moment below.'}
                   </p>
-                  <ChevronDown size={16} className="mx-auto mt-3 text-muted-foreground/35 animate-bounce" aria-hidden />
+                  <ChevronDown size={16} className="mx-auto mt-3 text-muted-foreground/35" aria-hidden />
                 </div>
               </div>
             );

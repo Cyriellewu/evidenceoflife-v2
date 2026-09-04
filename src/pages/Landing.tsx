@@ -188,7 +188,7 @@ export default function Landing() {
             <h1 className="mt-7 text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] text-[rgb(var(--lp-ink))] sm:text-6xl">
               {t('landing.heroTitle1')}
               <br />
-              <span className="bg-gradient-to-br from-[rgb(var(--lp-terracotta-light))] via-[rgb(var(--lp-terracotta))] to-[rgb(var(--lp-terracotta-dark))] bg-clip-text text-transparent">
+              <span className="text-[rgb(var(--lp-terracotta))]">
                 {t('landing.heroTitle2')}
               </span>
             </h1>

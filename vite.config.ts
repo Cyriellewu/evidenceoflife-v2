@@ -10,6 +10,11 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
+    // Non-app churn (skill clones, critique snapshots, atomic edit temp dirs)
+    // races the chokidar watcher and crashes the dev server with EBUSY.
+    watch: {
+      ignored: ["**/.agents/**", "**/.impeccable/**", "**/*.tmpdir/**"],
+    },
   },
   plugins: [react()],
   resolve: {

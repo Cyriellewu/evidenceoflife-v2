@@ -94,14 +94,14 @@ function parseICSDate(str: string): string {
   return new Date().toISOString();
 }
 
-export function useImportedEvents() {
+export function useImportedEvents(enabled = true) {
   const { user } = useAuth();
   const [events, setEvents] = useState<ImportedEvent[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchEvents = useCallback(async () => {
-    if (!user) return;
+    if (!enabled || !user) return;
 
     try {
       const { data, error } = await supabase
@@ -128,15 +128,17 @@ export function useImportedEvents() {
     } catch (err) {
       console.error('Failed to fetch imported events (exception):', err);
     }
-  }, [user]);
-
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  }, [enabled, user]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (enabled) void fetchEvents();
+  }, [enabled, fetchEvents]);
+
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return;
     window.addEventListener(IMPORTED_EVENTS_CHANGED, fetchEvents);
     return () => window.removeEventListener(IMPORTED_EVENTS_CHANGED, fetchEvents);
-  }, [fetchEvents]);
+  }, [enabled, fetchEvents]);
 
   const importICS = useCallback(async (file: File): Promise<boolean> => {
     if (!user) return false;

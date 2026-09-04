@@ -463,6 +463,13 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
             : null;
 
   const isDark = useIsDarkMode();
+  const activityTags = todo.tags?.filter(tag => TAG_CATEGORY_COLORS[tag.toLowerCase()]);
+  const taskAccentColor = getActivityAccentColor({
+    title: todo.title,
+    tags: activityTags,
+    fallback: workTypeMeta.color,
+    isDarkMode: isDark,
+  });
 
   // Live color for state signaling — always the page accent (terracotta), never
   // the tag's own hex. Tag identity lives inside the tag chip; the row-level
@@ -485,8 +492,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   // soft glow halo), and completed rows fade with opacity.
 
   // A single, quiet tint for each state. One signal, not four.
-  //   Ongoing  → 2px live-colored spine on the left edge (see below), plus a
-  //              whisper of tint. No pulsing dot, no gradient, no ring.
+  //   Ongoing  → a whisper of tint. No pulsing dot, gradient, or ring.
   //   Planned  → hairline accent border only. No fill. The row still reads as
   //              "reserved" at rest, but stays out of the way.
   //   Idle     → nothing. Silence is the strongest baseline.
@@ -494,7 +500,6 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     ? {
         background: liveTint(isDark ? 0.09 : 0.05),
         borderColor: liveTint(isDark ? 0.22 : 0.18),
-        boxShadow: `inset 2px 0 0 0 ${liveTint(isDark ? 0.7 : 0.55)}`,
       }
     : isScheduled
       ? { borderColor: `hsl(var(--accent) / ${isDark ? 0.22 : 0.28})` }
@@ -528,7 +533,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     <div className="flex w-full max-w-[920px] flex-col">
     <div
       className={cn(
-        "flex h-[50px] w-full items-center gap-3 px-3.5 group rounded-[16px] transition-colors relative select-none border",
+        "flex h-[50px] w-full items-center gap-2.5 px-3.5 group rounded-[16px] transition-colors relative select-none border",
         containerCls
       )}
       style={activeCategoryStyle}
@@ -541,6 +546,11 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         handleDoubleClickDelete();
       }}
     >
+      <span
+        aria-hidden="true"
+        className="h-[24px] w-[3px] flex-shrink-0 rounded-full"
+        style={{ backgroundColor: taskAccentColor }}
+      />
       <button onClick={onToggleWithProgress} className="flex-shrink-0">
         {todo.is_completed ? <CheckCircle2 size={18} className="text-primary/85" /> : <Circle size={18} className="text-muted-foreground/45" />}
       </button>
@@ -668,7 +678,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   <button
                     type="button"
                     className={cn(
-                      "items-center gap-1 rounded-full px-1.5 py-[2px] text-[12px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.85] dark:!text-foreground/80 dark:!bg-white/[0.06]",
+                      "items-center gap-1 rounded-full px-1.5 py-[2px] text-[12px] font-medium transition-colors hover:brightness-95 data-[state=open]:inline-flex dark:saturate-[0.85] dark:!text-foreground/80 dark:!bg-white/[0.06]",
                       workTypeMatchesTag
                         ? "hidden"
                         : hasExplicitWorkType ? "inline-flex" : "hidden group-hover:inline-flex"
@@ -1125,7 +1135,10 @@ export function PlanView({
   onSwitchToRecap,
   moments = [],
   todos: todosProp,
-  importedEvents: importedEventsProp = [],
+  todoStore,
+  importedEvents: importedEventsProp,
+  customOptionsStore,
+  remindersStore,
   prevDayTodos = [],
   prevDayMoments = [],
   onAddMoment,
@@ -1142,7 +1155,10 @@ export function PlanView({
   onSwitchToRecap?: () => void;
   moments?: Moment[];
   todos?: Todo[];
+  todoStore?: ReturnType<typeof useTodos>;
   importedEvents?: ImportedEvent[];
+  customOptionsStore?: ReturnType<typeof useCustomOptions>;
+  remindersStore?: ReturnType<typeof useReminders>;
   prevDayTodos?: Todo[];
   prevDayMoments?: Moment[];
   onAddMoment?: (data: {
@@ -1162,6 +1178,7 @@ export function PlanView({
   onDeleteMoment?: (id: string) => void;
 }) {
   const todayStr = date || format(new Date(), 'yyyy-MM-dd');
+  const fallbackTodoStore = useTodos(todayStr, !todoStore);
   const {
     todos: hookTodos,
     pastDayOpenTodos,
@@ -1179,20 +1196,23 @@ export function PlanView({
     updateStepPlanTime: rawUpdateStepPlanTime,
     updateStepTitle: rawUpdateStepTitle,
     toggleRecurring,
-  } = useTodos(todayStr);
+  } = todoStore ?? fallbackTodoStore;
   
-  const { events: importedEvents } = useImportedEvents();
+  const fallbackImportedEvents = useImportedEvents(importedEventsProp === undefined);
+  const importedEvents = importedEventsProp ?? fallbackImportedEvents.events;
   const todos = todosProp ?? hookTodos;
   const dateMoments = moments;
   const dateImportedEvents = useMemo(() => {
-    if (importedEventsProp.length > 0) return importedEventsProp;
+    if (importedEventsProp !== undefined) return importedEventsProp;
     return importedEvents.filter(e => format(new Date(e.start_time), 'yyyy-MM-dd') === todayStr);
   }, [importedEvents, importedEventsProp, todayStr]);
-  const { defaultPlanTags, customPlanTags, orderedPlanTags } = useCustomOptions();
+  const fallbackCustomOptions = useCustomOptions(!customOptionsStore);
+  const { defaultPlanTags, customPlanTags, orderedPlanTags } = customOptionsStore ?? fallbackCustomOptions;
   const { getWorkType: getPlanWorkType } = useWorkTypes();
   const { t: tLang, lang } = useLanguage();
   const planViewIsDark = useIsDarkMode();
-  const { addReminder } = useReminders();
+  const fallbackReminders = useReminders(!remindersStore);
+  const { addReminder } = remindersStore ?? fallbackReminders;
   const getElapsedRef = useRef<(todo: Todo) => number>(() => 0);
   const getCurrentSessionElapsedRef = useRef<(todo: Todo) => number>(() => 0);
   const clearFreshTimerStartRef = useRef<(todoId: string) => void>(() => {});
@@ -1333,6 +1353,7 @@ export function PlanView({
 
   const [addingSegment, setAddingSegment] = useState<string | null>(null);
   const [segmentNewTitle, setSegmentNewTitle] = useState('');
+  const segmentComposerRef = useRef<HTMLDivElement>(null);
   const [isAddingQuick, setIsAddingQuick] = useState(false);
   const [listMode, setListModeState] = useState<'grouped' | 'flat'>(() => readPlanListMode());
   const setListMode = useCallback((mode: 'grouped' | 'flat') => {
@@ -1342,6 +1363,19 @@ export function PlanView({
       window.dispatchEvent(new CustomEvent('plan-list-mode-change', { detail: mode }));
     }
   }, []);
+
+  useEffect(() => {
+    if (!addingSegment || segmentNewTitle.trim()) return;
+
+    const cancelEmptyComposer = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || segmentComposerRef.current?.contains(event.target)) return;
+      setSegmentNewTitle('');
+      setAddingSegment(null);
+    };
+
+    document.addEventListener('pointerdown', cancelEmptyComposer);
+    return () => document.removeEventListener('pointerdown', cancelEmptyComposer);
+  }, [addingSegment, segmentNewTitle]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1371,6 +1405,15 @@ export function PlanView({
     return new Map();
   });
   const pauseStatesRef = useRef(_initPauseStates);
+  const restPausedTimerIdsRef = useRef<Set<string>>((() => {
+    try {
+      const raw = localStorage.getItem('plan-rest-paused-timer-ids');
+      const ids: unknown = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : []);
+    } catch {
+      return new Set();
+    }
+  })());
   const [pausedTimers, setPausedTimers] = useState<Set<string>>(() => {
     const s = new Set<string>();
     _initPauseStates.forEach((v, k) => { if (v.pausedAt !== null) s.add(k); });
@@ -1450,7 +1493,6 @@ export function PlanView({
     () => [...todayActiveTimerTodos, ...prevDayActiveTimerTodos],
     [todayActiveTimerTodos, prevDayActiveTimerTodos],
   );
-  const restingTodos = todos.filter(t => !t.is_completed && !isActivelyRunningTodo(t) && (t.timer_seconds || 0) > 0 && !!t.timer_ended_at);
   // Tasks whose work is happening via a running STEP timer (not the task's own
   // timer). Maps parentId → the running step's `timer_started_at`. Used to
   // surface the parent on the timeline as an "ongoing" block (synthesized from
@@ -1490,10 +1532,10 @@ export function PlanView({
   }, [todos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activeTimerTodos.length === 0 && restingTodos.length === 0 && runningStepByParent.size === 0) return;
+    if (runningStepByParent.size === 0) return;
     const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [activeTimerTodos.length, restingTodos.length, runningStepByParent.size]);
+  }, [runningStepByParent.size]);
 
   useEffect(() => {
     const saved = localStorage.getItem(captureDraftStorageKey);
@@ -1840,6 +1882,53 @@ export function PlanView({
     setPauseStateVersion(v => v + 1);
   }, [savePauseStatesToStorage]);
 
+  const saveRestPausedTimerIds = useCallback(() => {
+    try {
+      localStorage.setItem(
+        'plan-rest-paused-timer-ids',
+        JSON.stringify(Array.from(restPausedTimerIdsRef.current)),
+      );
+    } catch {
+      // Ignore storage failures in private mode.
+    }
+  }, []);
+
+  const handleTimelineRestStart = useCallback(() => {
+    const pausedAt = Date.now();
+    const pausedByThisRest = new Set(restPausedTimerIdsRef.current);
+
+    activeTimerTodos.forEach(todo => {
+      const current = pauseStatesRef.current.get(todo.id);
+      if (current?.pausedAt != null) return;
+
+      handlePauseStateChange(todo.id, {
+        pausedAt,
+        totalPausedMs: current?.totalPausedMs || 0,
+      });
+      pausedByThisRest.add(todo.id);
+    });
+
+    restPausedTimerIdsRef.current = pausedByThisRest;
+    saveRestPausedTimerIds();
+  }, [activeTimerTodos, handlePauseStateChange, saveRestPausedTimerIds]);
+
+  const handleTimelineRestEnd = useCallback(() => {
+    const resumedAt = Date.now();
+
+    restPausedTimerIdsRef.current.forEach(todoId => {
+      const current = pauseStatesRef.current.get(todoId);
+      if (current?.pausedAt == null) return;
+
+      handlePauseStateChange(todoId, {
+        pausedAt: null,
+        totalPausedMs: current.totalPausedMs + Math.max(0, resumedAt - current.pausedAt),
+      });
+    });
+
+    restPausedTimerIdsRef.current = new Set();
+    saveRestPausedTimerIds();
+  }, [handlePauseStateChange, saveRestPausedTimerIds]);
+
   const [resetPromptTodoId, setResetPromptTodoId] = useState<string | null>(null);
 
   const handleStartFocus = (todo: Todo) => {
@@ -2173,6 +2262,7 @@ export function PlanView({
     });
     return { ...seg, todos: segTodos };
   });
+  const activeTodoCount = mainListTodos.filter(todo => !todo.is_completed).length;
 
   const archivedTodos = useMemo(() => {
     const done = todos.filter(t => t.is_completed);
@@ -2694,25 +2784,61 @@ export function PlanView({
         >
           <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-2 space-y-1 pb-28">
-              {/* Empty state — when no active tasks, invite the first action rather
-                  than leaving the column a black void next to a busy timeline. */}
-              {mainListTodos.filter(t => !t.is_completed).length === 0 && (
-                <div className="flex flex-col items-center justify-center gap-3.5 px-6 py-20 text-center animate-fade-in">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.08] text-primary/80">
-                    <NotebookPen size={22} strokeWidth={1.8} />
+              {activeTodoCount === 0 && addingSegment === null && (
+                <div className="animate-fade-in px-3 pb-5 pt-12">
+                  <div className="divide-y divide-border/35">
+                    {TIME_SEGMENTS.map(seg => (
+                      <button
+                        key={seg.id}
+                        type="button"
+                        onClick={() => {
+                          setListModeState('grouped');
+                          setCollapsedSegments(prev => {
+                            const next = new Set(prev);
+                            next.delete(seg.id);
+                            return next;
+                          });
+                          setAddingSegment(seg.id);
+                          setSegmentNewTitle('');
+                        }}
+                        className="group/placeholder flex h-[58px] w-full items-center gap-3 px-1 text-left transition-colors hover:bg-foreground/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset"
+                      >
+                        <seg.Icon
+                          size={15}
+                          strokeWidth={1.9}
+                          className={cn(
+                            "flex-shrink-0 transition-colors",
+                            seg.id === 'morning'
+                              ? "text-amber-500/85"
+                              : "text-muted-foreground/65 group-hover/placeholder:text-foreground/75"
+                          )}
+                        />
+                        <span className="text-[15px] font-medium leading-none text-foreground/78">
+                          {tLang(`plan.seg.${seg.id}` as Parameters<typeof tLang>[0]) || seg.label}
+                        </span>
+                        <span className="ml-1 text-[12px] leading-none tabular-nums text-muted-foreground/45">0</span>
+                        <ChevronRight size={15} className="ml-auto text-muted-foreground/35 transition-transform group-hover/placeholder:translate-x-0.5 group-hover/placeholder:text-muted-foreground/65" />
+                      </button>
+                    ))}
                   </div>
-                  <div className="space-y-1.5">
-                    <p className="text-[14px] font-medium text-foreground/85">
-                      {lang === 'zh' ? '今天还是一张白纸' : "Today's a blank page"}
-                    </p>
-                    <p className="mx-auto max-w-[230px] text-[12.5px] leading-relaxed text-muted-foreground/70">
-                      {lang === 'zh' ? '在下面加个任务，或从时间轴拖一件事进来。' : 'Add a task below, or drag one onto the timeline.'}
-                    </p>
+
+                  <div className="mt-11 flex flex-col items-center text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border-2 border-primary/80 text-primary/85">
+                      <NotebookPen size={25} strokeWidth={1.7} />
+                    </div>
+                    <div className="mt-5 space-y-1.5">
+                      <p className="text-[20px] font-semibold leading-tight tracking-[-0.015em] text-foreground/90">
+                        {lang === 'zh' ? '今天还没有安排' : 'Nothing planned yet'}
+                      </p>
+                      <p className="text-[14px] leading-5 text-muted-foreground/70">
+                        {lang === 'zh' ? '先加一件小事，之后再慢慢安排。' : 'Add something small. You can shape the day later.'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
               {/* Flat list mode */}
-              {listMode === 'flat' ? (
+              {(activeTodoCount > 0 || addingSegment !== null) && (listMode === 'flat' ? (
                 <div className="space-y-0.5">
                   {[...mainListTodos].filter(t => !t.is_completed).sort((a, b) => {
                     const aDoing = isActivelyRunningTodo(a) ? 1 : 0;
@@ -2816,14 +2942,30 @@ export function PlanView({
                     {!collapsedSegments.has(seg.id) && (
                       <div>
                         {addingSegment === seg.id && (
-                          <div className="flex gap-1 py-1 px-0.5">
-                            <input autoFocus value={segmentNewTitle} onChange={e => setSegmentNewTitle(e.target.value)}
-                              placeholder={`Add to ${seg.label}...`}
+                          <div ref={segmentComposerRef} className="group relative mb-0.5 flex h-[50px] w-full max-w-[920px] select-none items-center gap-2.5 rounded-[16px] border border-[#EFEFEF] bg-white/75 px-3.5 transition-colors hover:bg-[#F9F9F9] dark:border-transparent dark:bg-white/[0.02] dark:hover:bg-white/[0.05]">
+                            <span
+                              aria-hidden="true"
+                              className="h-[24px] w-[3px] flex-shrink-0 rounded-full"
+                              style={{
+                                backgroundColor: getActivityAccentColor({
+                                  title: segmentNewTitle,
+                                  fallback: WORK_TYPE_META[resolveWorkType({ title: segmentNewTitle })].color,
+                                  isDarkMode: planViewIsDark,
+                                }),
+                              }}
+                            />
+                            <Circle size={18} className="flex-shrink-0 text-muted-foreground/45" />
+                            <input
+                              autoFocus
+                              value={segmentNewTitle}
+                              onChange={e => setSegmentNewTitle(e.target.value)}
+                              placeholder={lang === 'zh' ? `添加到${tLang(`plan.seg.${seg.id}` as Parameters<typeof tLang>[0]) || seg.label}` : `Add to ${seg.label}`}
                               onKeyDown={async e => {
                                 if (isEnterSubmit(e) && segmentNewTitle.trim()) { await addTodo(segmentNewTitle.trim(), seg.id as Todo['time_segment']); setSegmentNewTitle(''); setAddingSegment(null); }
-                                if (e.key === 'Escape') setAddingSegment(null);
+                                if (e.key === 'Escape') { setSegmentNewTitle(''); setAddingSegment(null); }
                               }}
-                              className="flex-1 h-7 text-[12px] rounded-lg bg-card border border-border px-2 focus:outline-none focus:ring-1 focus:ring-primary text-foreground" />
+                              className="h-full min-w-0 flex-1 bg-transparent text-[16px] font-semibold leading-tight text-foreground outline-none placeholder:text-muted-foreground/70"
+                            />
                           </div>
                         )}
                         <div className="space-y-0.5">
@@ -2890,7 +3032,7 @@ export function PlanView({
                   </div>
                 ))}
                 </div>
-              )}
+              ))}
 
               {/* Archive: completed todos */}
               {archivedTodos.length > 0 && (
@@ -2976,43 +3118,45 @@ export function PlanView({
                   rhythmPalette={timelineRhythmPalette}
                 />
 
-                <div className="flex items-center justify-end gap-2 px-3">
+                <div className="flex items-center justify-end gap-3 px-3">
                   <div
                     role="toolbar"
                     aria-label={lang === 'zh' ? '列表布局' : 'List layout'}
-                    className="inline-flex items-center gap-px rounded-full border border-border/30 bg-muted/20 p-[3px]"
+                    className="inline-flex items-center rounded-lg bg-foreground/[0.035] p-0.5"
                   >
                     <button
                       type="button"
                       onClick={() => setListMode('flat')}
+                      aria-pressed={listMode === 'flat'}
                       title={tLang('plan.flat') || 'Flat list'}
                       className={cn(
-                        'rounded-full p-[5px] transition-colors text-muted-foreground/55 hover:text-foreground/75',
-                        listMode === 'flat' && 'bg-background text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.22)]',
+                        'rounded-md p-1.5 text-muted-foreground/45 transition-colors hover:text-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                        listMode === 'flat' && 'bg-foreground/[0.07] text-foreground/90',
                       )}
                     >
-                      <List size={14} strokeWidth={2} />
+                      <List size={13} strokeWidth={2} />
                     </button>
                     <button
                       type="button"
                       onClick={() => setListMode('grouped')}
+                      aria-pressed={listMode === 'grouped'}
                       title={tLang('plan.grouped') || 'Grouped by segment'}
                       className={cn(
-                        'rounded-full p-[5px] transition-colors text-muted-foreground/55 hover:text-foreground/75',
-                        listMode === 'grouped' && 'bg-background text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.22)]',
+                        'rounded-md p-1.5 text-muted-foreground/45 transition-colors hover:text-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                        listMode === 'grouped' && 'bg-foreground/[0.07] text-foreground/90',
                       )}
                     >
-                      <LayoutGrid size={14} strokeWidth={2} />
+                      <LayoutGrid size={13} strokeWidth={2} />
                     </button>
                   </div>
 
                   {onSwitchToRecap && (
                     <button
                       onClick={onSwitchToRecap}
-                      className="group inline-flex items-center gap-0.5 rounded-full border border-[#dccfc1]/40 bg-[#fbf8f4]/55 px-3 py-1 text-[12px] font-medium tracking-[-0.01em] text-[#8a7465]/82 transition-all hover:border-[#c9b9a8]/75 hover:bg-[#f6efe8]/85 hover:text-[#725d50] dark:border-foreground/[0.11] dark:bg-foreground/[0.04] dark:text-foreground/65 dark:hover:border-foreground/18 dark:hover:bg-foreground/[0.07] dark:hover:text-foreground/85"
+                      className="group inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] font-medium tracking-[-0.01em] text-muted-foreground/60 transition-colors hover:text-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
                       {lang === 'zh' ? '复盘' : 'Recap'}
-                      <span className="text-[#8a7465]/50 transition-transform group-hover:translate-x-0.5 dark:text-foreground/40">→</span>
+                      <span className="text-muted-foreground/35 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground/60">→</span>
                     </button>
                   )}
                 </div>
@@ -3169,6 +3313,8 @@ export function PlanView({
               onDeleteMoment={onDeleteMoment}
               activeTimerIds={timelineActiveTimerIds}
               getTimerElapsed={getTimelineTimerElapsed}
+              onRestStart={handleTimelineRestStart}
+              onRestEnd={handleTimelineRestEnd}
             />
           </div>
         </div>

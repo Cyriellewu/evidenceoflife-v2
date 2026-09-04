@@ -105,11 +105,11 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
 
   return (
     <div className="mb-6">
-      <div className="flex items-baseline justify-between mb-2">
-        <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: '#8E8E93' }}>
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="text-[13px] font-semibold text-muted-foreground">
           Life Heatmap
         </p>
-        <p className="text-[10px] font-mono" style={{ color: '#636366' }}>
+        <p className="font-mono text-[12px] text-muted-foreground">
           {totalDays} active days
         </p>
       </div>
@@ -122,9 +122,9 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
           return (
             <span
               key={i}
-              className="text-[9px] font-mono absolute"
+              className="absolute font-mono text-[11px]"
               style={{
-                color: 'hsl(var(--muted-foreground) / 0.5)',
+                color: 'hsl(var(--muted-foreground))',
                 left: 32 + ml.weekIdx * (CELL + GAP),
               }}
             >
@@ -132,7 +132,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
             </span>
           );
         })}
-        <span className="invisible text-[9px]">X</span>
+        <span className="invisible text-[11px]">X</span>
       </div>
 
       <div className="flex gap-0 mt-3 overflow-x-auto" style={{ paddingLeft: 16 }}>
@@ -140,7 +140,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
         <div className="flex flex-col flex-shrink-0 mr-1" style={{ gap: GAP }}>
           {['', 'M', '', 'W', '', 'F', ''].map((label, i) => (
             <div key={i} className="flex items-center justify-end" style={{ height: CELL, width: 14 }}>
-              <span className="text-[8px] font-mono" style={{ color: '#AEAEB2' }}>{label}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">{label}</span>
             </div>
           ))}
         </div>
@@ -168,7 +168,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
 
       {/* Legend */}
       <div className="flex items-center gap-1 mt-2" style={{ paddingLeft: 32 }}>
-        <span className="text-[9px]" style={{ color: '#AEAEB2' }}>Less</span>
+        <span className="text-[11px] text-muted-foreground">Less</span>
         {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
           <div
             key={i}
@@ -176,7 +176,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
             style={{ width: CELL, height: CELL, backgroundColor: getColor(v * (maxVal || 1)) }}
           />
         ))}
-        <span className="text-[9px]" style={{ color: '#AEAEB2' }}>More</span>
+        <span className="text-[11px] text-muted-foreground">More</span>
       </div>
     </div>
   );

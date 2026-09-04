@@ -8,7 +8,7 @@ describe('momentPhotoObjectPath', () => {
 
   it('extracts path from legacy public URLs', () => {
     const url =
-      'https://nfhnfeurajtrrtqvckpx.supabase.co/storage/v1/object/public/moment-photos/user-1/abc.jpg';
+      'https://roejikcahklpxjrapkvb.supabase.co/storage/v1/object/public/moment-photos/user-1/abc.jpg';
     expect(momentPhotoObjectPath(url)).toBe('user-1/abc.jpg');
   });
 

@@ -24,6 +24,8 @@ import { useMoments } from '@/hooks/useMoments';
 import { useTodos } from '@/hooks/useTodos';
 import { usePrevDayTodos } from '@/hooks/usePrevDayTodos';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
+import { useCustomOptions } from '@/hooks/useCustomOptions';
+import { useReminders } from '@/hooks/useReminders';
 import { useProfile } from '@/hooks/useProfile';
 import { Moment, TabType, TodayMode } from '@/types';
 import { showUndoToast } from '@/lib/undoToast';
@@ -31,6 +33,7 @@ import { extractLeadingEmoji } from '@/lib/emoji';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { FocusRecapPrompt, type FocusRecapDraft } from '@/components/FocusRecapPrompt';
 import { useLifeReminder } from '@/hooks/useLifeReminder';
+import { isLegacyKeyedMapImageUrl } from '@/lib/dailyArtwork';
 
 function isActivelyRunningTodo(todo: { timer_started_at: string | null; timer_ended_at: string | null }) {
   if (!todo.timer_started_at || todo.timer_ended_at) return false;
@@ -145,14 +148,23 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   } = useMoments();
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const prevDateStr = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
-  const { todos, updateTodo, addTodo, deleteTodo, refetch: refetchTodos } = useTodos(selectedDateStr);
+  const todoStore = useTodos(selectedDateStr);
+  const { todos, updateTodo, addTodo, deleteTodo } = todoStore;
   const prevDayTodos = usePrevDayTodos(prevDateStr);
   const { events: importedEvents, updateEvent: updateImportedEvent } = useImportedEvents();
-  const { profile } = useProfile();
-  const { addDue, dues } = useDues();
+  const customOptionsStore = useCustomOptions();
+  const remindersStore = useReminders();
+  const { profile, updateProfile } = useProfile();
+  const dueStore = useDues();
+  const { addDue, dues } = dueStore;
   const placesData = usePlaces();
   const momentStats = useMemo(() => getStats(), [getStats]);
   const embedTourEnabled = isEmbeddedDemo && searchParams.get('tour') === '1';
+
+  useEffect(() => {
+    if (!isLegacyKeyedMapImageUrl(profile?.homepage_image_url)) return;
+    void updateProfile({ homepage_image_url: null });
+  }, [profile?.homepage_image_url, updateProfile]);
 
   useEffect(() => {
     const onOverrideUpdated = () => setTimeOverrideTick(v => v + 1);
@@ -235,10 +247,6 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
       tasksDone: totalTasksDone,
     };
   }, [momentStats, todos]);
-
-  useEffect(() => {
-    if (activeTab === 'today') refetchTodos();
-  }, [activeTab, refetchTodos]);
 
   useEffect(() => {
     if (forcedDemoStep) {
@@ -484,15 +492,18 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               bedtimeHour={dayTimeOverride?.bedtime_hour ?? profile?.bedtime_hour ?? 23}
               bedtimeMinute={dayTimeOverride?.bedtime_minute ?? profile?.bedtime_minute ?? 30}
               homepageImageUrl={profile?.homepage_image_url ?? undefined}
+              dueStore={dueStore}
               onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
               voiceSheetOpen={voiceSheetOpen}
             />
             {todayMode === 'plan' && (
               <PlanView
-                onTodosChanged={refetchTodos}
                 date={selectedDateStr}
                 todos={todos}
+                todoStore={todoStore}
                 importedEvents={dateImportedEvents}
+                customOptionsStore={customOptionsStore}
+                remindersStore={remindersStore}
                 prevDayTodos={prevDayTodos}
                 prevDayMoments={prevDayMoments}
                 onViewDues={openDues}
@@ -731,6 +742,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
 
       <AppSideSheet open={activeSheet === 'dues'} onOpenChange={(open) => setActiveSheet(open ? 'dues' : null)} maxWidthClass="sm:max-w-[780px]">
         <DuesView
+          dueStore={dueStore}
           onBack={() => setActiveSheet(null)}
           onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
           voiceSheetOpen={voiceSheetOpen}
@@ -740,7 +752,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
       </AppSideSheet>
 
       <AppSideSheet open={activeSheet === 'habits'} onOpenChange={(open) => setActiveSheet(open ? 'habits' : null)} maxWidthClass="sm:max-w-[520px]">
-        <HabitsView />
+        <HabitsView dueStore={dueStore} />
       </AppSideSheet>
 
       <AppSideSheet open={activeSheet === 'links'} onOpenChange={(open) => setActiveSheet(open ? 'links' : null)} maxWidthClass="sm:max-w-[680px]">

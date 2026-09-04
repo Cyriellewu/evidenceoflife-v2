@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { parseISO, format, isToday as isTodayFn } from 'date-fns';
-import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer } from 'lucide-react';
+import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Timer } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { Moment } from '@/types';
@@ -69,6 +69,8 @@ import {
 } from './planTimeline/planTimelinePrimitives';
 import { buildPlanBlocks } from './planTimeline/buildPlanBlocks';
 import { StorageImage } from "@/components/StorageImage";
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { useTheme } from '@/hooks/useTheme';
 
 interface PlanTimelineViewProps {
   todos: Todo[];
@@ -215,34 +217,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const viewingDate = useMemo(() => new Date(`${viewingDateKey}T00:00:00`), [viewingDateKey]);
   const isViewingToday = isTodayFn(viewingDate);
 
-  // Track dark mode so we can adapt the (light-mode-tuned) hex tag colors to
-  // sit harmoniously on a dark canvas. Watches BOTH the manual `.dark` class
-  // toggle and the system color-scheme preference.
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof document === 'undefined') return false;
-    if (document.documentElement.classList.contains('dark')) return true;
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const recompute = () => {
-      const hasClass = document.documentElement.classList.contains('dark');
-      setIsDarkMode(hasClass || mq.matches);
-    };
-    recompute();
-    mq.addEventListener('change', recompute);
-    const observer = new MutationObserver(recompute);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => {
-      mq.removeEventListener('change', recompute);
-      observer.disconnect();
-    };
-  }, []);
+  const { effective: effectiveTheme } = useTheme();
+  const isDarkMode = effectiveTheme === 'dark';
 
   const rhythmNowMarkers = useMemo(() => {
     const preset = getPlanTimelineRhythmPreset(rhythmPresetId ?? DEFAULT_PLAN_TIMELINE_RHYTHM_PRESET_ID);
@@ -261,7 +237,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const timelineCanvasBg = isDarkMode ? 'hsl(240 5% 6%)' : TIMELINE_CANVAS_LIGHT;
   const timelineHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.12)' : 'rgba(55, 55, 62, 0.10)';
   const timelineHalfHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.06)' : 'rgba(55, 55, 62, 0.055)';
-  const timelineRailLabelColor = isDarkMode ? 'hsl(240 5% 86% / 0.46)' : 'rgba(75, 75, 80, 0.48)';
+  const timelineRailLabelColor = isDarkMode ? 'hsl(240 5% 86% / 0.46)' : 'rgba(54, 50, 48, 0.72)';
   const timelinePastTint = isDarkMode ? 'hsl(240 4% 100% / 0.018)' : 'rgba(15, 23, 42, 0.014)';
   // Ghost auto-plan preview — half-real placements. Warm primary tint, dashed so it
   // reads as "proposed, not committed". Focus = solid dash; background = softer dots.
@@ -832,16 +808,25 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     if (rangeDragging) setRangeDragging(null);
 
     if (dragging && dragPreview) {
-      justDraggedRef.current = true;
-      setTimeout(() => { justDraggedRef.current = false; }, 0);
-
       const releasedOutside = dragging.edge === 'move' && clientX != null && clientY != null
         ? isOutsideTimeline(clientX, clientY)
         : dragOutside;
+      const changed =
+        dragPreview.startMin !== dragging.origStart ||
+        dragPreview.endMin !== dragging.origEnd;
 
-      // If dragged outside the timeline, act on the block being dragged.
-      // In Both mode this can still be a plan frame, so don't key this off the visible tab.
-      if (releasedOutside) {
+      if (releasedOutside || changed) {
+        justDraggedRef.current = true;
+        setTimeout(() => { justDraggedRef.current = false; }, 0);
+      }
+
+      // A press-and-release without movement is a click, not a drag. Avoid
+      // rewriting timestamps so the subsequent click can open the editor.
+      if (!releasedOutside && !changed) {
+        // No-op.
+      } else if (releasedOutside) {
+        // If dragged outside the timeline, act on the block being dragged.
+        // In Both mode this can still be a plan frame, so don't key this off the visible tab.
         if (dragging.target === 'plan' && onUnscheduleTodo) {
           // Plan frame: move task back to the list.
           onUnscheduleTodo(dragging.id);
@@ -947,15 +932,20 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     // that has a real timer span, rewrite the timer fields too — collapsing the
     // block to exactly the range the user entered.
     const todo = todos.find(t => t.id === blockId);
-    const patch: Partial<Todo> = { plan_started_at: startISO, plan_ended_at: endISO };
-    if (todo?.is_completed && todo.timer_started_at) {
-      patch.timer_started_at = startISO;
-      patch.timer_ended_at = endISO;
-      patch.timer_seconds = Math.max(0, (parsedEnd - parsedStart) * 60);
-    }
+    const block = planBlocks.find(item => item.id === blockId);
+    const target = block
+      ? getBlockEditTarget(block, displayMode, !!activeTimerIds?.has(blockId))
+      : null;
+    const patch: Partial<Todo> = target === 'actual'
+      ? {
+          timer_started_at: startISO,
+          timer_ended_at: endISO,
+          timer_seconds: Math.max(0, (parsedEnd - parsedStart) * 60),
+        }
+      : { plan_started_at: startISO, plan_ended_at: endISO };
     onUpdateTodo(blockId, patch);
     setEditingTimeBlockId(null);
-  }, [editingTimeStart, editingTimeEnd, date, onUpdateTodo, onUpdateMoment, parseMomentBlockId, todos]);
+  }, [activeTimerIds, date, displayMode, editingTimeEnd, editingTimeStart, getBlockEditTarget, onUpdateMoment, onUpdateTodo, parseMomentBlockId, planBlocks, todos]);
 
   const handleRestToggle = useCallback(() => {
     if (restStartMin !== null) {
@@ -1262,7 +1252,10 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     const keepActionsVisible = isResumeBlockSelected || !!isTimerActive || blockCoversNow;
     const editTarget = getBlockEditTarget(block, displayMode, !!isTimerActive);
     const isEditable = !isImported && !block.readOnly && (isMoment ? !!onUpdateMoment : !!editTarget);
-    const isEditingThis = editingBlockId === block.id;
+    const isEditingThis =
+      editingBlockId === block.id ||
+      editingTimeBlockId === block.id ||
+      editingActualBlockId === block.id;
     const tagIcon = getTagIcon(block.tags, block.title);
     const workType = block.source === 'imported'
       ? null
@@ -1500,6 +1493,26 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       ? `0 0 0 1px ${colorWithAlpha(0.22)}, 0 0 0 3px ${colorWithAlpha(0.1)}`
       : undefined;
 
+    const beginEditingBlock = () => {
+      if (!isEditable || !editTarget) return;
+      const editStart = editTarget === 'actual' ? actualStart : planStart;
+      const editEnd = editTarget === 'actual' ? actualEnd : planEnd;
+
+      setSelectedResumeBlockId(null);
+      setEditingBlockId(null);
+      setEditingTimeBlockId(null);
+      setEditingActualBlockId(null);
+      setEditingBlockTitle(block.title);
+      setEditingTimeStart(fmtTime(editStart));
+      setEditingTimeEnd(fmtTime(editEnd));
+
+      if (veryCompactLayout || microLayout) {
+        setEditingTimeBlockId(block.id);
+      } else {
+        setEditingBlockId(block.id);
+      }
+    };
+
     // Calculate actual fill percentage (only when timer is active)
     let actualFillPct = 0;
     if (block.isCompleted) {
@@ -1670,6 +1683,10 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           if (justDraggedRef.current || isEditingThis) return;
           const target = e.target as HTMLElement;
           if (target.closest('[data-block-action="true"]')) return;
+          if (isEditable) {
+            beginEditingBlock();
+            return;
+          }
           setSelectedResumeBlockId(prev => (prev === block.id ? null : block.id));
         }}
       >
@@ -2093,37 +2110,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 )}
               </button>
             )}
-            <button
-              onClick={() => {
-                if (displayMode === 'actual' && hasActual && !isTimerActive) {
-                  setEditingActualBlockId(block.id);
-                  setEditingActualStart(fmtTime(actualStart));
-                  setEditingActualEnd(fmtTime(actualEnd));
-                  return;
-                }
-                // For a completed block the visible extent IS the actual span,
-                // so seed the editor with actual times — editing them rewrites
-                // the timer fields (see handleSaveBlockTime) and the block
-                // collapses to match. Plan-only/in-progress blocks keep plan.
-                const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
-                const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
-                if (veryCompactLayout || microLayout) {
-                  setEditingTimeBlockId(block.id);
-                  setEditingTimeStart(fmtTime(seedStart));
-                  setEditingTimeEnd(fmtTime(seedEnd));
-                  return;
-                }
-                setEditingBlockId(block.id);
-                setEditingBlockTitle(block.title);
-                setEditingTimeStart(fmtTime(seedStart));
-                setEditingTimeEnd(fmtTime(seedEnd));
-              }}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
-              title="Edit"
-              aria-label="Edit"
-            >
-              <Pencil size={14} />
-            </button>
             {displayMode === 'plan' && onUnscheduleTodo && !block.isCompleted && (
               <button onClick={() => onUnscheduleTodo(block.id)} className="p-1 rounded text-muted-foreground hover:text-accent-foreground transition-colors" title="Move back to list" aria-label="Move back to list"><ArrowLeft size={12} /></button>
             )}
@@ -2151,67 +2137,129 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         )}
 
         {editingTimeBlockId === block.id && veryCompactLayout && (
-          <div
-            className="absolute right-0 top-full z-40 mt-1 flex items-center gap-1 rounded-xl border border-border/60 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => e.stopPropagation()}
-          >
-            <input
-              autoFocus
-              value={editingTimeStart}
-              onChange={e => setEditingTimeStart(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
-              placeholder="HH:MM"
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveBlockTime(block.id);
-                if (e.key === 'Escape') setEditingTimeBlockId(null);
-              }}
-            />
-            <span className="text-[10px] text-muted-foreground/55">→</span>
-            <input
-              value={editingTimeEnd}
-              onChange={e => setEditingTimeEnd(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
-              placeholder="HH:MM"
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveBlockTime(block.id);
-                if (e.key === 'Escape') setEditingTimeBlockId(null);
-              }}
-              onBlur={() => handleSaveBlockTime(block.id)}
-            />
-          </div>
+          <Popover open onOpenChange={open => { if (!open) setEditingTimeBlockId(null); }}>
+            <PopoverAnchor asChild>
+              <span className="pointer-events-none absolute inset-0" aria-hidden="true" />
+            </PopoverAnchor>
+            <PopoverContent
+              side="right"
+              align="start"
+              sideOffset={8}
+              collisionPadding={12}
+              sticky="always"
+              className="z-[80] flex w-[230px] flex-col gap-2.5 rounded-xl border-border/60 bg-popover p-3 shadow-xl"
+              onOpenAutoFocus={e => e.preventDefault()}
+            >
+              <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+                {lang === 'zh' ? '名称' : 'Name'}
+                <input
+                  autoFocus
+                  value={editingBlockTitle}
+                  onChange={e => setEditingBlockTitle(e.target.value)}
+                  onBlur={() => renameBlock(block, editingBlockTitle)}
+                  className="w-full rounded-lg bg-secondary/80 px-2.5 py-1.5 text-[13px] font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !isImeComposing(e.nativeEvent) && editingBlockTitle.trim()) {
+                      renameBlock(block, editingBlockTitle);
+                    }
+                    if (e.key === 'Escape') setEditingTimeBlockId(null);
+                  }}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+                {lang === 'zh' ? '时间' : 'Time'}
+                <span className="flex items-center gap-1.5">
+                  <input
+                    value={editingTimeStart}
+                    onChange={e => setEditingTimeStart(e.target.value)}
+                    className="min-w-0 flex-1 rounded-md bg-secondary/80 px-1.5 py-1 text-center font-mono text-[12px] tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    aria-label={lang === 'zh' ? '开始时间' : 'Start time'}
+                    placeholder="HH:MM"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveBlockTime(block.id);
+                      if (e.key === 'Escape') setEditingTimeBlockId(null);
+                    }}
+                  />
+                  <span className="text-[11px] text-muted-foreground/65">→</span>
+                  <input
+                    value={editingTimeEnd}
+                    onChange={e => setEditingTimeEnd(e.target.value)}
+                    className="min-w-0 flex-1 rounded-md bg-secondary/80 px-1.5 py-1 text-center font-mono text-[12px] tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    aria-label={lang === 'zh' ? '结束时间' : 'End time'}
+                    placeholder="HH:MM"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveBlockTime(block.id);
+                      if (e.key === 'Escape') setEditingTimeBlockId(null);
+                    }}
+                    onBlur={() => handleSaveBlockTime(block.id)}
+                  />
+                </span>
+              </label>
+            </PopoverContent>
+          </Popover>
         )}
 
         {editingActualBlockId === block.id && veryCompactLayout && (
-          <div
-            className="absolute right-0 top-full z-40 mt-1 flex items-center gap-1 rounded-xl border border-border/60 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => e.stopPropagation()}
-          >
-            <input
-              autoFocus
-              value={editingActualStart}
-              onChange={e => setEditingActualStart(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
-              placeholder="HH:MM"
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveActualTime(block.id);
-                if (e.key === 'Escape') setEditingActualBlockId(null);
-              }}
-            />
-            <span className="text-[10px] text-muted-foreground/55">→</span>
-            <input
-              value={editingActualEnd}
-              onChange={e => setEditingActualEnd(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
-              placeholder="HH:MM"
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveActualTime(block.id);
-                if (e.key === 'Escape') setEditingActualBlockId(null);
-              }}
-              onBlur={() => handleSaveActualTime(block.id)}
-            />
-          </div>
+          <Popover open onOpenChange={open => { if (!open) setEditingActualBlockId(null); }}>
+            <PopoverAnchor asChild>
+              <span className="pointer-events-none absolute inset-0" aria-hidden="true" />
+            </PopoverAnchor>
+            <PopoverContent
+              side="right"
+              align="start"
+              sideOffset={8}
+              collisionPadding={12}
+              sticky="always"
+              className="z-[80] flex w-[230px] flex-col gap-2.5 rounded-xl border-border/60 bg-popover p-3 shadow-xl"
+              onOpenAutoFocus={e => e.preventDefault()}
+            >
+              <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+                {lang === 'zh' ? '名称' : 'Name'}
+                <input
+                  autoFocus
+                  value={editingBlockTitle}
+                  onChange={e => setEditingBlockTitle(e.target.value)}
+                  onBlur={() => renameBlock(block, editingBlockTitle)}
+                  className="w-full rounded-lg bg-secondary/80 px-2.5 py-1.5 text-[13px] font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !isImeComposing(e.nativeEvent) && editingBlockTitle.trim()) {
+                      renameBlock(block, editingBlockTitle);
+                    }
+                    if (e.key === 'Escape') setEditingActualBlockId(null);
+                  }}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+                {lang === 'zh' ? '时间' : 'Time'}
+                <span className="flex items-center gap-1.5">
+                  <input
+                    value={editingActualStart}
+                    onChange={e => setEditingActualStart(e.target.value)}
+                    className="min-w-0 flex-1 rounded-md bg-secondary/80 px-1.5 py-1 text-center font-mono text-[12px] tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    aria-label={lang === 'zh' ? '开始时间' : 'Start time'}
+                    placeholder="HH:MM"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveActualTime(block.id);
+                      if (e.key === 'Escape') setEditingActualBlockId(null);
+                    }}
+                  />
+                  <span className="text-[11px] text-muted-foreground/65">→</span>
+                  <input
+                    value={editingActualEnd}
+                    onChange={e => setEditingActualEnd(e.target.value)}
+                    className="min-w-0 flex-1 rounded-md bg-secondary/80 px-1.5 py-1 text-center font-mono text-[12px] tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    aria-label={lang === 'zh' ? '结束时间' : 'End time'}
+                    placeholder="HH:MM"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveActualTime(block.id);
+                      if (e.key === 'Escape') setEditingActualBlockId(null);
+                    }}
+                    onBlur={() => handleSaveActualTime(block.id)}
+                  />
+                </span>
+              </label>
+            </PopoverContent>
+          </Popover>
         )}
 
         {/* Content area — anchored to the primary (actual or plan) block, not always y=0 */}
@@ -2277,7 +2325,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const showPlanActualBars = false;
             return (
               <>
-                {isEditingThis ? (
+                {editingBlockId === block.id ? (
                   <div
                     className="flex flex-col gap-1.5 min-w-0"
                     onMouseDown={e => e.stopPropagation()}

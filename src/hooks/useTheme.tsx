@@ -14,8 +14,8 @@ function resolveEffective(mode: ThemeMode): 'light' | 'dark' {
 
 function applyTheme(effective: 'light' | 'dark') {
   const root = document.documentElement;
-  if (effective === 'dark') root.classList.add('dark');
-  else root.classList.remove('dark');
+  root.classList.toggle('dark', effective === 'dark');
+  root.classList.toggle('light', effective === 'light');
 }
 
 interface ThemeContextType {

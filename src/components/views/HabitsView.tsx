@@ -68,8 +68,9 @@ function hueFor(cat: string | null): Hue {
   return HUES[h % HUES.length];
 }
 
-export function HabitsView() {
+export function HabitsView({ dueStore }: { dueStore?: ReturnType<typeof useDues> }) {
   const { lang } = useLanguage();
+  const fallbackDueStore = useDues(!dueStore);
   const {
     dues,
     addDue,
@@ -82,7 +83,7 @@ export function HabitsView() {
     incrementHabitCount,
     setHabitCount,
     refetch,
-  } = useDues();
+  } = dueStore ?? fallbackDueStore;
   const { getRemindersForDue, upsertReminder, removeReminder } = useDueReminders();
 
   const [draft, setDraft] = useState('');

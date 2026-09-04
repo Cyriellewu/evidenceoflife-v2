@@ -34,7 +34,7 @@ function stripTypePrefix(description?: string | null): string | null {
   return payload || null;
 }
 
-export function useReminders() {
+export function useReminders(enabled = true) {
   const { user } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,7 +42,7 @@ export function useReminders() {
   const canUseDb = useMemo(() => !!user?.id && UUID_RE.test(user.id), [user?.id]);
 
   const fetchReminders = useCallback(async () => {
-    if (!canUseDb || !user) return;
+    if (!enabled || !canUseDb || !user) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -61,9 +61,11 @@ export function useReminders() {
     } finally {
       setLoading(false);
     }
-  }, [canUseDb, user]);
+  }, [enabled, canUseDb, user]);
 
-  useEffect(() => { fetchReminders(); }, [fetchReminders]);
+  useEffect(() => {
+    if (enabled) void fetchReminders();
+  }, [enabled, fetchReminders]);
 
   const addReminder = useCallback(async (
     title: string,
@@ -148,7 +150,7 @@ export function useReminders() {
 
   // Runtime notifier: browser + email(mailto)
   useEffect(() => {
-    if (!canUseDb || !user || reminders.length === 0) return;
+    if (!enabled || !canUseDb || !user || reminders.length === 0) return;
 
     const tick = async () => {
       if (document.visibilityState !== 'visible') return;
@@ -206,7 +208,7 @@ export function useReminders() {
     }, 30000);
 
     return () => window.clearInterval(timer);
-  }, [canUseDb, user, reminders, fetchReminders]);
+  }, [enabled, canUseDb, user, reminders, fetchReminders]);
 
   return { reminders, loading, addReminder, addReminderAt, deleteReminder, toggleReminder, refetch: fetchReminders };
 }

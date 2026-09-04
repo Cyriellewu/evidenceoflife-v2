@@ -118,13 +118,17 @@ async function fetchWithRetry<T>(
   }
 }
 
-export function useDues() {
+export function useDues(enabled = true) {
   const { user, isDemo } = useAuth();
   const [dues, setDues] = useState<DueWithStats[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const prevDuesRef = useRef<DueWithStats[]>([]);
 
   const fetchDues = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     if (!user || isDemo) {
       setLoading(false);
       return;
@@ -142,7 +146,8 @@ export function useDues() {
       );
 
       if (error || !allTodos) {
-        // On failure, keep previous data instead of clearing
+        console.error('Failed to load deadlines and habits:', error);
+        // On failure, keep previous data instead of clearing.
         setDues(prevDuesRef.current);
         return;
       }
@@ -265,11 +270,11 @@ export function useDues() {
     } finally {
       setLoading(false);
     }
-  }, [user, isDemo]);
+  }, [enabled, user, isDemo]);
 
   useEffect(() => {
-    fetchDues();
-  }, [fetchDues]);
+    if (enabled) void fetchDues();
+  }, [enabled, fetchDues]);
 
   const addDue = useCallback(async (title: string, dueDate?: string, habitCategory?: string, showInRecapDaily = false): Promise<string | null> => {
     if (!user) return null;
