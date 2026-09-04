@@ -367,15 +367,15 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     <div className="relative flex-1 min-h-full flex flex-col pb-0">
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         {/* Header with view switcher */}
-        <div className="flex items-center justify-between px-4 py-2.5 gap-2">
-          <div className="flex items-center gap-1">
-            <button onClick={navigateBack} aria-label="Previous" className="p-2 hover:bg-secondary rounded-full transition-colors">
+        <div className="flex items-center justify-between px-1 py-2.5 gap-1 sm:px-4 sm:gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 sm:gap-1">
+            <button onClick={navigateBack} aria-label="Previous" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary">
               <ChevronLeft size={20} />
             </button>
-            <h1 className="text-[22px] sm:text-[24px] font-semibold font-display tracking-tight min-w-0 text-center whitespace-nowrap leading-none">
+            <h1 className="min-w-0 flex-1 truncate text-center font-display text-[18px] font-semibold leading-none tracking-tight sm:flex-none sm:text-[24px]">
               {getHeaderTitle()}
             </h1>
-            <button onClick={navigateForward} aria-label="Next" className="p-2 hover:bg-secondary rounded-full transition-colors">
+            <button onClick={navigateForward} aria-label="Next" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary">
               <ChevronRight size={20} />
             </button>
           </div>
@@ -383,7 +383,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setShowSearch(prev => !prev)}
-              className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <Search size={17} />
             </button>
@@ -391,7 +391,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
         </div>
 
         {/* View switcher */}
-        <div className="flex justify-center px-4 pb-2">
+        <div className="flex justify-center overflow-x-auto px-2 pb-2 sm:px-4">
           <ViewSwitcher viewMode={viewMode} onViewModeChange={setViewMode} onSetDefault={(mode) => localStorage.setItem('calendar-default-view', mode)} />
         </div>
 
@@ -672,7 +672,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       <button
         onClick={() => setShowICSManager(prev => !prev)}
         className={cn(
-          "fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105",
+          "fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105 md:bottom-6 md:right-6",
           showICSManager && "scale-95 brightness-95"
         )}
         title="Import calendar"

@@ -36,7 +36,7 @@ export function ViewSwitcher({ viewMode, onViewModeChange, onSetDefault }: ViewS
             key={v.key}
             onClick={() => onViewModeChange(v.key)}
             className={cn(
-              'px-3 py-1 rounded-md text-xs font-medium transition-all',
+              'min-h-9 px-2.5 py-1 rounded-md text-xs font-medium transition-all sm:min-h-0 sm:px-3',
               viewMode === v.key
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -49,7 +49,7 @@ export function ViewSwitcher({ viewMode, onViewModeChange, onSetDefault }: ViewS
       <button
         onClick={handleSetDefault}
         className={cn(
-          'text-[10px] px-2 py-1 rounded-full transition-all',
+          'hidden text-[10px] px-2 py-1 rounded-full transition-all sm:inline-flex',
           savedDefault === viewMode
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground hover:text-foreground hover:bg-secondary'

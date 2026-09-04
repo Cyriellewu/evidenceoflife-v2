@@ -56,10 +56,13 @@ export default function PublicDemo() {
   }
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-[100dvh] bg-background">
       {!isEmbedded && (
-        <div className="pointer-events-none fixed inset-x-0 top-3 z-[120] flex justify-center px-3">
-          <div className="pointer-events-auto flex w-full max-w-xl items-center gap-3 rounded-full border border-primary/15 bg-background/95 px-4 py-2 shadow-[0_14px_40px_-24px_rgba(74,46,29,0.42)] backdrop-blur-md">
+        <div
+          className="pointer-events-none fixed inset-x-0 z-[120] flex justify-center px-3"
+          style={{ top: 'max(0.75rem, env(safe-area-inset-top))' }}
+        >
+          <div className="pointer-events-auto flex w-full max-w-xl items-center gap-2 rounded-full border border-primary/15 bg-background/95 py-2 pl-4 pr-2 shadow-[0_14px_40px_-24px_rgba(74,46,29,0.42)] backdrop-blur-md sm:gap-3 sm:px-4">
             <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
               <span className="font-medium text-foreground">Public demo</span>
               <span className="mx-1.5 text-muted-foreground/40">·</span>

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { SideNav } from '@/components/SideNav';
+import { MobileNav } from '@/components/MobileNav';
 import { TodayView } from '@/components/views/TodayView';
 import { PlanView } from '@/components/views/PlanView';
 
@@ -31,6 +32,7 @@ import { extractLeadingEmoji } from '@/lib/emoji';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { FocusRecapPrompt, type FocusRecapDraft } from '@/components/FocusRecapPrompt';
 import { useLifeReminder } from '@/hooks/useLifeReminder';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function isActivelyRunningTodo(todo: { timer_started_at: string | null; timer_ended_at: string | null }) {
   if (!todo.timer_started_at || todo.timer_ended_at) return false;
@@ -88,12 +90,16 @@ function AppSideSheet({
   maxWidthClass: string;
   children: ReactNode;
 }) {
+  const isMobile = useIsMobile();
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side="right"
+        side={isMobile ? 'bottom' : 'right'}
+        expandable={!isMobile}
         className={cn(
           'w-full p-0 border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl',
+          isMobile && 'bottom-sheet max-h-[88dvh]',
           maxWidthClass,
         )}
       >
@@ -438,22 +444,24 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   }, []);
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
-      <div className="flex flex-1 h-full min-h-0">
-        <AppSectionErrorBoundary label="SideNav">
-          <SideNav
-            activeTab={activeTab}
-            activeSheet={activeSheet}
-            onTabChange={(tab) => {
-              if (tab === 'notes') { setActiveSheet('notes'); return; }
-              if (tab === 'dues') { setActiveSheet('dues'); return; }
-              if (tab === 'habits') { setActiveSheet('habits'); return; }
-              if (tab === 'linkup') { setActiveSheet('links'); return; }
-              setActiveTab(tab);
-            }}
-          />
-        </AppSectionErrorBoundary>
-        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto px-2 sm:px-3 lg:px-4">
+    <div className="app-viewport bg-background flex overflow-hidden">
+      <div className="flex h-full min-h-0 min-w-0 flex-1">
+        <div className="hidden md:block">
+          <AppSectionErrorBoundary label="SideNav">
+            <SideNav
+              activeTab={activeTab}
+              activeSheet={activeSheet}
+              onTabChange={(tab) => {
+                if (tab === 'notes') { setActiveSheet('notes'); return; }
+                if (tab === 'dues') { setActiveSheet('dues'); return; }
+                if (tab === 'habits') { setActiveSheet('habits'); return; }
+                if (tab === 'linkup') { setActiveSheet('links'); return; }
+                setActiveTab(tab);
+              }}
+            />
+          </AppSectionErrorBoundary>
+        </div>
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-3 md:pb-0 lg:px-4">
           <AppSectionErrorBoundary label="MainContent">
           {activeTab === 'today' && (
           <>
@@ -548,6 +556,18 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
           </AppSectionErrorBoundary>
         </main>
       </div>
+      <MobileNav
+        activeTab={activeTab}
+        activeSheet={activeSheet}
+        onTabChange={(tab) => {
+          if (tab === 'notes') { setActiveSheet('notes'); return; }
+          if (tab === 'dues') { setActiveSheet('dues'); return; }
+          if (tab === 'habits') { setActiveSheet('habits'); return; }
+          if (tab === 'linkup') { setActiveSheet('links'); return; }
+          setActiveSheet(null);
+          setActiveTab(tab);
+        }}
+      />
 
       {/* Global Focus Overlay */}
       {globalFocusId && (() => {

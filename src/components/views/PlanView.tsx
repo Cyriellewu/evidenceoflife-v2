@@ -38,6 +38,7 @@ import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WorkType, WORK_TYPE_META, resolveWorkType, getWorkTypeKey } from '@/lib/workType';
 import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getActivityAccentColor } from '@/lib/activityColors';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 import { createTodoDoneUndoSnapshot, restoreTodoDoneFromUndo } from '@/lib/todoDoneUndo';
@@ -1192,6 +1193,8 @@ export function PlanView({
   const { getWorkType: getPlanWorkType } = useWorkTypes();
   const { t: tLang, lang } = useLanguage();
   const planViewIsDark = useIsDarkMode();
+  const isMobile = useIsMobile();
+  const [mobilePane, setMobilePane] = useState<'tasks' | 'timeline'>('tasks');
   const { addReminder } = useReminders();
   const getElapsedRef = useRef<(todo: Todo) => number>(() => 0);
   const getCurrentSessionElapsedRef = useRef<(todo: Todo) => number>(() => 0);
@@ -2684,13 +2687,34 @@ export function PlanView({
         </div>
       )}
 
+      <div className="mx-2 mb-2 grid grid-cols-2 rounded-xl bg-[hsl(var(--surface-soft))] p-1 md:hidden">
+        {(['tasks', 'timeline'] as const).map((pane) => (
+          <button
+            key={pane}
+            type="button"
+            onClick={() => setMobilePane(pane)}
+            className={cn(
+              'min-h-10 rounded-lg text-sm font-semibold transition-colors',
+              mobilePane === pane ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground',
+            )}
+          >
+            {pane === 'tasks'
+              ? (lang === 'zh' ? '任务' : 'Tasks')
+              : (lang === 'zh' ? '时间轴' : 'Timeline')}
+          </button>
+        ))}
+      </div>
+
       {/* Main split layout */}
-      <div className="flex gap-0" style={{ minHeight: 'calc(100vh - 180px)' }}>
+      <div className="flex min-h-[calc(100dvh-220px)] gap-0 md:min-h-[calc(100vh-180px)]">
         {/* Center: Task List (50%) */}
         <div
           ref={taskColumnRef}
-          className="flex-1 border-r border-border/20 pr-0.5 flex flex-col min-h-0"
-          style={{ maxHeight: 'calc(100vh - 180px)' }}
+          className={cn(
+            'min-h-0 flex-1 flex-col pr-0.5 md:flex md:border-r md:border-border/20',
+            mobilePane === 'tasks' ? 'flex' : 'hidden',
+          )}
+          style={{ maxHeight: isMobile ? 'calc(100dvh - 220px)' : 'calc(100vh - 180px)' }}
         >
           <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-2 space-y-1 pb-28">
@@ -3142,7 +3166,10 @@ export function PlanView({
         </div>
 
         {/* Right: Timeline (takes remaining space, ~50%) */}
-          <div className="flex-1 flex flex-col min-w-0 pl-0">
+          <div className={cn(
+            'min-w-0 flex-1 flex-col pl-0 md:flex',
+            mobilePane === 'timeline' ? 'flex' : 'hidden',
+          )}>
           <div
             ref={timelineFrameRef}
             className="relative flex-1 min-h-0 rounded-3xl border border-[rgba(55,55,62,0.07)] bg-[#f9fafc] px-2.5 py-4 dark:border-border/35 dark:bg-transparent"
@@ -3189,8 +3216,9 @@ export function PlanView({
       <input ref={captureFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCaptureFileChange} />
       <Sheet open={captureSheetOpen} onOpenChange={setCaptureSheetOpen}>
         <SheetContent
-          side="right"
-          className="w-full border-border/70 bg-background/95 p-0 sm:max-w-md"
+          side={isMobile ? 'bottom' : 'right'}
+          expandable={!isMobile}
+          className="bottom-sheet max-h-[88dvh] w-full border-border/70 bg-background/95 p-0 sm:max-w-md"
         >
           <SheetHeader className="border-b border-border/60 px-5 py-4">
             <SheetTitle className="text-[15px] font-semibold">

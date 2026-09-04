@@ -231,6 +231,7 @@
      reading without the "everything is shouting" effect. */
   html {
     font-size: 18px;
+    height: 100%;
   }
 
   * {
@@ -243,6 +244,12 @@
     letter-spacing: -0.01em;
     font-size: 0.9375rem; /* 15px — iOS Body */
     font-weight: 400;
+    min-height: 100%;
+    overscroll-behavior: none;
+  }
+
+  #root {
+    min-height: 100%;
   }
 
   /* Global slim scrollbars — replace chunky native bars app-wide with a soft,
@@ -325,6 +332,12 @@
 }
 
 @layer components {
+  .app-viewport {
+    height: 100vh;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+  }
+
   /* Calendar dot indicator */
   .dot-recorded {
     @apply w-1.5 h-1.5 rounded-full bg-primary;
@@ -357,6 +370,7 @@
   .bottom-sheet {
     @apply rounded-t-3xl bg-card;
     box-shadow: var(--shadow-elevated);
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
   /* Floating action button */

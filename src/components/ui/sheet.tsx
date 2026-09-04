@@ -29,7 +29,7 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 shadow-lg overflow-y-auto transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+  "fixed z-50 gap-4 bg-background p-6 shadow-lg overflow-y-auto overscroll-contain transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
   {
     variants: {
       side: {
@@ -83,18 +83,18 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         {...props}
       >
         {children}
-        <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-4 sm:top-4">
           {expandable && (
             <button
               type="button"
               onClick={() => setExpanded((prev) => !prev)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background/88 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/65 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background/88 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/65 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:h-10 sm:w-10"
               aria-label={expanded ? "Restore panel" : "Expand panel"}
             >
               {expanded ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
             </button>
           )}
-          <SheetPrimitive.Close className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background/88 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/65 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+          <SheetPrimitive.Close className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background/88 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/65 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none sm:h-10 sm:w-10">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
