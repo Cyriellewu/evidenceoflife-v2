@@ -12,6 +12,7 @@ import { computeFreeRegions } from '@/lib/freeRegions';
 import { autoSchedule, type Suggestion, type ScheduleLane, type DurationHistoryRow } from '@/lib/autoSchedule';
 import { useSchedulingHistory } from '@/hooks/useSchedulingHistory';
 import { getActivityAccentColor } from '@/lib/activityColors';
+import { isElapsedSlot } from '@/lib/elapsedSlot';
 import {
   PLAN_TIMELINE_AXIS_START_HOUR as WAKE_HOUR,
   PLAN_TIMELINE_BEDTIME_HOUR as BEDTIME_HOUR,
@@ -64,6 +65,7 @@ import {
   assignColumns,
   slotKey,
   slotToMin,
+  todoIdFromBlockId,
   type TimeBlock,
   type SlotKey,
 } from './planTimeline/planTimelinePrimitives';
@@ -81,7 +83,19 @@ interface PlanTimelineViewProps {
   prevDayMoments?: Moment[];
   date?: string; // yyyy-MM-dd, used to determine if viewing today or a past/future day
   onUpdateTodo: (id: string, updates: Partial<Todo>) => void;
-  onAddTodo: (title: string, timeSegment: string) => Promise<unknown>;
+  onAddTodo: (
+    title: string,
+    timeSegment: string,
+    options?: {
+      plan_started_at?: string | null;
+      plan_ended_at?: string | null;
+      timer_started_at?: string | null;
+      timer_ended_at?: string | null;
+      timer_seconds?: number;
+      is_completed?: boolean;
+      progress?: number;
+    },
+  ) => Promise<unknown>;
   onDropTodo?: (todoId: string, startMin: number) => void;
   onUnscheduleTodo?: (id: string) => void;
   onDeleteTodo?: (id: string) => void;
@@ -443,6 +457,45 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     () => [...planBlocks].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin),
     [planBlocks],
   );
+
+  // For each resumable todo (partial progress saved), point at the next timeline
+  // block the user should continue from: earliest unfinished todo block that
+  // still covers "now" or starts in the future. Falls back to the latest past
+  // unfinished block when nothing ahead remains.
+  const resumePointerBlockIds = useMemo(() => {
+    const ids = new Set<string>();
+    const byTodo = new Map<string, TimeBlock[]>();
+    for (const block of sortedPlanBlocks) {
+      if (block.source !== 'todo' || block.isCompleted) continue;
+      const parentId = todoIdFromBlockId(block.id);
+      const todo = todos.find(td => td.id === parentId);
+      if (!todo || todo.is_completed) continue;
+      const progress = todo.progress ?? 0;
+      const canResume =
+        (todo.timer_seconds || 0) > 0 &&
+        !!todo.timer_ended_at &&
+        !todo.timer_started_at &&
+        progress > 0 &&
+        progress < 100;
+      if (!canResume) continue;
+      const list = byTodo.get(parentId) ?? [];
+      list.push(block);
+      byTodo.set(parentId, list);
+    }
+    for (const blocks of byTodo.values()) {
+      // Prefer the parked plan shell / plan-bearing block — that's "where to
+      // continue", not a prior focus-session moment or a live strip.
+      const preferred = blocks.filter(b => b.id.startsWith('plan-') || b.planStartMin != null);
+      const pool = preferred.length > 0 ? preferred : blocks;
+      const upcoming = pool
+        .filter(b => b.endMin > nowMin)
+        .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+      const target = upcoming[0] ?? [...pool].sort((a, b) => b.startMin - a.startMin)[0];
+      if (target) ids.add(target.id);
+    }
+    return ids;
+  }, [sortedPlanBlocks, todos, nowMin]);
+
   const lastScheduledEndMin = sortedPlanBlocks.length > 0
     ? sortedPlanBlocks[sortedPlanBlocks.length - 1].endMin
     : null;
@@ -631,7 +684,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       grouped.get(block.sessionGroupKey)!.push({ id: block.id, startMin, endMin });
     });
 
-    const map = new Map<string, { downHeight: number; gapMin: number }>();
+    const map = new Map<string, {
+      downHeight: number;
+      gapMin: number;
+      gapStartMin: number;
+      gapEndMin: number;
+    }>();
 
     grouped.forEach(items => {
       items.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
@@ -643,12 +701,24 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         map.set(current.id, {
           downHeight: Math.max(8, minToY(next.startMin) - minToY(current.endMin)),
           gapMin,
+          gapStartMin: current.endMin,
+          gapEndMin: next.startMin,
         });
       }
     });
 
     return map;
   }, [positioned, minToY]);
+
+  /** Free-time gap pills must not stack on same-session continuation chrome
+   *  ("1h 1m" + "1h 1m · gap ↓" on the same stretch). */
+  const sessionGapRanges = useMemo(
+    () => [...sessionContinuationMap.values()].map(s => ({
+      startMin: s.gapStartMin,
+      endMin: s.gapEndMin,
+    })),
+    [sessionContinuationMap],
+  );
 
   const remainingTimeStr = useMemo(() => {
     const bedMin = BEDTIME_HOUR * 60 + BEDTIME_MINUTE;
@@ -870,11 +940,30 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             } as Partial<Moment>);
           }
         } else if (dragging.target === 'plan') {
-          // 计划模式下调整计划时间
-          onUpdateTodo(dragging.id, {
-            plan_started_at: startISO,
-            plan_ended_at: endISO,
+          const todayKey = format(new Date(), 'yyyy-MM-dd');
+          const elapsed = isElapsedSlot({
+            viewingDate: targetDay,
+            today: todayKey,
+            boundaryMin: dragPreview.endMin,
+            nowMin,
           });
+          const isActive = activeTimerIds?.has(dragging.id);
+          if (elapsed && !isActive) {
+            onUpdateTodo(dragging.id, {
+              timer_started_at: startISO,
+              timer_ended_at: endISO,
+              timer_seconds: diffSec,
+              is_completed: true,
+              progress: 100,
+              plan_started_at: null,
+              plan_ended_at: null,
+            });
+          } else {
+            onUpdateTodo(dragging.id, {
+              plan_started_at: startISO,
+              plan_ended_at: endISO,
+            });
+          }
         } else if (dragging.target === 'actual') {
           // 实际模式下视为补记 actual，顺便标记为完成（出现删除线）
           // 但如果当前正在计时，就不要强行写死结束时间
@@ -893,7 +982,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     setDragging(null);
     setDragPreview(null);
     setDragOutside(false);
-  }, [dragging, dragPreview, dragOutside, onUpdateTodo, onUnscheduleTodo, rangeDragging, activeTimerIds, date, isOutsideTimeline, onUpdateMoment, parseMomentBlockId]);
+  }, [dragging, dragPreview, dragOutside, onUpdateTodo, onUnscheduleTodo, rangeDragging, activeTimerIds, date, isOutsideTimeline, onUpdateMoment, parseMomentBlockId, nowMin]);
 
   const parseHHMM = (value: string): number | null => {
     const match = value.match(/^(\d{1,2}):(\d{2})$/);
@@ -1036,8 +1125,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
   useEffect(() => {
     const handleDragStart = (event: Event) => {
-      const customEvent = event as CustomEvent<{ title?: string }>;
+      const customEvent = event as CustomEvent<{ title?: string; taskId?: string }>;
       setDragTaskTitle(customEvent.detail?.title || null);
+      if (customEvent.detail?.taskId) setDragTaskId(customEvent.detail.taskId);
     };
     const handleDragEnd = () => {
       setDragTaskTitle(null);
@@ -1111,24 +1201,41 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const handleTimelineDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const todoId = e.dataTransfer.getData('text/plain');
+    // Chromium sometimes yields "" from getData on drop; fall back to the id
+    // captured on drag-start via the plan-task-drag-start event.
+    const todoId = e.dataTransfer.getData('text/plain') || dragTaskId;
     if (todoId) {
       const todo = todos.find(t => t.id === todoId);
       const duration = getSmartDuration(todo?.title || '', todo?.tags);
       const min = clientYToMin(e.clientY);
       const snapped = snapMinute(min);
       const clamped = Math.max(WAKE_TOTAL_MIN, Math.min(snapped, END_TOTAL_MIN - duration));
-      // For elapsed slots (or Actual mode), record actual time but keep the
-      // task open. Users may backfill first, then decide completion in list.
-      const logActualTime = displayMode === 'actual' || (isViewingToday && clamped < nowMin);
+      // For elapsed slots (or Actual mode), log actual time and mark done —
+      // dropping onto the past is "I already did this", matching the green
+      // ✓ / done preview.
+      const todayKey = format(new Date(), 'yyyy-MM-dd');
+      const targetDay = date || todayKey;
+      const elapsed = isElapsedSlot({
+        viewingDate: targetDay,
+        today: todayKey,
+        boundaryMin: clamped,
+        nowMin,
+        strict: true,
+      });
+      const logActualTime = displayMode === 'actual' || elapsed;
       if (logActualTime) {
-        const targetDay = date || format(new Date(), 'yyyy-MM-dd');
         const startISO = localMinuteToISOString(targetDay, clamped);
         const endISO = localMinuteToISOString(targetDay, clamped + duration);
         onUpdateTodo(todoId, {
           timer_started_at: startISO,
           timer_ended_at: endISO,
           timer_seconds: duration * 60,
+          ...(elapsed ? {
+            is_completed: true,
+            progress: 100,
+            plan_started_at: null,
+            plan_ended_at: null,
+          } : {}),
         });
       } else {
         onDropTodo?.(todoId, clamped);
@@ -1139,7 +1246,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     }
     setDropIndicatorMin(null);
     setDragTaskId(null);
-  }, [clientYToMin, date, displayMode, isViewingToday, nowMin, onDropTodo, onUpdateTodo, todos]);
+  }, [clientYToMin, date, displayMode, dragTaskId, nowMin, onDropTodo, onUpdateTodo, todos]);
 
   const handleTimelineDragLeave = useCallback((e: React.DragEvent) => {
     // Only clear if leaving the container entirely
@@ -1228,9 +1335,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     // parent-todo lookups we resolve back to the original parent id so a timer
     // that started yesterday and is still running lights up on today's tail
     // block too (not just yesterday's head).
-    const parentTimerId = block.continuedFromPrevDay && block.id.startsWith('tail-')
-      ? block.id.slice(5)
-      : block.id;
+    const parentTimerId = todoIdFromBlockId(block.id);
     const isTimerActive = isTodo && activeTimerIds?.has(parentTimerId);
     const blockTodoForTimer = isTodo ? todos.find(td => td.id === parentTimerId) : undefined;
     const showResumeTimerTitle = Boolean(
@@ -1253,6 +1358,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       !blockTodoForTimer.timer_started_at
     );
     const isResumeBlockSelected = selectedResumeBlockId === block.id;
+    const showResumePointer = resumePointerBlockIds.has(block.id);
+    const blockProgressPct =
+      blockTodoForTimer &&
+      !blockTodoForTimer.is_completed &&
+      (blockTodoForTimer.progress ?? 0) > 0 &&
+      (blockTodoForTimer.progress ?? 0) < 100
+        ? blockTodoForTimer.progress
+        : block.progress != null && block.progress > 0 && block.progress < 100
+          ? block.progress
+          : null;
     const blockCoversNow =
       isViewingToday &&
       !block.readOnly &&
@@ -1263,16 +1378,33 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     const editTarget = getBlockEditTarget(block, displayMode, !!isTimerActive);
     const isEditable = !isImported && !block.readOnly && (isMoment ? !!onUpdateMoment : !!editTarget);
     const isEditingThis = editingBlockId === block.id;
-    const tagIcon = getTagIcon(block.tags, block.title);
-    const workType = block.source === 'imported'
+
+    // Same task across focus-session moments + todo/live strips must share one
+    // accent. Moment tags start with `focus-session`, which hashed to a random
+    // green while the live todo used work-type purple — look up the parent.
+    const sessionParentId = (() => {
+      if (isTodo) return parentTimerId;
+      const key = block.tags?.find(t => t.startsWith('todo-session:'));
+      return key ? key.slice('todo-session:'.length) : null;
+    })();
+    const sessionParent = sessionParentId
+      ? todos.find(td => td.id === sessionParentId) ?? (prevDayTodos || []).find(td => td.id === sessionParentId)
+      : undefined;
+    const colorTitle = sessionParent?.title || block.title;
+    const colorTags = (sessionParent?.tags?.length
+      ? sessionParent.tags
+      : block.tags?.filter(t => t !== 'focus-session' && !t.startsWith('todo-session:') && t !== 'step-session')
+    ) || undefined;
+    const tagIcon = getTagIcon(colorTags, colorTitle);
+    const workType = isImported
       ? null
       : getWorkType({
-          entity: block.source,
-          id: block.id,
-          title: block.title,
-          tags: block.tags,
+          entity: 'todo',
+          id: sessionParentId || block.id,
+          title: colorTitle,
+          tags: colorTags,
         });
-    const tagColor = getThemedTagColor(block.tags, block.title);
+    const tagColor = getThemedTagColor(colorTags, colorTitle);
     const workTypeColor = workType ? WORK_TYPE_META[workType]?.color : undefined;
     const accentPaint = tagColor || workTypeColor || (isImported ? '#8B91A8' : 'hsl(var(--primary))');
     const blockColor = accentPaint;
@@ -1517,20 +1649,33 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     // For non-todo blocks, keep original behavior
     if (!isTodo) {
       const isFocusSession = !!block.tags?.includes('focus-session');
+      const parentStillOpen = !!sessionParent && !sessionParent.is_completed;
       const effectiveStart = block.startMin;
       const effectiveEnd = block.endMin;
       const fillPct = block.isCompleted ? 100 : (nowMin > effectiveStart ? Math.min(100, ((Math.min(nowMin, effectiveEnd) - effectiveStart) / (effectiveEnd - effectiveStart)) * 100) : 0);
       const isInProgress = !block.isCompleted && fillPct > 0 && fillPct < 100;
       const isFuture = !block.isCompleted && fillPct === 0;
       const compactSessionLayout = isFocusSession || height <= 44;
-      const eventShell = shellFor((block.isCompleted || isFocusSession) ? 'done' : isFuture ? 'ghost' : 'actual');
+      // Linked focus sessions for an open task use the same "actual" chrome as
+      // the live strip — `done` washed them green/gray and broke same-task color.
+      const eventShell = shellFor(
+        isFocusSession && parentStillOpen
+          ? 'actual'
+          : (block.isCompleted || isFocusSession)
+            ? 'done'
+            : isFuture
+              ? 'ghost'
+              : 'actual',
+      );
       return (
         <div
           key={block.id}
           data-plan-block="true"
           title={hideTitleTooNarrow ? block.title : undefined}
           className={cn(
-            "absolute overflow-hidden transition-shadow group/block",
+            // overflow-visible so same-task continuation arrows below the block
+            // aren't clipped (todo blocks already use overflow-visible).
+            "absolute overflow-visible transition-shadow group/block",
             block.photos?.length ? "cursor-zoom-in" : "cursor-default",
             block.continuedFromPrevDay && "opacity-80"
           )}
@@ -1547,20 +1692,22 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             transform: overflowDepth > 0 ? `translateX(${overflowDepth * 4}px)` : undefined,
             opacity: isOverflowCol ? 0.28 : undefined,
             pointerEvents: isOverflowCol ? 'none' : undefined,
-            borderRadius: `${BLOCK_CORNER_PX}px`,
-            background: eventShell.background,
-            borderLeft: `${isDarkMode ? 2 : 3}px solid ${(block.isCompleted || isFocusSession) ? colorWithAlpha(edgeAlpha(0.34)) : isFuture ? colorWithAlpha(edgeAlpha(0.18)) : colorWithAlpha(edgeAlpha(0.38))}`,
-            boxShadow: eventShell.shadow,
           }}
         >
           {sessionContinuation && (
             <div
-              className="absolute left-1/2 top-full z-[5] -translate-x-1/2 pointer-events-none flex flex-col items-center"
+              className="absolute left-1/2 top-full z-[40] -translate-x-1/2 pointer-events-none flex flex-col items-center"
               style={{ height: sessionContinuation.downHeight, width: 48 }}
+              title={continuationLabel}
             >
-              <div className="absolute left-1/2 top-0 h-full -translate-x-1/2 border-l border-dashed" style={{ borderColor: colorWithAlpha(0.34) }} />
-              {sessionContinuation.downHeight >= 18 && (
-                <div className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2">
+              <div className="absolute left-1/2 top-0 h-full -translate-x-1/2 border-l border-dashed" style={{ borderColor: colorWithAlpha(0.45) }} />
+              <span
+                aria-hidden
+                className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 h-0 w-0 border-x-[5px] border-x-transparent border-t-[7px]"
+                style={{ borderTopColor: colorWithAlpha(0.75) }}
+              />
+              {sessionContinuation.downHeight >= 28 && (
+                <div className="absolute left-1/2 top-[62%] z-[1] -translate-x-1/2">
                   <TimelineIntervalPill isDarkMode={isDarkMode}>
                     {continuationLabel}
                   </TimelineIntervalPill>
@@ -1568,6 +1715,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               )}
             </div>
           )}
+          <div
+            className="relative h-full overflow-hidden pointer-events-auto"
+            style={{
+              borderRadius: `${BLOCK_CORNER_PX}px`,
+              background: eventShell.background,
+              borderLeft: `${isDarkMode ? 2 : 3}px solid ${(block.isCompleted || (isFocusSession && !parentStillOpen)) ? colorWithAlpha(edgeAlpha(0.34)) : isFuture ? colorWithAlpha(edgeAlpha(0.18)) : colorWithAlpha(edgeAlpha(0.38))}`,
+              boxShadow: eventShell.shadow,
+            }}
+          >
           {isInProgress && <div className="absolute top-0 left-0 right-0 pointer-events-none transition-all duration-1000" style={{ height: `${fillPct}%`, backgroundColor: tintedCard(isDarkMode ? 0.1 : 0.075), borderRadius: `${BLOCK_CORNER_PX}px ${BLOCK_CORNER_PX}px 0 0` }} />}
           {compactSessionLayout ? (
             <div className="absolute inset-0 z-10 flex items-center px-3">
@@ -1637,6 +1793,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               +{hiddenSiblingIds.length}
             </div>
           )}
+          </div>
         </div>
       );
     }
@@ -1681,14 +1838,42 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             oneShot
           />
         )}
+        {showResumePointer && blockProgressPct != null && (
+          <div
+            className="absolute left-1/2 z-[40] -translate-x-1/2 pointer-events-none flex flex-col items-center"
+            style={{ top: -18 }}
+            title={t('plan.resumeHere')}
+          >
+            <span
+              className="rounded-full px-1.5 py-[2px] font-mono text-[9px] font-semibold tabular-nums leading-none shadow-sm"
+              style={{
+                background: colorWithAlpha(isDarkMode ? 0.92 : 0.88),
+                color: isDarkMode ? 'hsl(0 0% 8%)' : 'hsl(0 0% 100%)',
+              }}
+            >
+              {blockProgressPct}%
+            </span>
+            <span
+              aria-hidden
+              className="mt-[1px] h-0 w-0 border-x-[5px] border-x-transparent border-t-[6px]"
+              style={{ borderTopColor: colorWithAlpha(isDarkMode ? 0.92 : 0.88) }}
+            />
+          </div>
+        )}
         {sessionContinuation && (
           <div
-            className="absolute left-1/2 top-full z-[5] -translate-x-1/2 pointer-events-none flex flex-col items-center"
+            className="absolute left-1/2 top-full z-[40] -translate-x-1/2 pointer-events-none flex flex-col items-center"
             style={{ height: sessionContinuation.downHeight, width: 48 }}
+            title={continuationLabel}
           >
-            <div className="absolute left-1/2 top-0 h-full -translate-x-1/2 border-l border-dashed" style={{ borderColor: colorWithAlpha(0.34) }} />
-            {sessionContinuation.downHeight >= 18 && (
-              <div className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2">
+            <div className="absolute left-1/2 top-0 h-full -translate-x-1/2 border-l border-dashed" style={{ borderColor: colorWithAlpha(0.45) }} />
+            <span
+              aria-hidden
+              className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 h-0 w-0 border-x-[5px] border-x-transparent border-t-[7px]"
+              style={{ borderTopColor: colorWithAlpha(0.75) }}
+            />
+            {sessionContinuation.downHeight >= 28 && (
+              <div className="absolute left-1/2 top-[62%] z-[1] -translate-x-1/2">
                 <TimelineIntervalPill isDarkMode={isDarkMode}>
                   {continuationLabel}
                 </TimelineIntervalPill>
@@ -2566,8 +2751,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     )}
                   </>
                 )}
-                {/* Progress bar — only show if user explicitly set a progress value */}
-                {block.isCompleted && height > 48 && !isEditingThis && block.progress != null && block.progress > 0 && block.progress < 100 && (
+                {/* Progress bar — recorded partial progress on an open task */}
+                {blockProgressPct != null && height > 48 && !isEditingThis && (
                   <div className="flex items-center gap-1 mt-1" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                     <div
                       className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden cursor-pointer relative"
@@ -2575,16 +2760,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         const rect = e.currentTarget.getBoundingClientRect();
                         const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100 / 5) * 5;
                         const clamped = Math.max(0, Math.min(100, pct));
-                        onUpdateTodo(block.id, { progress: clamped, is_completed: clamped >= 100 });
+                        onUpdateTodo(parentTimerId, { progress: clamped, is_completed: clamped >= 100 });
                       }}
                     >
-                      <div className="h-full rounded-full transition-all" style={{ width: `${block.progress}%`, backgroundColor: colorWithAlpha(0.5) }} />
+                      <div className="h-full rounded-full transition-all" style={{ width: `${blockProgressPct}%`, backgroundColor: colorWithAlpha(0.5) }} />
                     </div>
                     <span
                       className="text-muted-foreground/50 font-mono"
                       style={{ fontSize: blockWidthPx >= 215 && height >= 150 ? '12px' : blockWidthPx >= 185 && height >= 110 ? '11px' : '10px' }}
                     >
-                      {block.progress}%
+                      {blockProgressPct}%
                     </span>
                   </div>
                 )}
@@ -2775,7 +2960,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const previewTitle = dragTodo?.title || dragTaskTitle || '';
             const previewDur = getSmartDuration(previewTitle, dragTodo?.tags);
             const durLabel = previewDur >= 60 ? `${previewDur / 60}h` : `${previewDur}m`;
-            const isPastDrop = isViewingToday && dropIndicatorMin < nowMin;
+            const isPastDrop = isElapsedSlot({
+              viewingDate: viewingDateKey,
+              today: format(new Date(), 'yyyy-MM-dd'),
+              boundaryMin: dropIndicatorMin,
+              nowMin,
+              strict: true,
+            });
             const previewTagColor = getThemedTagColor(dragTodo?.tags, previewTitle);
             const previewColor = previewTagColor || (isPastDrop ? '#4B9478' : 'hsl(var(--primary))');
             const previewColorWithAlpha = (alpha: number) => {
@@ -2836,7 +3027,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {selectedRange && (() => {
             const rangeTop = minToY(selectedRange.startMin);
             const rangeHeight = Math.max(minToY(selectedRange.endMin) - rangeTop, 48);
-            const isPastRange = isViewingToday && selectedRange.endMin <= nowMin;
+            const isPastRange = isElapsedSlot({
+              viewingDate: viewingDateKey,
+              today: format(new Date(), 'yyyy-MM-dd'),
+              boundaryMin: selectedRange.endMin,
+              nowMin,
+            });
             const creationTagColor = slotAddTitle.trim() ? getThemedTagColor(undefined, slotAddTitle.trim()) : undefined;
             const pastAccent = '#4B9478';
             const borderColor = creationTagColor || (isPastRange ? pastAccent : 'hsl(var(--muted-foreground) / 0.45)');
@@ -2937,31 +3133,28 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
                             const range = selectedRange;
                             const targetDay = date || format(new Date(), 'yyyy-MM-dd');
-                            const sH = Math.floor(range.startMin / 60);
-                            const sM = range.startMin % 60;
-                            const eH = Math.floor(range.endMin / 60);
-                            const eM = range.endMin % 60;
-                            const startISO = new Date(`${targetDay}T${String(sH).padStart(2, '0')}:${String(sM).padStart(2, '0')}:00`).toISOString();
-                            const endISO = new Date(`${targetDay}T${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}:00`).toISOString();
+                            const startISO = localMinuteToISOString(targetDay, range.startMin);
+                            const endISO = localMinuteToISOString(targetDay, range.endMin);
                             const diffSec = (range.endMin - range.startMin) * 60;
-                            (async () => {
-                              const result = await onAddTodo(slotAddTitle.trim(), 'anytime');
-                              const created = (typeof result === 'object' && result !== null && 'id' in result)
-                                ? (result as { id?: string })
-                                : null;
-                              if (created?.id) {
-                                if (isPastRange) {
-                                  onUpdateTodo(created.id, {
-                                    timer_started_at: startISO,
-                                    timer_ended_at: endISO,
-                                    timer_seconds: diffSec,
-                                  });
-                                } else {
-                                  onUpdateTodo(created.id, { plan_started_at: startISO, plan_ended_at: endISO });
-                                }
+                            const title = slotAddTitle.trim();
+                            dismiss();
+                            void (async () => {
+                              if (isPastRange) {
+                                // One write: past-slot create = already done.
+                                await onAddTodo(title, 'anytime', {
+                                  timer_started_at: startISO,
+                                  timer_ended_at: endISO,
+                                  timer_seconds: diffSec,
+                                  is_completed: true,
+                                  progress: 100,
+                                });
+                              } else {
+                                await onAddTodo(title, 'anytime', {
+                                  plan_started_at: startISO,
+                                  plan_ended_at: endISO,
+                                });
                               }
                             })();
-                            dismiss();
                           }
                           if (e.key === 'Escape') dismiss();
                         }}
@@ -3289,6 +3482,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               // now-line sits in — skip this gap's pill so the same duration isn't
               // shown twice (avoids the duplicated remaining/gap time).
               if (isViewingToday && nowMin >= gap.startMin && nowMin < gap.endMin) return;
+              // Same-session continue chrome already shows "Nh · gap ↓" on this
+              // stretch — drop the plain free-time pill so the two don't stack.
+              const coveredBySessionGap = sessionGapRanges.some(s => {
+                const overlap = Math.min(s.endMin, gap.endMin) - Math.max(s.startMin, gap.startMin);
+                return overlap >= 5;
+              });
+              if (coveredBySessionGap) return;
               const centerY = (minToY(gap.startMin) + minToY(gap.endMin)) / 2;
               const diffMin = gap.endMin - gap.startMin;
               const useFullPill = diffMin >= FULL_PILL_MIN_MINUTES;

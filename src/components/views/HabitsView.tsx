@@ -83,7 +83,7 @@ export function HabitsView() {
     setHabitCount,
     refetch,
   } = useDues();
-  const { getRemindersForDue, upsertReminder, removeReminder } = useDueReminders();
+  const { getRemindersForDue, upsertReminder, removeReminder, toggleReminder } = useDueReminders();
 
   const [draft, setDraft] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -214,6 +214,7 @@ export function HabitsView() {
                     dueReminders={getRemindersForDueTree(expanded)}
                     onUpsertReminder={upsertReminder}
                     onRemoveReminder={removeReminder}
+                    onToggleReminder={toggleReminder}
                     onAddStep={addStep}
                     onToggleStep={toggleStep}
                     onDeleteStep={deleteStep}

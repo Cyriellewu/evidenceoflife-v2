@@ -46,7 +46,7 @@ export function DuesView({
 }) {
   const { t, lang } = useLanguage();
   const { dues, addDue, addToToday, deleteDue, updateDue, addStep, toggleStep, deleteStep, reorderDues, incrementHabitCount, setHabitCount, refetch } = useDues();
-  const { getRemindersForDue, upsertReminder, removeReminder } = useDueReminders();
+  const { getRemindersForDue, upsertReminder, removeReminder, toggleReminder } = useDueReminders();
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueDateDraft, setDueDateDraft] = useState('');
@@ -805,7 +805,7 @@ export function DuesView({
                 {todayUrgent.map(due => (
                   <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                     onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                    dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder}
+                    dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
                     onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
                     onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
                 ))}
@@ -829,7 +829,7 @@ export function DuesView({
                   {upcoming.map(due => (
                     <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                       onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder}
+                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
                       onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
                       onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
                   ))}
@@ -854,7 +854,7 @@ export function DuesView({
                   {noDateDeadlines.map(due => (
                     <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                       onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder}
+                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
                       onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
                       onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
                   ))}
@@ -909,7 +909,7 @@ export function DuesView({
                   <div className="px-1 pb-1">
                     <DueCard due={due} onUpdate={updateDue} onDelete={deleteDue}
                       onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder}
+                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
                       onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
                       onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
                   </div>
@@ -949,7 +949,7 @@ export function DuesView({
               {completedDues.map(due => (
                 <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                   onAddToToday={handleAddToToday} justAdded={false}
-                  dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder}
+                  dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
                   onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
                   onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
               ))}

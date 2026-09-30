@@ -3,10 +3,12 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, isImeComposing } from '@/lib/utils';
-import { mergeCarriedTodos } from '@/lib/carryTodos';
+import { mergeCarriedTodos, presentCarryOnTimeline } from '@/lib/carryTodos';
+import { isElapsedSlot } from '@/lib/elapsedSlot';
+import { isDailyRepeatTodo } from '@/lib/recurringTodos';
 import { extractLeadingEmoji } from '@/lib/emoji';
 import { computeStepSession } from '@/lib/stepSession';
-import { useTodos, Todo, TodoStep } from '@/hooks/useTodos';
+import { useTodos, Todo, TodoStep, type AddTodoOptions } from '@/hooks/useTodos';
 import { useImportedEvents, type ImportedEvent } from '@/hooks/useImportedEvents';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,7 +34,9 @@ import { AnytimeIcon, MorningIcon, AfternoonIcon, EveningIcon } from './segmentI
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
-import { extractFirstUrl, normalizeUrl } from '@/lib/linkUtils';
+import { extractFirstUrl, normalizeUrl, isUrlLike, getDomain } from '@/lib/linkUtils';
+import { resolveStepLink, type DueLink } from '@/lib/dueLinks';
+import { getLinkDisplayName } from '@/components/views/dues/DueLinkItems';
 import { isStandaloneUrl } from '@/components/views/today/todayHelpers';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WorkType, WORK_TYPE_META, resolveWorkType, getWorkTypeKey } from '@/lib/workType';
@@ -343,19 +347,20 @@ function fmtSec(sec: number): string {
   return rh > 0 ? `${d}d${rh}h` : `${d}d`;
 }
 
-function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTime, onUpdateProgress, isTiming, timerElapsed, isPaused, onDragStart, onDragEnd, onToggleWithProgress, steps, onAddStep, onToggleStep, onDeleteStep, onStartStepTimer, onStopStepTimer, onUpdateStepPlanTime, onUpdateStepTitle, carriedFromDate, onToggleRecurring, onReopen }: {
+function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTime, onUpdateProgress, isTiming, timerElapsed, isPaused, onDragStart, onDragEnd, onToggleWithProgress, steps, onAddStep, onToggleStep, onDeleteStep, onStartStepTimer, onStopStepTimer, onUpdateStepPlanTime, onUpdateStepTitle, onUpdateStepLink, carriedFromDate, onToggleRecurring, onReopen }: {
   todo: Todo; onToggle: () => void; onDelete: () => void; onFocus: () => void;
   onUpdateTitle: (title: string) => void; onUpdateTime: (startTime: string, endTime: string) => void;
   onUpdateProgress: (progress: number) => void;
   isTiming: boolean; timerElapsed: number; isPaused: boolean;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void; onToggleWithProgress: () => void;
-  steps: TodoStep[]; onAddStep: (title: string) => void;
+  steps: TodoStep[]; onAddStep: (title: string, options?: { links?: DueLink[] }) => Promise<string | null> | void;
   onToggleStep: (stepId: string, completed: boolean) => void;
   onDeleteStep: (stepId: string) => void;
   onStartStepTimer: (stepId: string) => void;
   onStopStepTimer: (stepId: string) => void;
   onUpdateStepPlanTime: (stepId: string, startTime: string, endTime: string) => void;
   onUpdateStepTitle: (stepId: string, title: string) => void;
+  onUpdateStepLink: (stepId: string, link: DueLink, displayTitle?: string) => void;
   carriedFromDate?: string | null;
   onToggleRecurring: (next: boolean) => void;
   onReopen?: () => void;
@@ -420,11 +425,6 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   };
 
   const handleSaveTime = () => { onUpdateTime(editStart, editEnd); setIsEditingTime(false); };
-  const handleDoubleClickDelete = () => {
-    if (isEditing) return;
-    // No blocking confirm — delete is instantly undoable via the toast.
-    onDelete();
-  };
 
   const isScheduled = !!todo.plan_started_at && !todo.is_completed;
   const isDoing = isActivelyRunningTodo(todo);
@@ -462,7 +462,57 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
             ? 'Planned'
             : null;
 
+  const storedDaily = isDailyRepeatTodo(todo);
+  // Remember the click immediately. A list refresh that still has the old
+  // row must not flip the color or the menu back to "Repeat daily".
+  const [dailyIntent, setDailyIntent] = useState<boolean | null>(null);
+  const isDaily = dailyIntent ?? storedDaily;
+  useEffect(() => {
+    if (dailyIntent == null) return;
+    if (storedDaily === dailyIntent) setDailyIntent(null);
+  }, [storedDaily, dailyIntent]);
+  const setDaily = (next: boolean) => {
+    setDailyIntent(next);
+    onToggleRecurring(next);
+  };
   const isDark = useIsDarkMode();
+  const holdTimerRef = useRef<number | null>(null);
+  const holdOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const holdFiredRef = useRef(false);
+  const suppressTitleClickRef = useRef(false);
+  const titleClickTimerRef = useRef<number | null>(null);
+  const [holding, setHolding] = useState(false);
+
+  const clearHold = () => {
+    if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
+    holdOriginRef.current = null;
+    setHolding(false);
+  };
+
+  useEffect(() => () => {
+    if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
+    if (titleClickTimerRef.current != null) window.clearTimeout(titleClickTimerRef.current);
+  }, []);
+
+  // Long-press toggles daily repeat both ways: the same hold that sets it
+  // clears it once the row is already recurring. A quick right-click still
+  // opens the menu. Movement (a drag) cancels the hold.
+  const armRecurringHold = (e: React.PointerEvent) => {
+    if (isEditing || e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, a, textarea')) return;
+    holdFiredRef.current = false;
+    holdOriginRef.current = { x: e.clientX, y: e.clientY };
+    setHolding(true);
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = null;
+      holdFiredRef.current = true;
+      suppressTitleClickRef.current = true;
+      setHolding(false);
+      setDaily(!isDaily);
+    }, 420);
+  };
 
   // Live color for state signaling — always the page accent (terracotta), never
   // the tag's own hex. Tag identity lives inside the tag chip; the row-level
@@ -500,6 +550,17 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
       ? { borderColor: `hsl(var(--accent) / ${isDark ? 0.22 : 0.28})` }
       : undefined;
 
+  // Recurring rows carry a quiet terracotta wash so they read apart from a
+  // one-off task. Ongoing work keeps its live spine and wins over this tint.
+  const recurringStyle: React.CSSProperties | undefined =
+    isDaily && !todo.is_completed && !isOngoing
+      ? {
+          background: `hsl(var(--primary) / ${isDark ? 0.24 : 0.16})`,
+          borderColor: `hsl(var(--primary) / ${isDark ? 0.55 : 0.4})`,
+          boxShadow: `inset 3px 0 0 0 hsl(var(--primary) / ${isDark ? 0.9 : 0.75})`,
+        }
+      : undefined;
+
   const containerCls = todo.is_completed
     // Done: maximally recede in both modes — no surface, no border, faded.
     ? "bg-transparent border-transparent opacity-65 hover:opacity-90 dark:opacity-45 dark:hover:opacity-75"
@@ -528,17 +589,47 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     <div className="flex w-full max-w-[920px] flex-col">
     <div
       className={cn(
-        "flex h-[50px] w-full items-center gap-3 px-3.5 group rounded-[16px] transition-colors relative select-none border",
+        "flex h-[50px] w-full items-center gap-3 px-3.5 group rounded-[16px] transition-colors relative select-none border overflow-hidden",
+        holding && "brightness-110",
         containerCls
       )}
-      style={activeCategoryStyle}
+      style={isOngoing ? activeCategoryStyle : (recurringStyle ?? activeCategoryStyle)}
       draggable={!isEditing}
-      onDragStart={e => { if (isEditing) { e.preventDefault(); return; } onDragStart(e); }}
+      onPointerDown={armRecurringHold}
+      onPointerMove={e => {
+        const origin = holdOriginRef.current;
+        if (!origin) return;
+        const dx = e.clientX - origin.x;
+        const dy = e.clientY - origin.y;
+        if (dx * dx + dy * dy > 64) clearHold();
+      }}
+      onPointerUp={clearHold}
+      onPointerCancel={clearHold}
+      onPointerLeave={clearHold}
+      onContextMenu={e => {
+        if (!holdOriginRef.current && !holdFiredRef.current) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (!holdFiredRef.current) {
+          holdFiredRef.current = true;
+          suppressTitleClickRef.current = true;
+          setDaily(!isDaily);
+        }
+        clearHold();
+      }}
+      onDragStart={e => { clearHold(); if (isEditing) { e.preventDefault(); return; } onDragStart(e); }}
       onDragEnd={onDragEnd}
       onDoubleClick={e => {
         e.preventDefault();
         e.stopPropagation();
-        handleDoubleClickDelete();
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, a, textarea')) return;
+        if (titleClickTimerRef.current != null) {
+          window.clearTimeout(titleClickTimerRef.current);
+          titleClickTimerRef.current = null;
+        }
+        setIsEditing(false);
+        setDaily(!isDaily);
       }}
     >
       <button onClick={onToggleWithProgress} className="flex-shrink-0">
@@ -559,7 +650,9 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   // Done — already faded by container opacity, plus muted
                   // strikethrough for unambiguous semantics.
                   ? "text-muted-foreground line-through decoration-muted-foreground/40"
-                  : isOngoing
+                  : isDaily
+                      ? "text-primary"
+                    : isOngoing
                     // Active — pure foreground. Hover tones slightly down
                     // (instead of brightening) since it's already maxed.
                     ? "text-foreground hover:text-foreground/90"
@@ -568,11 +661,37 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                     // the title back to full brightness.
                     : "text-foreground hover:text-foreground/85 dark:text-foreground/72 dark:hover:text-foreground"
               )}
-              onClick={() => { setEditTitle(todo.title); setIsEditing(true); }}
+              onClick={() => {
+                if (suppressTitleClickRef.current) {
+                  suppressTitleClickRef.current = false;
+                  return;
+                }
+                if (titleClickTimerRef.current != null) window.clearTimeout(titleClickTimerRef.current);
+                titleClickTimerRef.current = window.setTimeout(() => {
+                  titleClickTimerRef.current = null;
+                  setEditTitle(todo.title);
+                  setIsEditing(true);
+                }, 240);
+              }}
             >
               {todo.title}
             </p>
           </div>
+        )}
+        {!isEditing && isDaily && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDaily(false);
+            }}
+            className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/[0.12] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary/90 transition-colors hover:bg-primary/[0.2]"
+            title={tLang('plan.dailyBadgeHint')}
+            aria-label={tLang('plan.stopRepeatDaily')}
+          >
+            <Repeat size={10} strokeWidth={2.25} />
+            <span>{tLang('plan.dailyBadge')}</span>
+          </button>
         )}
         {!isEditing && carriedFromDate && (
           <span
@@ -814,6 +933,17 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
           </button>
         )}
       </div>
+      {hasProgress && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] overflow-hidden rounded-b-[15px] bg-primary/10"
+          aria-hidden
+        >
+          <div
+            className="h-full rounded-full bg-primary/55 transition-[width] duration-300"
+            style={{ width: `${todo.progress}%` }}
+          />
+        </div>
+      )}
     </div>
     {isExpanded && !isEditing && (
       <div className="relative mt-1 flex flex-col gap-0 pl-9 pr-3 pb-3 pt-2 border-t border-foreground/[0.04] before:absolute before:left-4 before:top-3 before:bottom-3 before:w-px before:bg-foreground/[0.1] before:content-['']">
@@ -830,14 +960,159 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
             : null;
           const isEditingPlan = planTimeStepId === step.id;
           const timerActive = stepRunning || stepElapsed > 0;
+          const stepLink = resolveStepLink(step, normalizeUrl, isUrlLike, getDomain);
           const openPlanEditor = () => {
             if (isEditingPlan) { setPlanTimeStepId(null); return; }
             setPlanStart(step.plan_started_at ? format(new Date(step.plan_started_at), 'HH:mm') : format(new Date(), 'HH:mm'));
             setPlanEnd(step.plan_ended_at ? format(new Date(step.plan_ended_at), 'HH:mm') : format(new Date(), 'HH:mm'));
             setPlanTimeStepId(step.id);
           };
+
+          const stepTimerActions = (
+            <>
+              {timerActive ? (
+                <button
+                  type="button"
+                  onClick={() => { if (stepRunning) onStopStepTimer(step.id); else onStartStepTimer(step.id); }}
+                  className={cn(
+                    "flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded transition-colors",
+                    stepRunning
+                      ? "text-primary hover:bg-primary/8"
+                      : "text-muted-foreground/60 hover:text-primary hover:bg-primary/8"
+                  )}
+                  title={stepRunning
+                    ? (lang === 'zh' ? '停止步骤计时' : 'Stop step timer')
+                    : (lang === 'zh' ? '继续步骤计时' : 'Resume step timer')}
+                  aria-label={stepRunning
+                    ? (lang === 'zh' ? '停止步骤计时' : 'Stop step timer')
+                    : (lang === 'zh' ? '继续步骤计时' : 'Resume step timer')}
+                >
+                  {stepRunning ? (
+                    <span className="font-mono text-[11px] tabular-nums leading-none">{stepLiveLabel}</span>
+                  ) : (
+                    <>
+                      <Timer size={11} strokeWidth={1.75} />
+                      <span className="font-mono text-[10px] tabular-nums leading-none">{fmtSec(stepElapsed)}</span>
+                    </>
+                  )}
+                </button>
+              ) : planLabel ? (
+                <button
+                  type="button"
+                  onClick={openPlanEditor}
+                  className="flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded text-muted-foreground/55 transition-colors hover:text-primary hover:bg-primary/8"
+                  title={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
+                  aria-label={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
+                >
+                  <Clock size={11} strokeWidth={1.75} />
+                  <span className="font-mono text-[10px] tabular-nums leading-none">{planLabel}</span>
+                </button>
+              ) : null}
+
+              <div className="flex flex-shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/step:opacity-100">
+                {!timerActive && (
+                  <button
+                    type="button"
+                    onClick={() => onStartStepTimer(step.id)}
+                    className="rounded-full p-1 text-muted-foreground/40 transition-colors hover:text-primary"
+                    title={lang === 'zh' ? '开始步骤计时' : 'Start step timer'}
+                    aria-label={lang === 'zh' ? '开始步骤计时' : 'Start step timer'}
+                  >
+                    <Timer size={12} strokeWidth={1.75} />
+                  </button>
+                )}
+                {(!timerActive && !planLabel) && (
+                  <button
+                    type="button"
+                    onClick={openPlanEditor}
+                    className={cn(
+                      "rounded-full p-1 transition-colors",
+                      isEditingPlan ? "text-primary" : "text-muted-foreground/40 hover:text-primary"
+                    )}
+                    title={lang === 'zh' ? '设置计划时间' : 'Set planned time'}
+                    aria-label={lang === 'zh' ? '设置计划时间' : 'Set planned time'}
+                  >
+                    <Clock size={12} strokeWidth={1.75} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirmDeleteStepId === step.id) {
+                      onDeleteStep(step.id);
+                      setConfirmDeleteStepId(null);
+                    } else {
+                      setConfirmDeleteStepId(step.id);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (confirmDeleteStepId === step.id) setConfirmDeleteStepId(null);
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full transition-colors",
+                    confirmDeleteStepId === step.id
+                      ? "px-1.5 py-0.5 bg-destructive/12 text-destructive"
+                      : "p-1 text-muted-foreground/40 hover:text-destructive"
+                  )}
+                  title={confirmDeleteStepId === step.id
+                    ? (lang === 'zh' ? '再次点击确认删除' : 'Click again to confirm')
+                    : (lang === 'zh' ? '删除步骤' : 'Delete step')}
+                  aria-label={confirmDeleteStepId === step.id
+                    ? (lang === 'zh' ? '确认删除步骤' : 'Confirm delete step')
+                    : (lang === 'zh' ? '删除步骤' : 'Delete step')}
+                >
+                  {confirmDeleteStepId === step.id ? (
+                    <>
+                      <Trash2 size={11} strokeWidth={1.75} />
+                      <span className="text-[10px] font-medium leading-none">
+                        {lang === 'zh' ? '确认' : 'Delete'}
+                      </span>
+                    </>
+                  ) : (
+                    <Trash2 size={12} strokeWidth={1.75} />
+                  )}
+                </button>
+              </div>
+            </>
+          );
+
           return (
           <div key={step.id} className="group/step">
+          {stepLink ? (
+            <div className="flex items-center gap-2.5 py-1.5">
+              <button
+                type="button"
+                onClick={() => onToggleStep(step.id, !step.is_completed)}
+                className="flex-shrink-0 text-muted-foreground/55 hover:text-primary transition-colors"
+                aria-label={step.is_completed ? 'Mark step incomplete' : 'Mark step complete'}
+              >
+                {step.is_completed
+                  ? <CheckCircle2 size={14} className="text-primary/75" />
+                  : <Circle size={14} />}
+              </button>
+              {/* Single-line favicon pill — same density as habit/deadline link chips,
+                  so a URL step doesn't balloon past a normal text step. */}
+              <a
+                href={stepLink.url}
+                target="_blank"
+                rel="noreferrer"
+                className={cn(
+                  "group/lp inline-flex min-w-0 max-w-full flex-1 items-center gap-1.5 rounded-md border border-border/55 bg-[hsl(var(--surface-soft))] px-2 py-1 text-[12px] text-foreground/85 transition-colors hover:border-border hover:text-foreground",
+                  step.is_completed && "opacity-60 line-through decoration-foreground/25"
+                )}
+                title={stepLink.url}
+              >
+                <img
+                  src={`https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(stepLink.url)}`}
+                  alt=""
+                  className="h-3.5 w-3.5 flex-shrink-0 rounded-sm"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                />
+                <span className="truncate">{getLinkDisplayName(stepLink)}</span>
+              </a>
+              {stepTimerActions}
+            </div>
+          ) : (
           <div className="flex items-center gap-2.5 py-1.5">
             <button
               type="button"
@@ -901,117 +1176,9 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                 {step.title}
               </button>
             )}
-
-            {/* One persistent time chip — the live/elapsed timer takes priority
-                over the plan window so the row never shows two competing time
-                readouts. No fill, no dot. Color and font weight carry the
-                state; the chip stops being a "pill" and starts being a label. */}
-            {timerActive ? (
-              <button
-                type="button"
-                onClick={() => { if (stepRunning) onStopStepTimer(step.id); else onStartStepTimer(step.id); }}
-                className={cn(
-                  "flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded transition-colors",
-                  stepRunning
-                    ? "text-primary hover:bg-primary/8"
-                    : "text-muted-foreground/60 hover:text-primary hover:bg-primary/8"
-                )}
-                title={stepRunning
-                  ? (lang === 'zh' ? '停止步骤计时' : 'Stop step timer')
-                  : (lang === 'zh' ? '继续步骤计时' : 'Resume step timer')}
-                aria-label={stepRunning
-                  ? (lang === 'zh' ? '停止步骤计时' : 'Stop step timer')
-                  : (lang === 'zh' ? '继续步骤计时' : 'Resume step timer')}
-              >
-                {stepRunning ? (
-                  <span className="font-mono text-[11px] tabular-nums leading-none">{stepLiveLabel}</span>
-                ) : (
-                  <>
-                    <Timer size={11} strokeWidth={1.75} />
-                    <span className="font-mono text-[10px] tabular-nums leading-none">{fmtSec(stepElapsed)}</span>
-                  </>
-                )}
-              </button>
-            ) : planLabel ? (
-              <button
-                type="button"
-                onClick={openPlanEditor}
-                className="flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded text-muted-foreground/55 transition-colors hover:text-primary hover:bg-primary/8"
-                title={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
-                aria-label={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
-              >
-                <Clock size={11} strokeWidth={1.75} />
-                <span className="font-mono text-[10px] tabular-nums leading-none">{planLabel}</span>
-              </button>
-            ) : null}
-
-            {/* Hover-only action cluster: whatever the persistent chip doesn't
-                already cover, plus delete. Hidden at rest to keep the row calm. */}
-            <div className="flex flex-shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/step:opacity-100">
-              {!timerActive && (
-                <button
-                  type="button"
-                  onClick={() => onStartStepTimer(step.id)}
-                  className="rounded-full p-1 text-muted-foreground/40 transition-colors hover:text-primary"
-                  title={lang === 'zh' ? '开始步骤计时' : 'Start step timer'}
-                  aria-label={lang === 'zh' ? '开始步骤计时' : 'Start step timer'}
-                >
-                  <Timer size={12} strokeWidth={1.75} />
-                </button>
-              )}
-              {(!timerActive && !planLabel) && (
-                <button
-                  type="button"
-                  onClick={openPlanEditor}
-                  className={cn(
-                    "rounded-full p-1 transition-colors",
-                    isEditingPlan ? "text-primary" : "text-muted-foreground/40 hover:text-primary"
-                  )}
-                  title={lang === 'zh' ? '设置计划时间' : 'Set planned time'}
-                  aria-label={lang === 'zh' ? '设置计划时间' : 'Set planned time'}
-                >
-                  <Clock size={12} strokeWidth={1.75} />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirmDeleteStepId === step.id) {
-                    onDeleteStep(step.id);
-                    setConfirmDeleteStepId(null);
-                  } else {
-                    setConfirmDeleteStepId(step.id);
-                  }
-                }}
-                onMouseLeave={() => {
-                  if (confirmDeleteStepId === step.id) setConfirmDeleteStepId(null);
-                }}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full transition-colors",
-                  confirmDeleteStepId === step.id
-                    ? "px-1.5 py-0.5 bg-destructive/12 text-destructive"
-                    : "p-1 text-muted-foreground/40 hover:text-destructive"
-                )}
-                title={confirmDeleteStepId === step.id
-                  ? (lang === 'zh' ? '再次点击确认删除' : 'Click again to confirm')
-                  : (lang === 'zh' ? '删除步骤' : 'Delete step')}
-                aria-label={confirmDeleteStepId === step.id
-                  ? (lang === 'zh' ? '确认删除步骤' : 'Confirm delete step')
-                  : (lang === 'zh' ? '删除步骤' : 'Delete step')}
-              >
-                {confirmDeleteStepId === step.id ? (
-                  <>
-                    <Trash2 size={11} strokeWidth={1.75} />
-                    <span className="text-[10px] font-medium leading-none">
-                      {lang === 'zh' ? '确认' : 'Delete'}
-                    </span>
-                  </>
-                ) : (
-                  <Trash2 size={12} strokeWidth={1.75} />
-                )}
-              </button>
-            </div>
+            {stepTimerActions}
           </div>
+          )}
           {isEditingPlan && (
             <div className="flex items-center gap-1 pl-6 pb-1" onClick={e => e.stopPropagation()}>
               <input
@@ -1066,21 +1233,93 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               onChange={e => setNewStepTitle(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !isImeComposing(e.nativeEvent as KeyboardEvent) && newStepTitle.trim()) {
-                  onAddStep(newStepTitle);
+                  const typed = newStepTitle.trim();
+                  if (isUrlLike(typed)) {
+                    e.preventDefault();
+                    const url = normalizeUrl(typed);
+                    if (!url) return;
+                    setNewStepTitle('');
+                    if (stepCount > 0) setShowAddStepInput(false);
+                    const siteFallback = getDomain(url);
+                    const seedLink: DueLink = {
+                      url,
+                      label: siteFallback,
+                      title: siteFallback,
+                      siteName: siteFallback,
+                    };
+                    void (async () => {
+                      const stepId = await onAddStep(siteFallback, { links: [seedLink] });
+                      try {
+                        const { data, error } = await supabase.functions.invoke('link-preview', { body: { url } });
+                        if (error) throw error;
+                        const previewTitle = typeof data?.title === 'string' && data.title.trim()
+                          ? data.title.trim()
+                          : siteFallback;
+                        const upgraded: DueLink = {
+                          url,
+                          label: previewTitle,
+                          title: typeof data?.title === 'string' ? data.title : previewTitle,
+                          description: typeof data?.description === 'string' ? data.description : undefined,
+                          image: typeof data?.image === 'string' ? data.image : undefined,
+                          siteName: typeof data?.siteName === 'string' ? data.siteName : siteFallback,
+                        };
+                        if (stepId) onUpdateStepLink(stepId, upgraded, previewTitle);
+                      } catch (err) {
+                        console.error('Plan step link preview failed:', err);
+                      }
+                    })();
+                    return;
+                  }
+                  void onAddStep(typed);
                   setNewStepTitle('');
                 } else if (e.key === 'Escape') {
                   setNewStepTitle('');
                   setShowAddStepInput(false);
                 }
               }}
+              onPaste={async e => {
+                const pasted = e.clipboardData.getData('text/plain').trim();
+                if (!pasted || !isUrlLike(pasted)) return;
+                e.preventDefault();
+                const url = normalizeUrl(pasted);
+                if (!url) return;
+                setShowAddStepInput(false);
+                setNewStepTitle('');
+                const siteFallback = getDomain(url);
+                const seedLink: DueLink = {
+                  url,
+                  label: siteFallback,
+                  title: siteFallback,
+                  siteName: siteFallback,
+                };
+                const stepId = await onAddStep(siteFallback, { links: [seedLink] });
+                try {
+                  const { data, error } = await supabase.functions.invoke('link-preview', { body: { url } });
+                  if (error) throw error;
+                  const previewTitle = typeof data?.title === 'string' && data.title.trim()
+                    ? data.title.trim()
+                    : siteFallback;
+                  const upgraded: DueLink = {
+                    url,
+                    label: previewTitle,
+                    title: typeof data?.title === 'string' ? data.title : previewTitle,
+                    description: typeof data?.description === 'string' ? data.description : undefined,
+                    image: typeof data?.image === 'string' ? data.image : undefined,
+                    siteName: typeof data?.siteName === 'string' ? data.siteName : siteFallback,
+                  };
+                  if (stepId) onUpdateStepLink(stepId, upgraded, previewTitle);
+                } catch (err) {
+                  console.error('Plan step paste link preview failed:', err);
+                }
+              }}
               onBlur={() => {
                 if (newStepTitle.trim()) {
-                  onAddStep(newStepTitle);
+                  void onAddStep(newStepTitle);
                   setNewStepTitle('');
                 }
                 if (stepCount > 0) setShowAddStepInput(false);
               }}
-              placeholder={lang === 'zh' ? '添加步骤…' : 'Add step…'}
+              placeholder={lang === 'zh' ? '添加步骤或粘贴链接…' : 'Add step or paste a link…'}
               className="flex-1 min-w-0 bg-transparent text-[13px] placeholder:text-muted-foreground/40 focus:outline-none"
               autoFocus={showAddStepInput}
             />
@@ -1100,11 +1339,9 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        <ContextMenuItem onSelect={() => onToggleRecurring(!todo.is_recurring)}>
-          <Repeat size={14} className={cn("mr-2", todo.is_recurring ? "text-primary" : "text-muted-foreground")} />
-          <span>{todo.is_recurring
-            ? (lang === 'zh' ? '停止每天重复' : 'Stop repeating daily')
-            : (lang === 'zh' ? '每天重复' : 'Repeat daily')}</span>
+        <ContextMenuItem onSelect={() => setDaily(!isDaily)}>
+          <Repeat size={14} className={cn("mr-2", isDaily ? "text-primary" : "text-muted-foreground")} />
+          <span>{isDaily ? tLang('plan.stopRepeatDaily') : tLang('plan.repeatDaily')}</span>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -1125,9 +1362,13 @@ export function PlanView({
   onSwitchToRecap,
   moments = [],
   todos: todosProp,
+  pastDayOpenTodos: pastDayOpenTodosProp,
   importedEvents: importedEventsProp = [],
   prevDayTodos = [],
   prevDayMoments = [],
+  toggleRecurring: toggleRecurringProp,
+  addTodo: addTodoProp,
+  updateTodo: updateTodoProp,
   onAddMoment,
   onEditMoment,
   onDeleteMoment,
@@ -1142,9 +1383,18 @@ export function PlanView({
   onSwitchToRecap?: () => void;
   moments?: Moment[];
   todos?: Todo[];
+  pastDayOpenTodos?: Todo[];
   importedEvents?: ImportedEvent[];
   prevDayTodos?: Todo[];
   prevDayMoments?: Moment[];
+  toggleRecurring?: (id: string, next: boolean) => Promise<void> | void;
+  addTodo?: (
+    title: string,
+    timeSegment?: Todo['time_segment'],
+    dueDate?: string,
+    options?: AddTodoOptions,
+  ) => Promise<Todo | null>;
+  updateTodo?: (id: string, updates: Partial<Todo>) => Promise<void> | void;
   onAddMoment?: (data: {
     text?: string;
     emoji?: string;
@@ -1162,9 +1412,12 @@ export function PlanView({
   onDeleteMoment?: (id: string) => void;
 }) {
   const todayStr = date || format(new Date(), 'yyyy-MM-dd');
+  // Index owns the list + day rollover. This instance only needs steps/mutations —
+  // running side effects here races Index and can skip the real carry-over.
+  const isControlledByIndex = todosProp !== undefined;
   const {
     todos: hookTodos,
-    pastDayOpenTodos,
+    pastDayOpenTodos: hookPastDayOpenTodos,
     stepsByParent,
     addTodo: rawAddTodo,
     updateTodo: rawUpdateTodo,
@@ -1178,11 +1431,15 @@ export function PlanView({
     stopStepTimer: rawStopStepTimer,
     updateStepPlanTime: rawUpdateStepPlanTime,
     updateStepTitle: rawUpdateStepTitle,
+    updateStepLink: rawUpdateStepLink,
     toggleRecurring,
-  } = useTodos(todayStr);
+  } = useTodos(todayStr, { sideEffects: !isControlledByIndex });
   
   const { events: importedEvents } = useImportedEvents();
   const todos = todosProp ?? hookTodos;
+  // Prefer the same useTodos instance that owns `todos` (Index) so carried
+  // unfinished rows stay in sync with the prop-driven list.
+  const pastDayOpenTodos = pastDayOpenTodosProp ?? hookPastDayOpenTodos;
   const dateMoments = moments;
   const dateImportedEvents = useMemo(() => {
     if (importedEventsProp.length > 0) return importedEventsProp;
@@ -1192,7 +1449,7 @@ export function PlanView({
   const { getWorkType: getPlanWorkType } = useWorkTypes();
   const { t: tLang, lang } = useLanguage();
   const planViewIsDark = useIsDarkMode();
-  const { addReminder } = useReminders();
+  const { addReminder, reminders, toggleReminder } = useReminders();
   const getElapsedRef = useRef<(todo: Todo) => number>(() => 0);
   const getCurrentSessionElapsedRef = useRef<(todo: Todo) => number>(() => 0);
   const clearFreshTimerStartRef = useRef<(todoId: string) => void>(() => {});
@@ -1200,9 +1457,15 @@ export function PlanView({
     const def = defaultPlanTags.find(d => d.key === key);
     return def ? tLang(key) : key;
   });
-  const addTodo = useCallback(async (title: string, timeSegment: Todo['time_segment'] = 'anytime', dueDate?: string, options?: { isRecurring?: boolean }) => {
+  const { user, isDemo } = useAuth();
+  const addTodo = useCallback(async (
+    title: string,
+    timeSegment: Todo['time_segment'] = 'anytime',
+    dueDate?: string,
+    options?: AddTodoOptions,
+  ) => {
     const cleanTitle = tidyTaskTitle(title);
-    const result = await rawAddTodo(cleanTitle, timeSegment, dueDate, options);
+    const result = await (addTodoProp ?? rawAddTodo)(cleanTitle, timeSegment, dueDate, options);
     // Auto-classify tag if none assigned
     if (result && (!result.tags || result.tags.length === 0)) {
       const autoTag = autoClassifyTag(cleanTitle);
@@ -1210,14 +1473,14 @@ export function PlanView({
         await rawUpdateTodo(result.id, { tags: [autoTag] });
       }
     }
-    onTodosChanged?.();
+    if (!isDemo) onTodosChanged?.();
     return result;
-  }, [rawAddTodo, rawUpdateTodo, onTodosChanged]);
+  }, [addTodoProp, rawAddTodo, rawUpdateTodo, onTodosChanged, isDemo]);
 
   const updateTodo = useCallback(async (id: string, updates: Partial<Todo>) => {
-    await rawUpdateTodo(id, updates);
-    onTodosChanged?.();
-  }, [rawUpdateTodo, onTodosChanged]);
+    await (updateTodoProp ?? rawUpdateTodo)(id, updates);
+    if (!isDemo) onTodosChanged?.();
+  }, [updateTodoProp, rawUpdateTodo, onTodosChanged, isDemo]);
 
   const deleteTodo = useCallback(async (id: string) => {
     setPausedTimers(prev => {
@@ -1233,7 +1496,7 @@ export function PlanView({
   // Delete with an Undo affordance: remove immediately (no blocking dialog),
   // then offer a brief window to restore the exact task that was removed.
   const deleteTodoWithUndo = useCallback((id: string) => {
-    const snapshot = todos.find(t => t.id === id);
+    const snapshot = todos.find(t => t.id === id) ?? pastDayOpenTodos.find(t => t.id === id);
     deleteTodo(id);
     if (!snapshot) return;
     showUndoToast({
@@ -1241,7 +1504,7 @@ export function PlanView({
       undoLabel: lang === 'zh' ? '撤销' : 'Undo',
       onUndo: () => { rawRestoreTodo(snapshot); onTodosChanged?.(); },
     });
-  }, [todos, deleteTodo, rawRestoreTodo, lang, onTodosChanged]);
+  }, [todos, pastDayOpenTodos, deleteTodo, rawRestoreTodo, lang, onTodosChanged]);
 
   const showDoneUndo = useCallback((opts: {
     todo: Pick<Todo, 'id' | 'title' | 'parent_due_id'>;
@@ -1266,7 +1529,9 @@ export function PlanView({
   }, [lang, updateTodo]);
 
   const toggleComplete = useCallback(async (id: string) => {
-    const todo = todos.find(t => t.id === id);
+    // Carried past-day rows live in pastDayOpenTodos (merged into mainListTodos)
+    // but not always in the Index-owned `todos` prop — look in both.
+    const todo = todos.find(t => t.id === id) ?? pastDayOpenTodos.find(t => t.id === id);
     if (!todo) return;
 
     const newCompleted = !todo.is_completed;
@@ -1310,7 +1575,13 @@ export function PlanView({
         previous: previousSnapshot,
       });
     }
-  }, [todos, rawUpdateTodo, onTodosChanged, showDoneUndo]);
+  }, [todos, pastDayOpenTodos, rawUpdateTodo, onTodosChanged, showDoneUndo]);
+
+  const handleToggleRecurring = useCallback(async (todoId: string, next: boolean) => {
+    await (toggleRecurringProp ?? toggleRecurring)(todoId, next);
+    if (!isDemo) onTodosChanged?.();
+    toast(next ? tLang('plan.repeatDailyOn') : tLang('plan.repeatDailyOff'));
+  }, [toggleRecurringProp, toggleRecurring, onTodosChanged, isDemo, tLang]);
 
   const isEnterSubmit = (e: React.KeyboardEvent) => {
     const native = e.nativeEvent as KeyboardEvent;
@@ -1423,7 +1694,6 @@ export function PlanView({
     committed: boolean;
   } | null>(null);
   const suppressTimerClickRef = useRef(false);
-  const { user } = useAuth();
   const captureDraftStorageKey = useMemo(
     () => `plan-capture-draft:${user?.id || 'guest'}:${todayStr}`,
     [todayStr, user?.id]
@@ -2019,7 +2289,7 @@ export function PlanView({
       if (wasRecurring) {
         setRecurringUntilDone(false);
         if (newTodo) {
-          toast(lang === 'zh' ? '已设为每天重复·明天起自动出现' : 'Set to repeat daily · appears automatically from tomorrow');
+          toast(tLang('plan.repeatDailyOn'));
         }
       }
       if (startTimer && newTodo) {
@@ -2129,7 +2399,7 @@ export function PlanView({
 
   // Handle dropping a todo from the list onto the timeline
   const handleDropOnTimeline = useCallback((todoId: string, startMin: number) => {
-    const todo = todos.find(t => t.id === todoId);
+    const todo = todos.find(t => t.id === todoId) ?? pastDayOpenTodos.find(t => t.id === todoId);
     if (!todo) return;
     const targetDay = todayStr;
     const startH = Math.floor(startMin / 60);
@@ -2146,12 +2416,34 @@ export function PlanView({
     const endM = endMin % 60;
     const startISO = new Date(`${targetDay}T${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00`).toISOString();
     const endISO = new Date(`${targetDay}T${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`).toISOString();
-    // 只设置计划时间；实际执行(actual)只能通过番茄钟或在 Actual 模式下补记
-    updateTodo(todoId, {
+    // Dropping onto an already-elapsed slot = "I already did this" → log actual + done.
+    const now = new Date();
+    const todayKey = format(now, 'yyyy-MM-dd');
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (isElapsedSlot({
+      viewingDate: targetDay,
+      today: todayKey,
+      boundaryMin: startMin,
+      nowMin,
+      strict: true,
+    })) {
+      void updateTodo(todoId, {
+        timer_started_at: startISO,
+        timer_ended_at: endISO,
+        timer_seconds: smartDur * 60,
+        is_completed: true,
+        progress: 100,
+        plan_started_at: null,
+        plan_ended_at: null,
+      });
+      return;
+    }
+    // Future / plan slot: only set planned time.
+    void updateTodo(todoId, {
       plan_started_at: startISO,
       plan_ended_at: endISO,
     });
-  }, [todos, todayStr, updateTodo]);
+  }, [todos, pastDayOpenTodos, todayStr, updateTodo]);
 
   // Carried-over unfinished tasks from prior days now live directly in the
   // main task list (the user wants them mixed in, not tucked in a separate
@@ -2311,9 +2603,11 @@ export function PlanView({
   const scheduledCount = useMemo(() => todos.filter(t => t.plan_started_at || t.is_completed).length, [todos]);
   const activeTimerIdSet = useMemo(() => new Set(activeTimerTodos.map(t => t.id)), [activeTimerTodos]);
   const getTimerElapsedForId = useCallback((id: string) => {
-    const todo = todos.find(t => t.id === id) ?? (prevDayTodos || []).find(t => t.id === id);
+    const todo = todos.find(t => t.id === id)
+      ?? pastDayOpenTodos.find(t => t.id === id)
+      ?? (prevDayTodos || []).find(t => t.id === id);
     return todo ? getCurrentSessionElapsedRef.current(todo) : 0;
-  }, [todos, prevDayTodos]);
+  }, [todos, pastDayOpenTodos, prevDayTodos]);
 
   // ── Timeline inputs: reflect a running STEP as an "ongoing" block ────────
   // A task with a running step (but no own timer) should read as in-progress
@@ -2323,15 +2617,21 @@ export function PlanView({
   // used ONLY by the timeline; the task list and FloatingTimer keep using the
   // real timer fields, so no phantom floating timer appears for the parent.
   const timelineTodos = useMemo(() => {
-    if (runningStepByParent.size === 0) return todos;
-    return todos.map(t => {
+    // Viewing the real today: include unfinished tasks from earlier days.
+    // A plan slot that still sits on that earlier day is not "scheduled today"
+    // — presentCarryOnTimeline clears it on this copy only so the task shows
+    // up as open work. The stored date and plan times stay where they were.
+    const viewingRealToday = todayStr === format(new Date(), 'yyyy-MM-dd');
+    const base = viewingRealToday ? presentCarryOnTimeline(mainListTodos, todayStr) : todos;
+    if (runningStepByParent.size === 0) return base;
+    return base.map(t => {
       const startedAt = runningStepByParent.get(t.id);
       if (startedAt && !isActivelyRunningTodo(t)) {
         return { ...t, timer_started_at: startedAt, timer_ended_at: null };
       }
       return t;
     });
-  }, [todos, runningStepByParent]);
+  }, [todos, mainListTodos, todayStr, runningStepByParent]);
   const timelineActiveTimerIds = useMemo(() => {
     if (runningStepByParent.size === 0) return activeTimerIdSet;
     const set = new Set(activeTimerIdSet);
@@ -2678,6 +2978,18 @@ export function PlanView({
               isPaused={pausedTimers.has(t.id)}
               pauseState={pauseStatesRef.current.get(t.id)}
               onClick={() => setShowOverlayForId(t.id)}
+              onTogglePause={() => {
+                const current = pauseStatesRef.current.get(t.id) ?? { pausedAt: null, totalPausedMs: 0 };
+                if (current.pausedAt !== null) {
+                  const pausedDuration = Date.now() - current.pausedAt;
+                  handlePauseStateChange(t.id, {
+                    pausedAt: null,
+                    totalPausedMs: current.totalPausedMs + pausedDuration,
+                  });
+                } else {
+                  handlePauseStateChange(t.id, { ...current, pausedAt: Date.now() });
+                }
+              }}
               accentColor={getActivityAccentColor({ title: t.title, tags: t.tags, isDarkMode: planViewIsDark })}
             />
           ))}
@@ -2727,7 +3039,7 @@ export function PlanView({
                       key={todo.id}
                       todo={todo}
                       onToggle={() => toggleComplete(todo.id)}
-                      onToggleRecurring={(next) => toggleRecurring(todo.id, next)}
+                      onToggleRecurring={(next) => handleToggleRecurring(todo.id, next)}
                       onDelete={() => deleteTodoWithUndo(todo.id)}
                       onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                       onUpdateTime={(startTime, endTime) => {
@@ -2760,7 +3072,7 @@ export function PlanView({
                         }
                       }}
                       steps={stepsByParent[todo.id] || []}
-                      onAddStep={(title) => rawAddStep(todo.id, title)}
+                      onAddStep={(title, options) => rawAddStep(todo.id, title, options)}
                       onToggleStep={toggleStep}
                       onDeleteStep={rawDeleteStep}
                       onStartStepTimer={rawStartStepTimer}
@@ -2772,6 +3084,7 @@ export function PlanView({
                         rawUpdateStepPlanTime(stepId, span.startISO, span.endISO);
                       }}
                       onUpdateStepTitle={rawUpdateStepTitle}
+                      onUpdateStepLink={rawUpdateStepLink}
                       carriedFromDate={todo.date !== todayStr ? todo.date : undefined}
                     />
                   ))}
@@ -2834,7 +3147,7 @@ export function PlanView({
                             <TodoItem
                               todo={todo}
                               onToggle={() => toggleComplete(todo.id)}
-                              onToggleRecurring={(next) => toggleRecurring(todo.id, next)}
+                              onToggleRecurring={(next) => handleToggleRecurring(todo.id, next)}
                               onDelete={() => deleteTodoWithUndo(todo.id)}
                               onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                               onUpdateTime={(startTime, endTime) => {
@@ -2868,7 +3181,7 @@ export function PlanView({
                                 }
                               }}
                               steps={stepsByParent[todo.id] || []}
-                              onAddStep={(title) => rawAddStep(todo.id, title)}
+                              onAddStep={(title, options) => rawAddStep(todo.id, title, options)}
                               onToggleStep={toggleStep}
                               onDeleteStep={rawDeleteStep}
                               onStartStepTimer={rawStartStepTimer}
@@ -2880,6 +3193,7 @@ export function PlanView({
                                 rawUpdateStepPlanTime(stepId, span.startISO, span.endISO);
                               }}
                               onUpdateStepTitle={rawUpdateStepTitle}
+                              onUpdateStepLink={rawUpdateStepLink}
                               carriedFromDate={todo.date !== todayStr ? todo.date : undefined}
                             />
                           </div>
@@ -2911,7 +3225,7 @@ export function PlanView({
                             key={todo.id}
                             todo={todo}
                             onToggle={() => toggleComplete(todo.id)}
-                            onToggleRecurring={(next) => toggleRecurring(todo.id, next)}
+                            onToggleRecurring={(next) => handleToggleRecurring(todo.id, next)}
                             onDelete={() => deleteTodoWithUndo(todo.id)}
                             onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                             onUpdateTime={(startTime, endTime) => {
@@ -2940,7 +3254,7 @@ export function PlanView({
                               }
                             }}
                             steps={stepsByParent[todo.id] || []}
-                            onAddStep={(title) => rawAddStep(todo.id, title)}
+                            onAddStep={(title, options) => rawAddStep(todo.id, title, options)}
                             onToggleStep={toggleStep}
                             onDeleteStep={rawDeleteStep}
                             onStartStepTimer={rawStartStepTimer}
@@ -2952,6 +3266,7 @@ export function PlanView({
                               rawUpdateStepPlanTime(stepId, span.startISO, span.endISO);
                             }}
                             onUpdateStepTitle={rawUpdateStepTitle}
+                            onUpdateStepLink={rawUpdateStepLink}
                           />
                         ))}
                       </div>
@@ -3084,6 +3399,30 @@ export function PlanView({
                           })}
                         </div>
                         <div className="border-t border-border/40 my-2.5" />
+                        {reminders.length > 0 && (
+                          <div className="mb-1.5 max-h-36 space-y-1 overflow-y-auto px-1">
+                            <p className="px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                              {lang === 'zh' ? '已有提醒' : 'Your reminders'}
+                            </p>
+                            {reminders.map(r => (
+                              <div key={r.id} className="flex items-center gap-2 px-1 py-1">
+                                <span className={cn("min-w-0 flex-1 truncate text-[12px]", r.is_active ? "text-foreground" : "text-muted-foreground/55 line-through")}>
+                                  {r.title}
+                                </span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={r.is_active}
+                                  aria-label={r.is_active ? (lang === 'zh' ? '关闭提醒' : 'Disable reminder') : (lang === 'zh' ? '打开提醒' : 'Enable reminder')}
+                                  onClick={() => { void toggleReminder(r.id); }}
+                                  className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', r.is_active ? 'bg-primary' : 'bg-muted')}
+                                >
+                                  <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', r.is_active ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <button onClick={() => setReminderConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
                           className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card",
                             reminderConfig.enabled ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-foreground"
@@ -3156,7 +3495,7 @@ export function PlanView({
               date={todayStr}
               rhythmPresetId={timelineRhythmPresetId}
               onUpdateTodo={updateTodo}
-              onAddTodo={(title, seg) => addTodo(title, seg as Todo['time_segment'])}
+              onAddTodo={(title, seg, options) => addTodo(title, seg as Todo['time_segment'], undefined, options)}
               onDropTodo={handleDropOnTimeline}
               onUnscheduleTodo={(id) => updateTodo(id, { plan_started_at: null, plan_ended_at: null })}
               onDeleteTodo={deleteTodoWithUndo}

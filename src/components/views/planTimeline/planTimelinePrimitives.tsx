@@ -349,6 +349,14 @@ export interface TimeBlock {
   readOnly?: boolean;
 }
 
+/** Resolve the owning todo id from a timeline block id (`tail-…`, `plan-…`, or raw). */
+export function todoIdFromBlockId(blockId: string): string {
+  let id = blockId;
+  if (id.startsWith('tail-')) id = id.slice(5);
+  if (id.startsWith('plan-')) id = id.slice(5);
+  return id;
+}
+
 /* Tag color palette — fixed category colors for clear differentiation */
 const FALLBACK_TAG_COLORS = [
   'hsl(var(--primary))',

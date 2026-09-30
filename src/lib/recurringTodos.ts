@@ -177,6 +177,13 @@ export type RecurringTogglePlan =
   | { action: 'enable'; id: string }
   | { action: 'disable'; sourceId: string };
 
+export function isDailyRepeatTodo(t: {
+  is_recurring?: boolean;
+  recurrence_source_id?: string | null;
+} | null | undefined): boolean {
+  return !!(t?.is_recurring || t?.recurrence_source_id);
+}
+
 /**
  * Decide what a daily-repeat toggle should do, given the row the user acted on.
  *
@@ -193,7 +200,7 @@ export function planRecurringToggle(
   id: string,
   next: boolean,
 ): RecurringTogglePlan {
-  const alreadyInSeries = !!(target?.is_recurring || target?.recurrence_source_id);
+  const alreadyInSeries = isDailyRepeatTodo(target);
   if (next) {
     if (alreadyInSeries) return { action: 'noop' };
     return { action: 'enable', id };

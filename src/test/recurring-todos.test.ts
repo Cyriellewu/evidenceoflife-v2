@@ -5,6 +5,7 @@ import {
   buildClonedStepInserts,
   computeConsecutiveCompletedDays,
   planRecurringToggle,
+  isDailyRepeatTodo,
 } from '@/lib/recurringTodos';
 
 describe('pickRecurringSourcesNeedingClone', () => {
@@ -190,6 +191,15 @@ describe('computeConsecutiveCompletedDays', () => {
       mk('2026-07-10', true),
     ];
     expect(computeConsecutiveCompletedDays(instances, '2026-07-10')).toBe(1);
+  });
+});
+
+describe('isDailyRepeatTodo', () => {
+  it('treats sources and clones as daily-repeat rows', () => {
+    expect(isDailyRepeatTodo({ is_recurring: true })).toBe(true);
+    expect(isDailyRepeatTodo({ recurrence_source_id: 's1' })).toBe(true);
+    expect(isDailyRepeatTodo({ is_recurring: false })).toBe(false);
+    expect(isDailyRepeatTodo(undefined)).toBe(false);
   });
 });
 

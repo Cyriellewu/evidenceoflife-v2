@@ -69,7 +69,11 @@ function deepenWarmLightColor(color: string | undefined): string | undefined {
 }
 
 export function resolveRawActivityColor(title?: string, tags?: string[], fallback?: string): string | undefined {
-  const tag = tags?.[0]?.toLowerCase() || (title ? autoClassifyTag(title) : undefined);
+  // Skip bookkeeping tags so focus-session moments don't hash to a random hue.
+  const meaningful = tags?.filter(
+    (t) => t !== 'focus-session' && t !== 'step-session' && !t.startsWith('todo-session:'),
+  );
+  const tag = meaningful?.[0]?.toLowerCase() || (title ? autoClassifyTag(title) : undefined);
   if (tag && TAG_CATEGORY_COLORS[tag]) return TAG_CATEGORY_COLORS[tag];
   if (tag) {
     const hash = tag.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);

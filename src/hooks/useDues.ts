@@ -1,21 +1,18 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database, Json } from '@/integrations/supabase/types';
+import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { Todo } from '@/hooks/useTodos';
+import {
+  type DueLink,
+  parseDueLinks,
+  serializeDueLinks,
+} from '@/lib/dueLinks';
+
+export type { DueLink } from '@/lib/dueLinks';
 
 const RECAP_DAILY_TAG = '__recap_daily__';
-
-export interface DueLink {
-  url: string;
-  label?: string;
-  title?: string;
-  description?: string;
-  image?: string;
-  siteName?: string;
-  count?: number;
-}
 
 export interface DueStep {
   id: string;
@@ -53,46 +50,6 @@ export interface DueWithStats extends Todo {
 type TodoRow = Database['public']['Tables']['todos']['Row'];
 type TodoInsert = Database['public']['Tables']['todos']['Insert'];
 type TodoUpdate = Database['public']['Tables']['todos']['Update'];
-
-function parseDueLinks(value: Json | null): DueLink[] {
-  if (!Array.isArray(value)) return [];
-  const links: DueLink[] = [];
-  value.forEach((item) => {
-    if (typeof item !== 'object' || item === null) return;
-    const candidate = item as {
-      url?: unknown;
-      label?: unknown;
-      title?: unknown;
-      description?: unknown;
-      image?: unknown;
-      siteName?: unknown;
-      count?: unknown;
-    };
-    if (typeof candidate.url !== 'string') return;
-    links.push({
-      url: candidate.url,
-      ...(typeof candidate.label === 'string' ? { label: candidate.label } : {}),
-      ...(typeof candidate.title === 'string' ? { title: candidate.title } : {}),
-      ...(typeof candidate.description === 'string' ? { description: candidate.description } : {}),
-      ...(typeof candidate.image === 'string' ? { image: candidate.image } : {}),
-      ...(typeof candidate.siteName === 'string' ? { siteName: candidate.siteName } : {}),
-      ...(typeof candidate.count === 'number' ? { count: candidate.count } : {}),
-    });
-  });
-  return links;
-}
-
-function serializeDueLinks(links: DueLink[]): Json {
-  return links.map((link) => ({
-    url: link.url,
-    ...(link.label ? { label: link.label } : {}),
-    ...(link.title ? { title: link.title } : {}),
-    ...(link.description ? { description: link.description } : {}),
-    ...(link.image ? { image: link.image } : {}),
-    ...(link.siteName ? { siteName: link.siteName } : {}),
-    ...(typeof link.count === 'number' ? { count: link.count } : {}),
-  }));
-}
 
 async function fetchWithRetry<T>(
   fn: () => PromiseLike<{ data: T | null; error: unknown }>,

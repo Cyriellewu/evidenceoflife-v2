@@ -43,7 +43,7 @@ const REMINDER_PRESETS = [
 
 export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename }: EventDetailPopupProps) {
   const { lang } = useLanguage();
-  const { reminders, addReminderAt, deleteReminder } = useReminders();
+  const { reminders, addReminderAt, deleteReminder, toggleReminder } = useReminders();
   const { getWorkType, setWorkType } = useWorkTypes();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(event.title);
@@ -65,7 +65,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
 
   // Reminders associated with this event (by title)
   const eventReminders = useMemo(
-    () => reminders.filter(r => r.title === event.title && r.is_active),
+    () => reminders.filter(r => r.title === event.title),
     [reminders, event.title]
   );
 
@@ -234,12 +234,22 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
             {eventReminders.length > 0 && (
               <div className="space-y-1.5">
                 {eventReminders.map(r => (
-                  <div key={r.id} className="flex items-center justify-between gap-2 text-xs">
+                  <div key={r.id} className={cn("flex items-center justify-between gap-2 text-xs", !r.is_active && "opacity-55")}>
                     <div className="flex items-center gap-1.5 text-foreground/70 min-w-0">
                       <Bell size={10} className="flex-shrink-0 text-primary/60" />
                       <span className="truncate">{format(parseISO(r.next_reminder_at), 'MMM d, h:mm a')}</span>
                       {r.description && <span className="text-muted-foreground/50 truncate">· {r.description}</span>}
                     </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={r.is_active}
+                      aria-label={r.is_active ? (lang === 'zh' ? '关闭提醒' : 'Disable reminder') : (lang === 'zh' ? '打开提醒' : 'Enable reminder')}
+                      onClick={() => { void toggleReminder(r.id); }}
+                      className={cn('relative h-4 w-7 shrink-0 rounded-full transition-colors', r.is_active ? 'bg-primary' : 'bg-muted')}
+                    >
+                      <span className={cn('absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform', r.is_active ? 'translate-x-3' : 'translate-x-0.5')} />
+                    </button>
                     <button
                       onClick={() => deleteReminder(r.id)}
                       className="flex-shrink-0 p-0.5 rounded text-muted-foreground/50 hover:text-destructive transition-colors"
@@ -307,14 +317,14 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
             onClick={() => setShowReminderPanel(p => !p)}
             className={cn(
               "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors",
-              (showReminderPanel || eventReminders.length > 0)
+              (showReminderPanel || eventReminders.some(r => r.is_active))
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
           >
             <Bell size={12} />
-            {eventReminders.length > 0
-              ? `${eventReminders.length} ${lang === 'zh' ? '个提醒' : 'reminder' + (eventReminders.length > 1 ? 's' : '')}`
+            {eventReminders.some(r => r.is_active)
+              ? `${eventReminders.filter(r => r.is_active).length} ${lang === 'zh' ? '个提醒' : 'reminder' + (eventReminders.filter(r => r.is_active).length > 1 ? 's' : '')}`
               : (lang === 'zh' ? '提醒' : 'Remind')}
           </button>
 

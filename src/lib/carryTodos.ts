@@ -4,6 +4,64 @@ const VALID_SEGMENTS = new Set(['anytime', 'morning', 'afternoon', 'evening']);
 
 const normTitle = (s: string) => s.trim().toLowerCase();
 
+function localDayKey(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Unfinished plan tasks from earlier days that belong in today's open list.
+ * Steps, dues, and habits stay on their own surfaces. `date` is not rewritten.
+ */
+export function isOpenPlanCarry(todo: Todo): boolean {
+  if (todo.is_completed) return false;
+  if (!todo.date || todo.date.startsWith('_')) return false;
+  if (todo.parent_due_id) return false;
+  if (todo.due_date) return false;
+  if (todo.habit_category) return false;
+  return true;
+}
+
+/**
+ * Timeline copy of today's list. A carried task whose plan window sits on
+ * another day is still open work — show it as unscheduled on `day` instead of
+ * painting yesterday's block onto today. This copy is display-only; it does
+ * not write `date` or plan timestamps.
+ */
+export function presentCarryOnTimeline(todos: Todo[], day: string): Todo[] {
+  return todos.map(t => {
+    if (t.date === day || t.is_completed) return t;
+    const planDay = localDayKey(t.plan_started_at);
+    if (!t.plan_started_at || planDay === day) return t;
+    return { ...t, plan_started_at: null, plan_ended_at: null };
+  });
+}
+
+/**
+ * Blank unfinished rows (no timer). Kept as a pure helper.
+ * The app does NOT rewrite these rows onto today — today's list shows them
+ * through `mergeCarriedTodos` while `date` stays on the original day.
+ */
+export function selectTodosEligibleForRollover<T extends {
+  id: string;
+  timer_started_at?: string | null;
+  timer_ended_at?: string | null;
+  timer_seconds?: number | null;
+}>(rows: T[], _previousDate?: string): T[] {
+  return rows.filter((todo) => {
+    if (todo.timer_started_at) return false;
+    if (todo.timer_ended_at) return false;
+    if ((todo.timer_seconds || 0) > 0) return false;
+    return true;
+  });
+}
+
+
 // A carried task's "worth keeping" score: any logged progress dominates
 // (weighted heavily), then any recorded timer seconds. Used to pick the single
 // survivor when the same task title appears on several past days.

@@ -280,19 +280,25 @@ export function FocusTimerOverlay({
     })());
   }, [pauseState, updatePauseState]);
 
-  // Slider DEFAULTS to 100% and renders muted/gray until the user actually
-  // drags it. Most "End this phase" taps mean "this block is basically done";
-  // forcing the user to push the slider to the end every time was friction.
-  // `progressTouched` drives both the brighten-on-edit styling and whether we
-  // trust the slider value over the task's existing progress.
-  const [completionProgress, setCompletionProgress] = useState(100);
-  const [progressTouched, setProgressTouched] = useState(false);
+  // Slider: when continuing a task that already has partial progress, seed from
+  // that value so "Record / Complete" reflects where you left off — defaulting
+  // to 100% made continue sessions look like progress was wiped. Fresh tasks
+  // still default to 100% (untouched) so one-tap Complete stays frictionless.
+  const seedCompletion = (progress: number | null | undefined) => {
+    const p = Math.max(0, Math.min(100, progress || 0));
+    if (p > 0 && p < 100) return { value: p, touched: true as const };
+    return { value: 100, touched: false as const };
+  };
+  const [completionProgress, setCompletionProgress] = useState(() => seedCompletion(todo.progress).value);
+  const [progressTouched, setProgressTouched] = useState(() => seedCompletion(todo.progress).touched);
 
   useEffect(() => {
-    setCompletionProgress(100);
-    setProgressTouched(false);
+    const seeded = seedCompletion(todo.progress);
+    setCompletionProgress(seeded.value);
+    setProgressTouched(seeded.touched);
     setForgottenEndInput('');
     setEndDayOffset(null);
+    setShowStopConfirm(false);
   }, [todo.id]);
 
   // Seed the forgotten-timer editor with the suggested HH:mm whenever the
@@ -304,14 +310,15 @@ export function FocusTimerOverlay({
     setForgottenEndInput((prev) => (prev ? prev : suggestedEndLabel));
   }, [suggestedEndLabel]);
 
-  // "Complete" is a decisive action: it always means 100% done, regardless of
-  // where the slider sits. The slider exists only to record partial progress
-  // for the "Continue Later" path.
+  // Partial slider (< 100%) → primary becomes "Record" and saves progress without
+  // completing. At 100% (default), "Complete" still means fully done.
+  const isRecordingPartial = progressTouched && completionProgress < 100;
+
   const handleComplete = useCallback(() => {
     onComplete(sessionWorkingSec, 100);
   }, [onComplete, sessionWorkingSec]);
 
-  // 阶段性结束：保存本段计入历史、结束本轮计时器，任务仍开放。进度封顶 99%
+  // 阶段性结束 / Record：保存本段计入历史、结束本轮计时器，任务仍开放。进度封顶 99%
   // （与「完成任务」区分开）。若用户没动滑块，保留任务原有进度，避免凭空抬到 99%。
   const handleContinueLater = useCallback(() => {
     const nextProgress = progressTouched
@@ -319,6 +326,11 @@ export function FocusTimerOverlay({
       : Math.max(0, Math.min(99, todo.progress || 0));
     onSaveAndContinue(sessionWorkingSec, nextProgress);
   }, [completionProgress, progressTouched, todo.progress, onSaveAndContinue, sessionWorkingSec]);
+
+  const handlePrimaryEndAction = useCallback(() => {
+    if (isRecordingPartial) handleContinueLater();
+    else handleComplete();
+  }, [isRecordingPartial, handleContinueLater, handleComplete]);
 
   const handleFinishAtSuggestion = useCallback((completed: boolean) => {
     if (!onFinishAt || !startedDate) return;
@@ -622,7 +634,15 @@ export function FocusTimerOverlay({
                 <div className="mt-1 flex items-center gap-2 text-[10px] text-[hsl(var(--text-soft))]">
                   <span>{lang === 'zh' ? stageInfo.labelZh : stageInfo.label}</span>
                   <span>·</span>
-                  <span>{Math.round(progressPct)}%</span>
+                  <span title={lang === 'zh' ? '本轮专注' : 'This session'}>{Math.round(progressPct)}%</span>
+                  {(todo.progress || 0) > 0 && (todo.progress || 0) < 100 && (
+                    <>
+                      <span>·</span>
+                      <span className="font-medium text-foreground/55" title={lang === 'zh' ? '任务总进度' : 'Task progress'}>
+                        {lang === 'zh' ? '任务' : 'task'} {Math.round(todo.progress || 0)}%
+                      </span>
+                    </>
+                  )}
                   {isPaused && (
                     <>
                       <span>·</span>
@@ -828,18 +848,21 @@ export function FocusTimerOverlay({
                   />
                 </div>
                 <p className="mt-2 px-0.5 text-center text-[10px] leading-relaxed text-muted-foreground/50">
-                  {t('focus.endPhaseHint')}
+                  {isRecordingPartial ? t('focus.recordProgressHint') : t('focus.endPhaseHint')}
                 </p>
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                <div className={cn('mt-2.5 gap-2', isRecordingPartial ? 'flex' : 'grid grid-cols-2')}>
+                  {!isRecordingPartial && (
+                    <button
+                      type="button"
+                      onClick={handleContinueLater}
+                      className="flex h-11 w-full items-center justify-center rounded-full border border-border/55 bg-[hsl(var(--surface-contrast)/0.85)] px-3 text-[12.5px] font-medium tracking-[-0.005em] text-foreground/70 transition-colors hover:bg-[hsl(var(--surface-contrast))] hover:text-foreground/85"
+                    >
+                      {t('focus.endPhase')}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={handleContinueLater}
-                    className="flex h-11 w-full items-center justify-center rounded-full border border-border/55 bg-[hsl(var(--surface-contrast)/0.85)] px-3 text-[12.5px] font-medium tracking-[-0.005em] text-foreground/70 transition-colors hover:bg-[hsl(var(--surface-contrast))] hover:text-foreground/85"
-                  >
-                    {t('focus.endPhase')}
-                  </button>
-                  <button
-                    onClick={handleComplete}
+                    onClick={handlePrimaryEndAction}
                     className="group flex h-11 w-full items-center justify-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium tracking-[-0.005em] text-white/95 transition-all hover:brightness-[0.96] active:brightness-[0.92]"
                     // Soften the raw treeColor: blend ~22% with the warm card
                     // surface so it sits as a CALM affirmative button, not a
@@ -850,8 +873,12 @@ export function FocusTimerOverlay({
                       boxShadow: `0 2px 10px color-mix(in srgb, ${treeColor} 30%, transparent)`,
                     }}
                   >
-                    <Check size={14} strokeWidth={2.2} className="opacity-90" />
-                    {lang === 'zh' ? '完成任务' : 'Complete'}
+                    {isRecordingPartial ? (
+                      <span className="font-mono text-[11px] tabular-nums opacity-90">{completionProgress}%</span>
+                    ) : (
+                      <Check size={14} strokeWidth={2.2} className="opacity-90" />
+                    )}
+                    {isRecordingPartial ? t('focus.recordProgress') : t('focus.completeTask')}
                   </button>
                 </div>
               </div>
@@ -875,10 +902,11 @@ interface FloatingTimerProps {
   isPaused: boolean;
   pauseState?: PauseState;
   onClick: () => void;
+  onTogglePause?: () => void;
   accentColor?: string;
 }
 
-export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor }: FloatingTimerProps) {
+export function FloatingTimer({ todo, isPaused, pauseState, onClick, onTogglePause, accentColor }: FloatingTimerProps) {
   const { lang } = useLanguage();
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -984,6 +1012,23 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
           sessionClock
         )}
       </span>
+      {onTogglePause && (
+        <button
+          type="button"
+          data-block-action="true"
+          aria-label={isPaused ? (lang === 'zh' ? '继续' : 'Resume') : (lang === 'zh' ? '暂停' : 'Pause')}
+          title={isPaused ? (lang === 'zh' ? '继续' : 'Resume') : (lang === 'zh' ? '暂停' : 'Pause')}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onTogglePause();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-border/50 bg-[hsl(var(--surface-contrast)/0.85)] text-foreground/70 transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+        >
+          {isPaused ? <Play size={13} className="fill-current" /> : <Pause size={13} />}
+        </button>
+      )}
     </div>
   );
 }

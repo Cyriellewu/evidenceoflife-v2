@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { isSpentOneShotReminder, patchAfterReminderFire } from '@/lib/reminderSchedule';
 
 export interface Reminder {
   id: string;
@@ -64,6 +65,27 @@ export function useReminders() {
   }, [canUseDb, user]);
 
   useEffect(() => { fetchReminders(); }, [fetchReminders]);
+
+  // Heal legacy one-shots that already fired but stayed active because the old
+  // tick used Math.max(1, interval_days) and rescheduled them daily forever.
+  const healedRef = useRef(false);
+  useEffect(() => {
+    if (!canUseDb || healedRef.current || reminders.length === 0) return;
+    const stuck = reminders.filter(r => r.is_active && isSpentOneShotReminder(r));
+    if (stuck.length === 0) {
+      healedRef.current = true;
+      return;
+    }
+    healedRef.current = true;
+    (async () => {
+      await Promise.all(
+        stuck.map(r =>
+          supabase.from('reminders').update({ is_active: false }).eq('id', r.id),
+        ),
+      );
+      await fetchReminders();
+    })();
+  }, [canUseDb, reminders, fetchReminders]);
 
   const addReminder = useCallback(async (
     title: string,
@@ -153,12 +175,21 @@ export function useReminders() {
     const tick = async () => {
       if (document.visibilityState !== 'visible') return;
       const now = new Date();
-      let firedAny = false;
+      let changed = false;
       for (const r of reminders) {
         if (!r.is_active) continue;
+
+        // Already-delivered one-shot: stop quietly (covers rows healed mid-session
+        // or any that slipped past the mount heal).
+        if (isSpentOneShotReminder(r)) {
+          await supabase.from('reminders').update({ is_active: false }).eq('id', r.id);
+          changed = true;
+          continue;
+        }
+
         const due = new Date(r.next_reminder_at);
         if (due > now) continue;
-        firedAny = true;
+        changed = true;
 
         const type = r.reminder_type || 'browser';
         const message = r.description || r.title;
@@ -186,24 +217,18 @@ export function useReminders() {
           toast.info(`邮件提醒：${r.title}`);
         }
 
-        const nextAt = new Date(now);
-        nextAt.setDate(nextAt.getDate() + Math.max(1, r.interval_days));
-
-        await supabase
-          .from('reminders')
-          .update({
-            last_reminded_at: now.toISOString(),
-            next_reminder_at: nextAt.toISOString(),
-          })
-          .eq('id', r.id);
+        const patch = patchAfterReminderFire(r, now);
+        await supabase.from('reminders').update(patch).eq('id', r.id);
       }
 
-      if (firedAny) fetchReminders();
+      if (changed) fetchReminders();
     };
 
     const timer = window.setInterval(() => {
       tick();
     }, 30000);
+    // Run once soon so stuck one-shots (e.g. Brainbox) stop without waiting a full interval.
+    void tick();
 
     return () => window.clearInterval(timer);
   }, [canUseDb, user, reminders, fetchReminders]);

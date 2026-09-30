@@ -145,7 +145,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   } = useMoments();
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const prevDateStr = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
-  const { todos, updateTodo, addTodo, deleteTodo, refetch: refetchTodos } = useTodos(selectedDateStr);
+  const { todos, pastDayOpenTodos, updateTodo, addTodo, deleteTodo, toggleRecurring, refetch: refetchTodos } = useTodos(selectedDateStr);
   const prevDayTodos = usePrevDayTodos(prevDateStr);
   const { events: importedEvents, updateEvent: updateImportedEvent } = useImportedEvents();
   const { profile } = useProfile();
@@ -492,6 +492,10 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 onTodosChanged={refetchTodos}
                 date={selectedDateStr}
                 todos={todos}
+                pastDayOpenTodos={pastDayOpenTodos}
+                toggleRecurring={toggleRecurring}
+                addTodo={addTodo}
+                updateTodo={updateTodo}
                 importedEvents={dateImportedEvents}
                 prevDayTodos={prevDayTodos}
                 prevDayMoments={prevDayMoments}

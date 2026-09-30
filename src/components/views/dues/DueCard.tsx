@@ -21,7 +21,22 @@ import { toast } from 'sonner';
 import { StorageImage } from "@/components/StorageImage";
 
 /* ── Due Card (Redesigned) ── */
-export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueReminders, onUpsertReminder, onRemoveReminder, onAddStep, onToggleStep, onDeleteStep, onIncrementHabitCount, onSetHabitCount, bare = false }: {
+function ReminderActiveSwitch({ active, onToggle, label }: { active: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label={label}
+      onClick={onToggle}
+      className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', active ? 'bg-primary' : 'bg-muted')}
+    >
+      <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', active ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+    </button>
+  );
+}
+
+export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueReminders, onUpsertReminder, onRemoveReminder, onToggleReminder, onAddStep, onToggleStep, onDeleteStep, onIncrementHabitCount, onSetHabitCount, bare = false }: {
   due: DueWithStats;
   onUpdate: (id: string, updates: { title?: string; due_date?: string | null; links?: DueLink[]; is_completed?: boolean; photos?: string[]; habit_category?: string | null; show_in_recap_daily?: boolean }) => void;
   onDelete: (id: string) => void;
@@ -30,6 +45,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
   dueReminders: DueReminder[];
   onUpsertReminder: (dueId: string, type: 'browser' | 'email', beforeMinutes: number, isRecurring?: boolean, intervalDays?: number) => void;
   onRemoveReminder: (reminderId: string) => void;
+  onToggleReminder: (reminderId: string) => void;
   onAddStep: (masterId: string, title: string) => void;
   onToggleStep: (stepId: string, completed: boolean) => void;
   onDeleteStep: (stepId: string) => void;
@@ -444,11 +460,16 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                         <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground/65">{step.title}</p>
                       </div>
                       {stepReminders.map(r => (
-                        <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg bg-secondary/45 px-2 py-1.5 text-[12px]">
+                        <div key={r.id} className={cn("flex items-center justify-between gap-2 rounded-lg bg-secondary/45 px-2 py-1.5 text-[12px]", !r.is_active && "opacity-60")}>
                           <span className="flex min-w-0 items-center gap-1.5">
                             {r.reminder_type === 'email' ? <Mail size={11} /> : <Bell size={11} />}
                             <span className="truncate">{formatReminderText(r)}</span>
                           </span>
+                          <ReminderActiveSwitch
+                            active={r.is_active}
+                            onToggle={() => onToggleReminder(r.id)}
+                            label={r.is_active ? 'Disable reminder' : 'Enable reminder'}
+                          />
                           <button onClick={() => onRemoveReminder(r.id)} aria-label="Remove reminder" className="text-muted-foreground/55 hover:text-destructive">
                             <X size={11} />
                           </button>
@@ -877,7 +898,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
               (just opacity-30 ghosted icons). Hover/focus brings them up to
               full visibility. This is the iOS / macOS Finder pattern —
               secondary actions exist but never compete with the primary CTA. */}
-          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <div className="flex shrink-0 items-center gap-1">
             {confirmDelete ? (
               <div className="flex items-center gap-1.5 opacity-100">
                 <span className="text-[12px] text-destructive/70">Delete?</span>
@@ -894,8 +915,9 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                       aria-label="Reminders"
                       className={cn(
                         "h-8 w-8 rounded-full flex items-center justify-center transition-colors",
+                        cardReminders.length === 0 && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
                         hasActiveReminder
-                          ? "text-primary bg-primary/10 opacity-100"
+                          ? "text-primary bg-primary/10"
                           : "text-muted-foreground/55 hover:text-primary hover:bg-secondary"
                       )}
                       style={hasActiveReminder ? { /* break out of the hover-only opacity */ } : undefined}
@@ -906,12 +928,17 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   <PopoverContent className="w-56 p-3 space-y-2" align="end">
                     <p className="text-[13px] font-medium text-foreground mb-1">Reminders</p>
                     {cardReminders.map(r => (
-                      <div key={r.id} className="flex items-center justify-between text-[13px]">
-                        <span className="flex items-center gap-1.5">
+                      <div key={r.id} className={cn("flex items-center justify-between gap-2 text-[13px]", !r.is_active && "opacity-60")}>
+                        <span className="flex min-w-0 items-center gap-1.5">
                           {r.reminder_type === 'email' ? <Mail size={12} /> : <Bell size={12} />}
-                          {formatReminderText(r)}
+                          <span className="truncate">{formatReminderText(r)}</span>
                         </span>
-                        <button onClick={() => onRemoveReminder(r.id)} className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
+                        <ReminderActiveSwitch
+                          active={r.is_active}
+                          onToggle={() => onToggleReminder(r.id)}
+                          label={r.is_active ? 'Disable reminder' : 'Enable reminder'}
+                        />
+                        <button onClick={() => onRemoveReminder(r.id)} aria-label="Remove reminder" className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
                       </div>
                     ))}
                     {hasDeadline ? (
@@ -945,6 +972,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   </PopoverContent>
                 </Popover>
 
+                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 {/* + menu — all "add" actions collapsed into one quiet trigger.
                     Hidden on default, visible on hover. Linear / Things 3 / iOS
                     Reminders all hide attachment affordances behind a single
@@ -992,6 +1020,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                 >
                   <Trash2 size={14} />
                 </button>
+                </div>
               </>
             )}
           </div>

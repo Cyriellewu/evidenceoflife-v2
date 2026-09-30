@@ -9,6 +9,16 @@ import { buildStepSegmentsByParent } from '@/lib/stepTimelineSegments';
 
 const DAY_MIN = 1440; // 24:00 — end of a calendar day on the timeline axis
 
+/** True when the user already banked prior focus work and is timing a NEW
+ *  stretch. Merging that live actual into an older plan envelope would stretch
+ *  the morning plan block all the way to "now" — which looks like the whole
+ *  block jumped. Keep plan + live as separate geometry instead. */
+function isContinueLiveSession(t: Todo, activeTimerIds: Set<string> | undefined): boolean {
+  const running = !!t.timer_started_at && !t.timer_ended_at && !!activeTimerIds?.has(t.id);
+  if (!running) return false;
+  return (t.timer_seconds || 0) > 0;
+}
+
 /** Returns yyyy-MM-dd for the given ISO string (or null). Used to check whether
  *  a timestamp belongs to the calendar day this timeline is rendering — a stale
  *  cross-midnight timer or a plan slot filed under the wrong day must not paint
@@ -225,12 +235,58 @@ function buildRawBlocks(
 
       const hasPlan = !!planStartMin;
       const hasActual = actualStartMin !== undefined;
+      const continueLive = isContinueLiveSession(t, activeTimerIds);
+      const sessionGroupKey = `todo-session:${t.id}`;
 
       // 如果只有计划，用计划时间；如果有 actual，就按 plan/actual 包络算容器高度
       const basePlanStart = planStartMin ?? actualStartMin ?? WAKE_TOTAL_MIN;
       const basePlanEnd = planEndMin ?? (actualEndMin ?? (basePlanStart + 30));
       const baseActualStart = actualStartMin ?? basePlanStart;
       const baseActualEnd = actualEndMin ?? basePlanEnd;
+
+      // Continue-later with a plan still on the board: leave the plan slot where
+      // it is (resume pointer targets it) and emit the live stretch as its own
+      // block so prior work isn't dragged across the day.
+      if (hasPlan && hasActual && continueLive) {
+        const planStart = basePlanStart;
+        const planEnd = Math.max(basePlanEnd, basePlanStart + 10);
+        blocks.push({
+          id: `plan-${t.id}`,
+          title: t.title,
+          startMin: planStart,
+          endMin: planEnd,
+          type: 'plan',
+          source: 'todo',
+          tags: t.tags,
+          photos: t.photos,
+          emoji: extractLeadingEmoji(t.title),
+          progress: t.progress,
+          planStartMin: planStart,
+          planEndMin: planEnd,
+          hasActual: false,
+          sessionGroupKey,
+          readOnly: true,
+        });
+        const liveStart = baseActualStart;
+        const liveEnd = Math.max(baseActualEnd, baseActualStart + 10);
+        blocks.push({
+          id: t.id,
+          title: t.title,
+          startMin: liveStart,
+          endMin: liveEnd,
+          type: 'plan',
+          source: 'todo',
+          tags: t.tags,
+          photos: t.photos,
+          emoji: extractLeadingEmoji(t.title),
+          progress: t.progress,
+          actualStartMin: liveStart,
+          actualEndMin: liveEnd,
+          hasActual: true,
+          sessionGroupKey,
+        });
+        return;
+      }
 
       const blockStart = hasPlan && hasActual ? Math.min(basePlanStart, baseActualStart) : (hasPlan ? basePlanStart : baseActualStart);
       const blockEnd = hasPlan && hasActual ? Math.max(basePlanEnd, baseActualEnd) : (hasPlan ? basePlanEnd : baseActualEnd);
@@ -251,7 +307,7 @@ function buildRawBlocks(
         actualStartMin: hasActual ? baseActualStart : undefined,
         actualEndMin: hasActual ? Math.max(baseActualEnd, baseActualStart + 10) : undefined,
         hasActual,
-        sessionGroupKey: `todo-session:${t.id}`,
+        sessionGroupKey,
       });
     });
 
@@ -374,7 +430,17 @@ function buildRawBlocks(
   // second small block on top of the parent (same time range, side-by-side
   // column split → visual noise + title collision). The parent block already
   // shows the actual/completed span; the extra moment adds nothing but chrome.
-  const todoIdsWithBlock = new Set(blocks.filter(b => b.source === 'todo').map(b => b.id));
+  // Exception: when the parent has banked prior sessions (timer_seconds > 0),
+  // those moments ARE earlier stretches and must stay visible — the parent
+  // block only tracks the current/plan geometry, not historical fills.
+  const todoIdsWithBlock = new Set(
+    blocks
+      .filter(b => b.source === 'todo')
+      .map(b => (b.id.startsWith('plan-') ? b.id.slice(5) : b.id)),
+  );
+  const todoIdsWithPriorSessions = new Set(
+    todos.filter(t => (t.timer_seconds || 0) > 0).map(t => t.id),
+  );
 
   moments.forEach(m => {
     if (!m.timer_started_at) return;
@@ -395,10 +461,11 @@ function buildRawBlocks(
     // Suppress focus-session moments whose parent todo already has a block —
     // the parent covers the same work window and gets the deviation/plan/actual
     // chrome. Emitting a duplicate moment block splits the column and stacks
-    // two titles on top of each other.
+    // two titles on top of each other. Keep moments when prior banked sessions
+    // exist so continue-later history stays on the timeline.
     if (isFocusSession && sessionGroupKey) {
       const parentId = sessionGroupKey.slice('todo-session:'.length);
-      if (todoIdsWithBlock.has(parentId)) return;
+      if (todoIdsWithBlock.has(parentId) && !todoIdsWithPriorSessions.has(parentId)) return;
     }
 
     // Focus-session moments belong to the SAME work as their parent todo —

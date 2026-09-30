@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeCarriedTodos, selectRedundantEmptyCarriedIds } from '@/lib/carryTodos';
+import { isOpenPlanCarry, mergeCarriedTodos, presentCarryOnTimeline, selectRedundantEmptyCarriedIds, selectTodosEligibleForRollover } from '@/lib/carryTodos';
 import type { Todo } from '@/hooks/useTodos';
 
 function makeTodo(partial: Partial<Todo> & { id: string }): Todo {
@@ -21,6 +21,34 @@ function makeTodo(partial: Partial<Todo> & { id: string }): Todo {
     ...partial,
   };
 }
+
+describe('selectTodosEligibleForRollover', () => {
+  const yesterday = '2026-07-07';
+
+  it('rewrites blank unfinished rows and skips any with timer history', () => {
+    const rows = [
+      makeTodo({ id: 'fresh', created_at: '2026-07-07T09:00:00.000Z', date: '2026-07-07' }),
+      makeTodo({ id: 'old-blank', created_at: '2026-07-01T09:00:00.000Z', date: '2026-07-07' }),
+      makeTodo({
+        id: 'timed',
+        created_at: '2026-07-07T09:00:00.000Z',
+        timer_started_at: '2026-07-07T10:00:00.000Z',
+        date: '2026-07-07',
+      }),
+      makeTodo({
+        id: 'logged',
+        created_at: '2026-07-07T09:00:00.000Z',
+        timer_ended_at: '2026-07-07T11:00:00.000Z',
+        timer_seconds: 1800,
+        date: '2026-07-07',
+      }),
+    ];
+    expect(selectTodosEligibleForRollover(rows, yesterday).map(r => r.id).sort()).toEqual([
+      'fresh',
+      'old-blank',
+    ]);
+  });
+});
 
 describe('mergeCarriedTodos', () => {
   it('returns today\'s list untouched when nothing carried', () => {
@@ -84,10 +112,52 @@ describe('mergeCarriedTodos', () => {
     expect(merged[0].time_segment).toBe('anytime');
   });
 
+  it('preserves morning/afternoon/evening so carried tasks land in the same list section', () => {
+    const past = [makeTodo({ id: 'm', title: 'Gym', time_segment: 'morning', date: '2026-07-07' })];
+    const merged = mergeCarriedTodos([], past);
+    expect(merged[0].time_segment).toBe('morning');
+  });
+
   it('skips carried rows that are already completed', () => {
     const past = [makeTodo({ id: 'done', title: 'Finished', date: '2026-07-05', is_completed: true })];
     const merged = mergeCarriedTodos([], past);
     expect(merged).toHaveLength(0);
+  });
+});
+
+describe('isOpenPlanCarry', () => {
+  it('keeps an unfinished plan task and skips steps, dues, and habits', () => {
+    expect(isOpenPlanCarry(makeTodo({ id: 'open', date: '2026-07-07' }))).toBe(true);
+    expect(isOpenPlanCarry(makeTodo({ id: 'done', is_completed: true }))).toBe(false);
+    expect(isOpenPlanCarry(makeTodo({ id: 'step', date: '_step_', parent_due_id: 'p' }))).toBe(false);
+    expect(isOpenPlanCarry(makeTodo({ id: 'due', due_date: '2026-07-09' }))).toBe(false);
+    expect(isOpenPlanCarry(makeTodo({ id: 'habit', habit_category: 'daily' }))).toBe(false);
+  });
+});
+
+describe('presentCarryOnTimeline', () => {
+  it('clears a past-day plan window so the task reads as unscheduled on today', () => {
+    const carried = makeTodo({
+      id: 'y',
+      date: '2026-07-07',
+      title: 'Travel',
+      plan_started_at: '2026-07-07T17:03:00',
+      plan_ended_at: '2026-07-07T18:25:00',
+    });
+    const [shown] = presentCarryOnTimeline([carried], '2026-07-08');
+    expect(shown.plan_started_at).toBeNull();
+    expect(shown.plan_ended_at).toBeNull();
+    expect(shown.date).toBe('2026-07-07');
+  });
+
+  it('leaves today rows and a plan already on today untouched', () => {
+    const today = makeTodo({
+      id: 't',
+      date: '2026-07-08',
+      plan_started_at: '2026-07-08T15:00:00',
+      plan_ended_at: '2026-07-08T16:00:00',
+    });
+    expect(presentCarryOnTimeline([today], '2026-07-08')[0]).toBe(today);
   });
 });
 
