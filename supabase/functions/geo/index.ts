@@ -128,12 +128,23 @@ Deno.serve(async (req) => {
       if (!res.ok) throw new Error(`Search failed: ${res.status}`);
       const json = (await res.json()) as Array<{ display_name: string; lat: string; lon: string; class?: string; type?: string }>;
 
-      const results = json.map((r: any) => ({
+      let results = json.map((r: any) => ({
         name: r.display_name.split(',').slice(0, 2).join(', '),
         lat: Number(r.lat),
         lng: Number(r.lon),
         category: detectCategory({ class: r.class, type: r.type, display_name: r.display_name, address: r.address, extratags: r.extratags }),
       }));
+
+      // When the client sent a current position, prefer nearer hits so
+      // "query + Use current" behaves like a true nearby search.
+      if (!isNaN(userLat) && !isNaN(userLng) && userLat !== 0 && userLng !== 0) {
+        const dist2 = (lat: number, lng: number) => {
+          const dLat = lat - userLat;
+          const dLng = lng - userLng;
+          return dLat * dLat + dLng * dLng;
+        };
+        results = results.sort((a, b) => dist2(a.lat, a.lng) - dist2(b.lat, b.lng));
+      }
 
       return Response.json({ results }, { headers: { ...corsHeaders } });
     }
