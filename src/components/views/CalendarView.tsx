@@ -383,9 +383,11 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setShowSearch(prev => !prev)}
+              aria-label="Search"
+              aria-expanded={showSearch}
               className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
             >
-              <Search size={17} />
+              <Search size={17} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -452,11 +454,16 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search moments & tasks..."
+                aria-label="Search moments and tasks"
                 className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
                 autoFocus
               />
-              <button onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="text-muted-foreground hover:text-foreground">
-                <X size={14} />
+              <button
+                onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                aria-label="Close search"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={14} aria-hidden="true" />
               </button>
             </div>
             {searchQuery.trim() && (
