@@ -174,7 +174,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
       className={cn(
         'border-border transition-[width] duration-200 ease-out',
         isPanel
-          ? 'flex h-full w-full flex-col border-0 bg-transparent'
+          ? 'flex w-full flex-col border-0 bg-transparent'
           : // Phone layout uses a hamburger drawer (MobileNavChrome) — keep the
             // permanent rail out of the flex flow so content is full-bleed.
             'hidden md:block flex-shrink-0 border-r bg-[hsl(var(--surface-contrast))]',
@@ -183,7 +183,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
     >
       <div className={cn(
         'flex flex-col',
-        isPanel ? 'h-full py-1' : 'sticky top-0 h-screen py-2.5',
+        isPanel ? 'py-0.5' : 'sticky top-0 h-screen py-2.5',
       )}>
         {!isPanel && (
         <div className={cn(expanded ? 'px-1.5' : 'px-2')}>
@@ -204,6 +204,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
               {logoVisible ? (
                 <span onError={() => setLogoVisible(false) as never}>
                   <BrandLogo
+                    variant="mark"
                     alt="Evidence of life"
                     className={cn(expanded ? 'h-9 w-9' : 'h-10 w-10')}
                   />
@@ -228,14 +229,14 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
 
         <nav className={cn(
           'flex flex-col',
-          isPanel ? 'mt-1 gap-0.5 px-2 pb-2' : 'mt-3 gap-1',
+          isPanel ? 'mt-0.5 gap-0 px-1.5 pb-1.5' : 'mt-3 gap-1',
           !isPanel && (expanded ? 'px-1.5' : 'px-2'),
         )}>
           {/* Daily loop: full-page core surfaces (plan → live → capture → revisit) */}
           {expanded && (
             <span className={cn(
               'font-semibold uppercase tracking-[0.16em] text-muted-foreground/55',
-              isPanel ? 'mb-1 px-2.5 text-[9px]' : 'mb-0.5 px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
+              isPanel ? 'mb-0.5 px-2.5 text-[10px]' : 'mb-0.5 px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
             )}>
               {t('sidenav.dailyLoop')}
             </span>
@@ -270,7 +271,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
               title={t(labelKey)}
               className={cn(
                 'relative flex items-center rounded-[10px] transition-colors',
-                isPanel ? 'h-9 w-full justify-start gap-2.5 px-2.5' : 'h-10',
+                isPanel ? 'h-10 w-full justify-start gap-2.5 px-2.5' : 'h-10',
                 !isPanel && (expanded ? 'w-full justify-start gap-2.5 px-3' : 'w-10 justify-center self-center'),
                 expanded && !isPanel && 'cursor-grab active:cursor-grabbing',
                 draggedTab === id && 'opacity-60',
@@ -289,9 +290,9 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                   )}
                 />
               )}
-              <Icon size={isPanel ? 17 : 20} strokeWidth={activeTab === id ? 2.2 : 1.85} />
+              <Icon size={isPanel ? 18 : 20} strokeWidth={activeTab === id ? 2.2 : 1.85} />
               {expanded && (
-                <span className={cn('font-medium text-inherit', isPanel ? 'text-[13.5px]' : 'text-[16px]')}>
+                <span className={cn('font-medium text-inherit', isPanel ? 'text-[15px]' : 'text-[16px]')}>
                   {t(labelKey)}
                 </span>
               )}
@@ -302,13 +303,13 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
           {expanded ? (
             <div className={cn(
               'border-t border-border/40',
-              isPanel ? 'mt-2 space-y-2 pt-2' : 'mt-4 space-y-3 border-border/45 pt-3',
+              isPanel ? 'mt-1.5 space-y-1.5 pt-1.5' : 'mt-4 space-y-3 border-border/45 pt-3',
             )}>
               {sheetGroups.map((group) => (
                 <div key={group.labelKey}>
                   <span className={cn(
-                    'mb-1 block font-semibold uppercase tracking-[0.16em] text-muted-foreground/50',
-                    isPanel ? 'px-2.5 text-[9px]' : 'px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
+                    'mb-0.5 block font-semibold uppercase tracking-[0.16em] text-muted-foreground/50',
+                    isPanel ? 'px-2.5 text-[10px]' : 'px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
                   )}>
                     {t(group.labelKey)}
                   </span>
@@ -324,16 +325,16 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                         aria-current={isOpen ? 'true' : undefined}
                         className={cn(
                           "group/lib flex w-full items-center rounded-[10px] text-left transition-colors",
-                          isPanel ? 'h-8 gap-2 px-2.5' : 'h-9 gap-2.5 px-3',
+                          isPanel ? 'h-9 gap-2.5 px-2.5' : 'h-9 gap-2.5 px-3',
                           isOpen
                             ? "bg-primary/10 text-primary"
                             : "text-[hsl(var(--text-soft))] hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-[hsl(var(--surface-soft-hover))]"
                         )}
                       >
-                        <Icon size={isPanel ? 15 : 17} strokeWidth={isOpen ? 2 : 1.6} className="flex-shrink-0" />
+                        <Icon size={isPanel ? 16 : 17} strokeWidth={isOpen ? 2 : 1.6} className="flex-shrink-0" />
                         <span className={cn(
                           'truncate font-medium leading-tight text-inherit',
-                          isPanel ? 'text-[13px]' : 'text-[14px]',
+                          isPanel ? 'text-[14px]' : 'text-[14px]',
                         )}>
                           {shortLabel}
                         </span>
@@ -415,9 +416,9 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
         <div
           className={cn(
             'relative',
-            // Phone drawer: keep profile under the nav (no giant empty void).
+            // Phone drawer: pack profile under nav (no stretched empty middle).
             // Desktop rail: pin profile to the bottom like before.
-            isPanel ? 'mt-3 border-t border-border/35 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2' : 'mt-auto pt-3.5',
+            isPanel ? 'mt-1.5 border-t border-border/35 px-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5' : 'mt-auto pt-3.5',
             !isPanel && (expanded ? 'px-1.5' : 'px-2'),
           )}
           onMouseEnter={isPanel ? undefined : openProfileHoverCardWithDelay}
@@ -428,7 +429,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
             title={displayName}
             className={cn(
               'flex items-center overflow-hidden rounded-[10px] transition-colors',
-              isPanel ? 'h-9 w-full justify-start gap-2 px-2.5' : 'h-9',
+              isPanel ? 'h-10 w-full justify-start gap-2.5 px-2.5' : 'h-9',
               !isPanel && (expanded ? 'w-full justify-start gap-2 px-3' : 'w-9 justify-center self-center'),
               activeTab === 'profile'
                 ? 'bg-black/[0.05] dark:bg-[hsl(var(--surface-soft))]'
@@ -438,10 +439,10 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className={cn(expanded || isPanel ? 'h-7 w-7' : 'h-9 w-9', 'rounded-full object-cover')} />
             ) : (
-              <User size={isPanel ? 16 : 18} className="text-[hsl(var(--text-soft))]" />
+              <User size={isPanel ? 17 : 18} className="text-[hsl(var(--text-soft))]" />
             )}
             {(expanded || isPanel) && (
-              <span className={cn('font-medium text-foreground', isPanel ? 'text-[13px]' : 'text-[16px]')}>
+              <span className={cn('font-medium text-foreground', isPanel ? 'text-[14px]' : 'text-[16px]')}>
                 {displayName}
               </span>
             )}
