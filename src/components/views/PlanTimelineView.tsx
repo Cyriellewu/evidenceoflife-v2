@@ -814,6 +814,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     // Touch + mouse both go through Pointer Events. Mouse-only handlers never
     // received move/up on iOS, so drag-to-reschedule / insert looked broken.
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // Title tap opens rename — don't steal it as a block move.
+    if ((e.target as HTMLElement).closest('[data-block-title="true"]')) return;
     if (block.source === 'imported') return;
     // Moment blocks have a single (actual) span — drag/resize edits that span.
     if (block.source === 'moment') {
@@ -1863,6 +1865,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           if (justDraggedRef.current || isEditingThis) return;
           const target = e.target as HTMLElement;
           if (target.closest('[data-block-action="true"]')) return;
+          if (target.closest('[data-block-title="true"]')) return;
           setSelectedResumeBlockId(prev => (prev === block.id ? null : block.id));
         }}
       >
@@ -2203,42 +2206,56 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         })()}
 
 
-        {/* Resize handles — z-[15] puts them above the content area (z-10) so they actually receive mousedown events */}
+        {/* Resize handles — thin edge strips only so title taps still rename on short pills */}
         {isEditable && !isEditingThis && (() => {
-          const ultraSlimHandles = ultraShortOuter;
-          const slimResize = height <= 38 && !ultraSlimHandles;
-          const midResize = !slimResize && height <= 50;
+          const ultraSlimHandles = ultraShortOuter || veryCompactLayout;
+          const slimResize = !ultraSlimHandles && height <= 38;
+          const midResize = !slimResize && !ultraSlimHandles && height <= 50;
           return (
           <>
             <div
               className={cn(
-                'absolute top-0 left-0 right-0 cursor-n-resize flex items-start justify-center z-[15]',
-                ultraSlimHandles ? '-top-1 h-3 pt-1' : slimResize ? '-top-1 h-4 pt-1' : midResize ? 'h-5 pt-1' : 'h-7 pt-1.5',
+                'pointer-events-none absolute top-0 left-0 right-0 z-[15] flex cursor-n-resize items-start justify-center',
+                ultraSlimHandles ? '-top-1 h-2.5' : slimResize ? '-top-1 h-3' : midResize ? 'h-3.5' : 'h-5',
               )}
-              onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'top'); }}
             >
               <div
                 className={cn(
-                  'rounded-full opacity-0 group-hover/block:opacity-70 transition-opacity',
-                  ultraSlimHandles ? 'w-8 h-[2px]' : slimResize ? 'w-6 h-[2px]' : 'w-8 h-[3px]',
+                  'pointer-events-auto flex w-full items-start justify-center',
+                  ultraSlimHandles ? 'h-2.5 pt-0.5' : slimResize ? 'h-3 pt-0.5' : midResize ? 'h-3.5 pt-1' : 'h-5 pt-1.5',
                 )}
-                style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
-              />
+                onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'top'); }}
+              >
+                <div
+                  className={cn(
+                    'rounded-full opacity-0 transition-opacity group-hover/block:opacity-70',
+                    ultraSlimHandles ? 'h-[2px] w-7' : slimResize ? 'h-[2px] w-6' : 'h-[3px] w-8',
+                  )}
+                  style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
+                />
+              </div>
             </div>
             <div
               className={cn(
-                'absolute bottom-0 left-0 right-0 cursor-s-resize flex items-end justify-center z-[15]',
-                ultraSlimHandles ? '-bottom-1 h-3 pb-1' : slimResize ? '-bottom-1 h-4 pb-1' : midResize ? 'h-5 pb-1' : 'h-7 pb-1.5',
+                'pointer-events-none absolute bottom-0 left-0 right-0 z-[15] flex cursor-s-resize items-end justify-center',
+                ultraSlimHandles ? '-bottom-1 h-2.5' : slimResize ? '-bottom-1 h-3' : midResize ? 'h-3.5' : 'h-5',
               )}
-              onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'bottom'); }}
             >
               <div
                 className={cn(
-                  'rounded-full opacity-0 group-hover/block:opacity-70 transition-opacity',
-                  ultraSlimHandles ? 'w-8 h-[2px]' : slimResize ? 'w-6 h-[2px]' : 'w-8 h-[3px]',
+                  'pointer-events-auto flex w-full items-end justify-center',
+                  ultraSlimHandles ? 'h-2.5 pb-0.5' : slimResize ? 'h-3 pb-0.5' : midResize ? 'h-3.5 pb-1' : 'h-5 pb-1.5',
                 )}
-                style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
-              />
+                onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'bottom'); }}
+              >
+                <div
+                  className={cn(
+                    'rounded-full opacity-0 transition-opacity group-hover/block:opacity-70',
+                    ultraSlimHandles ? 'h-[2px] w-7' : slimResize ? 'h-[2px] w-6' : 'h-[3px] w-8',
+                  )}
+                  style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
+                />
+              </div>
             </div>
           </>
           );
@@ -2570,6 +2587,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     <span
                       role="button"
                       tabIndex={0}
+                      data-block-title="true"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (block.readOnly) return;
@@ -2625,6 +2644,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       <span
                         role="button"
                         tabIndex={0}
+                        data-block-title="true"
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (block.readOnly) return;
