@@ -11,6 +11,7 @@ import {
   sanitizePlaceName,
   splitPlaceLabel,
 } from '@/lib/geoPlaceName';
+import { mapOverpassElements, overpassCategory } from '@/lib/geoClient';
 
 describe('geoCoords cache', () => {
   beforeEach(() => {
@@ -87,5 +88,56 @@ describe('geoPlaceName', () => {
       subtitle: 'Beijing',
     });
     expect(splitPlaceLabel('Starbucks')).toEqual({ title: 'Starbucks', subtitle: '' });
+  });
+});
+
+describe('overpass nearby POI mapping (free, no API key)', () => {
+  it('maps amenity/leisure tags to app categories', () => {
+    expect(overpassCategory({ amenity: 'cafe' })).toBe('coffee');
+    expect(overpassCategory({ amenity: 'restaurant' })).toBe('restaurant');
+    expect(overpassCategory({ leisure: 'park' })).toBe('park');
+    expect(overpassCategory({ shop: 'supermarket' })).toBe('grocery');
+    expect(overpassCategory({ tourism: 'museum' })).toBe('museum');
+  });
+
+  it('keeps named nodes/ways, drops unnamed, sorts by distance', () => {
+    const origin = { lat: 40.71, lng: -74.0 };
+    const results = mapOverpassElements(
+      [
+        {
+          type: 'node',
+          lat: 41.0,
+          lon: -74.0,
+          tags: { name: 'Far Cafe', amenity: 'cafe' },
+        },
+        {
+          type: 'node',
+          lat: 40.711,
+          lon: -74.001,
+          tags: { name: 'Near Cafe', amenity: 'cafe', 'addr:city': 'NYC' },
+        },
+        {
+          type: 'way',
+          center: { lat: 40.712, lon: -74.002 },
+          tags: { name: 'City Park', leisure: 'park' },
+        },
+        {
+          type: 'node',
+          lat: 40.7115,
+          lon: -74.0015,
+          tags: { amenity: 'cafe' }, // no name — skip
+        },
+      ],
+      origin,
+      8,
+    );
+    expect(results.map((r) => r.name)).toEqual([
+      'Near Cafe, NYC',
+      'City Park',
+      'Far Cafe',
+    ]);
+    expect(results[0].category).toBe('coffee');
+    expect(results[1].category).toBe('park');
+    expect(results[0].distance_m).toBeLessThan(results[2].distance_m!);
   });
 });
