@@ -877,10 +877,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       const el = recapRightColRef.current ?? recapContentRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      setRecapInputDock({
-        left: rect.left + 8,
-        width: Math.max(280, rect.width - 16),
-      });
+      const gutter = 8;
+      const left = Math.max(gutter, Math.round(rect.left + gutter));
+      const rightPad = gutter;
+      const maxWidth = Math.max(0, window.innerWidth - left - rightPad);
+      const width = Math.min(maxWidth, Math.max(260, Math.round(rect.width - gutter * 2)));
+      setRecapInputDock({ left, width });
     };
 
     updateRecapInputDock();
@@ -1072,7 +1074,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       {/* Floating bottom input bar */}
       {!voiceSheetOpen && recapInputDock && <div
         className="fixed z-20 pointer-events-none"
-        style={{ left: recapInputDock.left, width: recapInputDock.width, bottom: 16 }}
+        style={{
+          left: recapInputDock.left,
+          width: recapInputDock.width,
+          bottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        }}
       >
         <div className="pointer-events-auto">
         {/* Auto-detected tags + selected tags badges */}
@@ -1136,8 +1142,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             </div>
           )}
 
-          {/* Main input row */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+          {/* Main input row — keep actions inside the dock on narrow iPhones */}
+          <div className="flex items-center gap-1 px-2 py-1.5 sm:gap-1.5 sm:px-2.5">
             <InputPlusMenu
               emojis={emojis}
               selectedEmoji={selectedEmoji}
@@ -1157,7 +1163,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               showReminder={true}
               showTime={false}
             />
-            <div className="flex-1 relative">
+            <div className="min-w-0 flex-1 relative">
               <textarea
                 ref={textareaRef}
                 value={text}
@@ -1166,35 +1172,28 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 onPaste={handlePaste}
                 placeholder={t('today.placeholder')}
                 rows={1}
-                className="w-full bg-transparent resize-none focus:outline-none text-foreground placeholder:text-muted-foreground/60 text-[14px] leading-5"
+                className="w-full bg-transparent resize-none focus:outline-none text-foreground placeholder:text-muted-foreground/60 text-[16px] leading-5 sm:text-[14px]"
                 style={{ minHeight: '24px', maxHeight: '100px' }}
               />
 
 
             </div>
-            {/* Direct photo button */}
-            <button
-              onClick={handlePhotoClick}
-              className="w-8 h-8 rounded-full transition-colors flex-shrink-0 hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground flex items-center justify-center"
-              title="Add photo"
-            >
-              <Image size={15} />
-            </button>
-            {/* Direct location button — phone uses bottom sheet, desktop popover */}
+            {/* Direct location — primary action; photo/link live in + menu on phone */}
             {isMobile ? (
               <>
                 <button
                   type="button"
                   onClick={() => setLocationOpen(true)}
                   className={cn(
-                    "w-8 h-8 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
+                    "w-9 h-9 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
                     selectedLocation
                       ? "bg-[hsl(var(--surface-inset))] text-foreground"
                       : "hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground"
                   )}
                   title="Add location"
+                  aria-label={lang === 'zh' ? '添加地点' : 'Add location'}
                 >
-                  <MapPin size={15} />
+                  <MapPin size={16} />
                 </button>
                 {locationOpen && (
                   <LocationPopover
@@ -1205,91 +1204,105 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 )}
               </>
             ) : (
-              <Popover open={locationOpen} onOpenChange={setLocationOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    className={cn(
-                      "w-8 h-8 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
-                      selectedLocation
-                        ? "bg-[hsl(var(--surface-inset))] text-foreground"
-                        : "hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground"
-                    )}
-                    title="Add location"
-                  >
-                    <MapPin size={15} />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 bg-transparent border-0 shadow-none z-50" align="end" side="top">
-                  <LocationPopover
-                    presentation="popover"
-                    onSelect={(loc) => { setSelectedLocation(loc); setLocationOpen(false); }}
-                    onClose={() => setLocationOpen(false)}
-                  />
-                </PopoverContent>
-              </Popover>
+              <>
+                <button
+                  onClick={handlePhotoClick}
+                  className="w-8 h-8 rounded-full transition-colors flex-shrink-0 hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground flex items-center justify-center"
+                  title="Add photo"
+                >
+                  <Image size={15} />
+                </button>
+                <Popover open={locationOpen} onOpenChange={setLocationOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "w-8 h-8 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
+                        selectedLocation
+                          ? "bg-[hsl(var(--surface-inset))] text-foreground"
+                          : "hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground"
+                      )}
+                      title="Add location"
+                    >
+                      <MapPin size={15} />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0 bg-transparent border-0 shadow-none z-50" align="end" side="top">
+                    <LocationPopover
+                      presentation="popover"
+                      onSelect={(loc) => { setSelectedLocation(loc); setLocationOpen(false); }}
+                      onClose={() => setLocationOpen(false)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </>
             )}
             {onOpenVoiceSheet && (
               <button
                 onClick={onOpenVoiceSheet}
-                className="w-8 h-8 rounded-full transition-colors flex-shrink-0 hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground flex items-center justify-center"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-full transition-colors flex-shrink-0 hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground flex items-center justify-center"
+                aria-label={lang === 'zh' ? '语音输入' : 'Voice input'}
               >
-                <Mic size={15} />
+                <Mic size={16} className="sm:hidden" />
+                <Mic size={15} className="hidden sm:block" />
               </button>
             )}
-            <Button
-              onClick={async () => {
-                if (isSubmitting || !canSend) return;
-                setIsSubmitting(true);
-                try {
-                  const rawText = lightlyPolishRecapText(text);
-                  let finalText = rawText || undefined;
-                  if (rawText && shouldSummarize(rawText)) {
-                    const { title, detail } = buildLocalSummary(rawText);
-                    finalText = detail ? title + DETAIL_SEPARATOR + detail : title;
-                  }
-                  const result = await onAddMoment({
-                    text: finalText,
-                    emoji: selectedEmoji || undefined,
-                    photos: selectedPhotos,
-                    links: selectedLinks,
-                    location: selectedLocation || undefined,
-                    tags: allFinalTags.length > 0 ? allFinalTags : undefined,
-                  });
-                  if (result && result.id && inputStartTime && onEditMoment) {
-                    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-                    const startISO = new Date(`${dateStr}T${inputStartTime}:00`).toISOString();
-                    const isSameTime = !inputEndTime || inputEndTime === inputStartTime;
-                    const endISO = isSameTime ? undefined : new Date(`${dateStr}T${inputEndTime}:00`).toISOString();
-                    const diffSec = endISO ? Math.max(0, Math.floor((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000)) : undefined;
-                    await Promise.resolve(onEditMoment(result.id, {
-                      timer_started_at: startISO, timer_ended_at: endISO || null, timer_seconds: diffSec ?? null,
-                    } as Partial<Moment>));
-                  }
-                  if (reminderConfig.enabled && result) {
-                    await addReminder(text.trim() || selectedEmoji || 'Reminder', reminderConfig.intervalDays, `From moment: ${text.trim()}`);
-                  }
-                  setText(''); setSelectedEmoji(null); setSelectedLocation(null); setSelectedPhotos([]); setSelectedLinks([]); setSelectedTags([]);
-                  setReminderConfig({ enabled: false, intervalDays: 30 });
-                  setInputStartTime(format(new Date(), 'HH:mm')); setInputEndTime(format(new Date(), 'HH:mm'));
-                  if (textareaRef.current) textareaRef.current.style.height = 'auto';
-                  if (result && result.id) startMomentTimer(result);
-                } finally { setIsSubmitting(false); }
-              }}
-              variant="outline"
-              disabled={!canSend || isSubmitting}
-              size="icon"
-              className="h-8 w-8 rounded-full flex-shrink-0 border-border text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))]"
-              title="Add & start timer"
-            >
-              <Timer size={15} />
-            </Button>
+            {!isMobile && (
+              <Button
+                onClick={async () => {
+                  if (isSubmitting || !canSend) return;
+                  setIsSubmitting(true);
+                  try {
+                    const rawText = lightlyPolishRecapText(text);
+                    let finalText = rawText || undefined;
+                    if (rawText && shouldSummarize(rawText)) {
+                      const { title, detail } = buildLocalSummary(rawText);
+                      finalText = detail ? title + DETAIL_SEPARATOR + detail : title;
+                    }
+                    const result = await onAddMoment({
+                      text: finalText,
+                      emoji: selectedEmoji || undefined,
+                      photos: selectedPhotos,
+                      links: selectedLinks,
+                      location: selectedLocation || undefined,
+                      tags: allFinalTags.length > 0 ? allFinalTags : undefined,
+                    });
+                    if (result && result.id && inputStartTime && onEditMoment) {
+                      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                      const startISO = new Date(`${dateStr}T${inputStartTime}:00`).toISOString();
+                      const isSameTime = !inputEndTime || inputEndTime === inputStartTime;
+                      const endISO = isSameTime ? undefined : new Date(`${dateStr}T${inputEndTime}:00`).toISOString();
+                      const diffSec = endISO ? Math.max(0, Math.floor((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000)) : undefined;
+                      await Promise.resolve(onEditMoment(result.id, {
+                        timer_started_at: startISO, timer_ended_at: endISO || null, timer_seconds: diffSec ?? null,
+                      } as Partial<Moment>));
+                    }
+                    if (reminderConfig.enabled && result) {
+                      await addReminder(text.trim() || selectedEmoji || 'Reminder', reminderConfig.intervalDays, `From moment: ${text.trim()}`);
+                    }
+                    setText(''); setSelectedEmoji(null); setSelectedLocation(null); setSelectedPhotos([]); setSelectedLinks([]); setSelectedTags([]);
+                    setReminderConfig({ enabled: false, intervalDays: 30 });
+                    setInputStartTime(format(new Date(), 'HH:mm')); setInputEndTime(format(new Date(), 'HH:mm'));
+                    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+                    if (result && result.id) startMomentTimer(result);
+                  } finally { setIsSubmitting(false); }
+                }}
+                variant="outline"
+                disabled={!canSend || isSubmitting}
+                size="icon"
+                className="h-8 w-8 rounded-full flex-shrink-0 border-border text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))]"
+                title="Add & start timer"
+              >
+                <Timer size={15} />
+              </Button>
+            )}
             <Button
               onClick={handleSend}
               disabled={!canSend || isSubmitting}
               size="icon"
-              className="h-8 w-8 rounded-full flex-shrink-0 bg-primary/12 text-primary hover:bg-primary/18"
+              className="h-9 w-9 sm:h-8 sm:w-8 rounded-full flex-shrink-0 bg-primary/12 text-primary hover:bg-primary/18"
             >
-              <ArrowUp size={15} />
+              <ArrowUp size={16} className="sm:hidden" />
+              <ArrowUp size={15} className="hidden sm:block" />
             </Button>
           </div>
         </div>
