@@ -33,7 +33,7 @@ import type { MomentLinkPreview } from '@/types';
 import { AnytimeIcon, MorningIcon, AfternoonIcon, EveningIcon } from './segmentIcons';
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
-import { sanitizePlaceName } from '@/lib/geoPlaceName';
+import { reversePlace } from '@/lib/geoClient';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
 import { extractFirstUrl, normalizeUrl, isUrlLike, getDomain } from '@/lib/linkUtils';
 import { resolveStepLink, type DueLink } from '@/lib/dueLinks';
@@ -1824,19 +1824,13 @@ export function PlanView({
         if (cancelled) return;
         const { latitude: lat, longitude: lng } = pos.coords;
         try {
-          const { data, error } = await supabase.functions.invoke('geo', {
-            body: { type: 'reverse', lat, lng },
-          });
+          const place = await reversePlace({ lat, lng, lang });
           if (cancelled) return;
-          if (error) throw error;
-          const rawName = sanitizePlaceName(String(data?.name ?? ''), '');
-          const city = sanitizePlaceName(String(data?.city ?? ''), '');
-          // Never surface raw lat,lng — prefer named place, then city, then label.
-          const name = rawName || city || 'Current location';
-          const category = (data?.category || 'other') as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
+          const name = place.name || 'Current location';
+          const category = (place.category || 'other') as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
           // Re-check in case the user picked one manually while we were
           // resolving — never clobber an explicit choice.
-          setCaptureLocation((prev) => prev ?? { name, lat, lng, category });
+          setCaptureLocation((prev) => prev ?? { name, lat: place.lat, lng: place.lng, category });
           setCaptureLocationAutoFilled(true);
         } catch {
           // reverse-geocode failed but we still know coords — fall back to a
@@ -1853,7 +1847,7 @@ export function PlanView({
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
     );
     return () => { cancelled = true; };
-  }, [captureSheetOpen, captureLocation]);
+  }, [captureSheetOpen, captureLocation, lang]);
 
   useEffect(() => {
     const hasDraft = Boolean(

@@ -1,6 +1,5 @@
 import { forwardRef, useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Navigation, Search, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { cn, isImeComposing } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { readCachedGeoCoords, writeCachedGeoCoords } from '@/lib/geoCoords';
@@ -8,27 +7,18 @@ import {
   formatDistanceLabel,
   sanitizePlaceName,
 } from '@/lib/geoPlaceName';
-
-interface LocationResult {
-  name: string;
-  lat: number;
-  lng: number;
-  category?: string;
-  distance_m?: number;
-}
+import {
+  nearbyRecommendations,
+  reversePlace,
+  searchPlaces,
+  type GeoPlaceResult,
+} from '@/lib/geoClient';
+import { toast } from 'sonner';
 
 type LocationCategory = 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
-type GeoBody = {
-  type: string;
-  q?: string;
-  limit?: number;
-  lat?: number;
-  lng?: number;
-  lang?: string;
-};
 
 interface LocationPopoverProps {
-  onSelect: (location: { name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' }) => void;
+  onSelect: (location: { name: string; lat: number; lng: number; category: LocationCategory }) => void;
   onClose: () => void;
   autoLocateToken?: number;
   className?: string;
@@ -38,7 +28,7 @@ const GEO_OPTS: PositionOptions = {
   // Network/cell location is enough for nearby search bias and much faster than GPS.
   enableHighAccuracy: false,
   maximumAge: 120_000,
-  timeout: 6_000,
+  timeout: 8_000,
 };
 
 function getPosition(): Promise<GeolocationPosition> {
@@ -51,23 +41,11 @@ function getPosition(): Promise<GeolocationPosition> {
   });
 }
 
-function mapGeoResults(data: { results?: Array<Record<string, unknown>> } | null): LocationResult[] {
-  return (data?.results ?? [])
-    .map((r) => ({
-      name: sanitizePlaceName(String(r.name ?? ''), ''),
-      lat: Number(r.lat),
-      lng: Number(r.lng),
-      category: (r.category as string) || 'other',
-      distance_m: typeof r.distance_m === 'number' ? r.distance_m : undefined,
-    }))
-    .filter((r) => r.name && Number.isFinite(r.lat) && Number.isFinite(r.lng));
-}
-
 export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
   function LocationPopover({ onSelect, onClose, autoLocateToken, className }, ref) {
     const { lang } = useLanguage();
     const [search, setSearch] = useState('');
-    const [results, setResults] = useState<LocationResult[]>([]);
+    const [results, setResults] = useState<GeoPlaceResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isGettingLocation, setIsGettingLocation] = useState(false);
     // Bumps when coords become available so an in-progress query re-runs with near-me bias.
@@ -92,7 +70,6 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     }, []);
 
     useEffect(() => {
-      // Warm coords in the background so typing can bias immediately.
       void ensureCoords(false);
     }, [ensureCoords]);
 
@@ -104,16 +81,9 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       }
       try {
         setIsSearching(true);
-        const body: GeoBody = { type: 'search', q: trimmed, limit: 8 };
-        if (coords) {
-          body.lat = coords.lat;
-          body.lng = coords.lng;
-        }
-        const { data, error } = await supabase.functions.invoke('geo', { body });
-        if (error) throw error;
-        // Ignore stale responses if the user kept typing.
+        const next = await searchPlaces({ q: trimmed, limit: 8, coords });
         if (searchRef.current.trim() !== trimmed) return;
-        setResults(mapGeoResults(data));
+        setResults(next);
       } catch {
         if (searchRef.current.trim() === trimmed) setResults([]);
       } finally {
@@ -124,7 +94,6 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     useEffect(() => {
       const q = search.trim();
       if (!q || q.length < 2) {
-        setResults([]);
         return;
       }
 
@@ -135,59 +104,53 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       return () => window.clearTimeout(handle);
     }, [search, coordsEpoch, runSearch]);
 
-    const reverseGeocode = useCallback(async (lat: number, lng: number) => {
-      const fallback = lang === 'zh' ? '当前位置' : 'Current location';
-      try {
-        const { data, error } = await supabase.functions.invoke('geo', {
-          body: { type: 'reverse', lat, lng, lang },
-        });
-        if (error) throw error;
-        const name = sanitizePlaceName(String(data?.name ?? ''), '');
-        const city = sanitizePlaceName(String(data?.city ?? ''), '');
-        const category = data?.category || 'other';
-        return { name: name || city || fallback, category };
-      } catch {
-        return { name: fallback, category: 'other' };
-      }
-    }, [lang]);
-
     const handleUseCurrentLocation = useCallback(async () => {
       setIsGettingLocation(true);
       try {
         const q = searchRef.current.trim();
-        // Fresh fix when the user explicitly asks for near-me recommendations.
-        const coords = await ensureCoords(q.length >= 2);
+        const coords = await ensureCoords(true);
         if (!coords) {
-          setIsGettingLocation(false);
+          toast.error(lang === 'zh' ? '无法获取当前位置，请允许定位权限' : 'Could not get your location — allow location access');
           return;
         }
 
-        // Typed query + current position → closest place recommendations (maps-style).
+        // Typed query + current position → closest place recommendations.
         if (q.length >= 2) {
           await runSearch(q, coords);
-          setIsGettingLocation(false);
           return;
         }
 
-        const result = await reverseGeocode(coords.lat, coords.lng);
-        onSelect({
-          name: result.name,
-          lat: coords.lat,
-          lng: coords.lng,
-          category: result.category as LocationCategory,
-        });
-        onClose();
+        // No query: map-style nearby recommendations (best place underfoot + nearby POIs).
+        setIsSearching(true);
+        try {
+          const nearby = await nearbyRecommendations(coords, lang);
+          setResults(nearby);
+          if (nearby.length === 0) {
+            const alone = await reversePlace({ ...coords, lang });
+            onSelect({
+              name: alone.name,
+              lat: alone.lat,
+              lng: alone.lng,
+              category: alone.category as LocationCategory,
+            });
+            onClose();
+          }
+        } catch {
+          toast.error(lang === 'zh' ? '附近地点加载失败，请稍后重试' : 'Could not load nearby places');
+        } finally {
+          setIsSearching(false);
+        }
       } finally {
         setIsGettingLocation(false);
       }
-    }, [ensureCoords, runSearch, reverseGeocode, onSelect, onClose]);
+    }, [ensureCoords, runSearch, onSelect, onClose, lang]);
 
     useEffect(() => {
       if (autoLocateToken === undefined) return;
       void handleUseCurrentLocation();
     }, [autoLocateToken, handleUseCurrentLocation]);
 
-    const handleSelectResult = useCallback((r: LocationResult) => {
+    const handleSelectResult = useCallback((r: GeoPlaceResult) => {
       onSelect({
         name: sanitizePlaceName(r.name, lang === 'zh' ? '当前位置' : 'Current location'),
         lat: r.lat,
@@ -201,13 +164,8 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       if (!search.trim()) return;
       try {
         const coords = coordsRef.current ?? (await ensureCoords(false));
-        const body: GeoBody = { type: 'search', q: search.trim(), limit: 1 };
-        if (coords) {
-          body.lat = coords.lat;
-          body.lng = coords.lng;
-        }
-        const { data } = await supabase.functions.invoke('geo', { body });
-        const first = mapGeoResults(data)[0];
+        const found = await searchPlaces({ q: search.trim(), limit: 1, coords });
+        const first = found[0];
         if (first) {
           onSelect({
             name: first.name,
@@ -235,7 +193,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       : (lang === 'zh' ? '使用当前位置' : 'Use current location');
     const nearHint = hasQuery
       ? (lang === 'zh' ? '按距离推荐最贴近的地点' : 'Closest matches near you')
-      : (lang === 'zh' ? '解析为最合适的地点名称' : 'Resolve to the best place name');
+      : (lang === 'zh' ? '推荐当前最合适的地点' : 'Recommend the best places near you');
 
     return (
       <div
@@ -246,7 +204,6 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         )}
         data-edit-popover="true"
       >
-        {/* Use current / search near me */}
         <button
           type="button"
           onClick={() => { void handleUseCurrentLocation(); }}
@@ -266,7 +223,6 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
 
         <div className="mx-2 h-px bg-border/30" />
 
-        {/* Search input */}
         <div className="flex items-center gap-2 px-3 py-2">
           {isSearching
             ? <Loader2 size={13} className="flex-shrink-0 animate-spin text-muted-foreground/45" />
@@ -292,7 +248,6 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           />
         </div>
 
-        {/* Results — nearest first when coords are known */}
         {results.length > 0 && (
           <>
             <div className="mx-2 h-px bg-border/30" />
@@ -317,7 +272,6 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           </>
         )}
 
-        {/* Manual add fallback */}
         {search.trim().length >= 2 && results.length === 0 && !isSearching && (
           <>
             <div className="mx-2 h-px bg-border/30" />

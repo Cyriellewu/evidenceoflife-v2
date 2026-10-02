@@ -51,10 +51,11 @@ interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   expandable?: boolean;
+  overlayClassName?: string;
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, expandable = true, ...props }, ref) => {
+  ({ side = "right", className, children, expandable = true, overlayClassName, ...props }, ref) => {
     const [expanded, setExpanded] = React.useState(false);
     const expandClassName =
       side === "right"
@@ -69,7 +70,7 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
 
     return (
     <SheetPortal>
-      <SheetOverlay className="bg-black/45 backdrop-blur-[2px]" />
+      <SheetOverlay className={cn("bg-black/45 backdrop-blur-[2px]", overlayClassName)} />
       <SheetPrimitive.Content
         ref={ref}
         className={cn(
