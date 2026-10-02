@@ -42,6 +42,7 @@ import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WorkType, WORK_TYPE_META, resolveWorkType, getWorkTypeKey } from '@/lib/workType';
 import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getActivityAccentColor } from '@/lib/activityColors';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 import { createTodoDoneUndoSnapshot, restoreTodoDoneFromUndo } from '@/lib/todoDoneUndo';
@@ -60,10 +61,16 @@ function isActivelyRunningTodo(todo: Pick<Todo, 'timer_started_at' | 'timer_ende
 
 
 const PLAN_LIST_MODE_KEY = 'plan-list-default';
+const PLAN_MOBILE_PANE_KEY = 'plan-mobile-pane';
 
 function readPlanListMode(): 'grouped' | 'flat' {
   if (typeof window === 'undefined') return 'flat';
   return localStorage.getItem(PLAN_LIST_MODE_KEY) === 'grouped' ? 'grouped' : 'flat';
+}
+
+function readPlanMobilePane(): 'list' | 'timeline' {
+  if (typeof window === 'undefined') return 'list';
+  return localStorage.getItem(PLAN_MOBILE_PANE_KEY) === 'timeline' ? 'timeline' : 'list';
 }
 
 /** Above this movement (px, L1) we treat as dock drag and call setPointerCapture — below, leave click to FloatingTimer */
@@ -1613,6 +1620,18 @@ export function PlanView({
       window.dispatchEvent(new CustomEvent('plan-list-mode-change', { detail: mode }));
     }
   }, []);
+  // Phone/tablet: one pane at a time (list ↔ timeline). Side-by-side 50/50
+  // squeezes both columns until titles and blocks are unreadable.
+  const isMobile = useIsMobile();
+  const [mobilePane, setMobilePaneState] = useState<'list' | 'timeline'>(() => readPlanMobilePane());
+  const setMobilePane = useCallback((pane: 'list' | 'timeline') => {
+    setMobilePaneState(pane);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(PLAN_MOBILE_PANE_KEY, pane);
+    }
+  }, []);
+  const showListPane = !isMobile || mobilePane === 'list';
+  const showTimelinePane = !isMobile || mobilePane === 'timeline';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2327,8 +2346,15 @@ export function PlanView({
 
   useEffect(() => {
     const updateTaskInputDock = () => {
-      if (!taskColumnRef.current) return;
+      if (!taskColumnRef.current || !showListPane) {
+        setTaskInputDock(null);
+        return;
+      }
       const rect = taskColumnRef.current.getBoundingClientRect();
+      if (rect.width < 40) {
+        setTaskInputDock(null);
+        return;
+      }
       setTaskInputDock({
         left: rect.left + 8,
         width: Math.max(240, rect.width - 16),
@@ -2350,12 +2376,19 @@ export function PlanView({
       window.removeEventListener('resize', updateTaskInputDock);
       window.removeEventListener('scroll', updateTaskInputDock, true);
     };
-  }, []);
+  }, [showListPane]);
 
   useEffect(() => {
     const updateRecapDock = () => {
-      if (!timelineFrameRef.current) return;
+      if (!timelineFrameRef.current || !showTimelinePane) {
+        setRecapDock(null);
+        return;
+      }
       const rect = timelineFrameRef.current.getBoundingClientRect();
+      if (rect.width < 40) {
+        setRecapDock(null);
+        return;
+      }
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
       setRecapDock({
         right: Math.max(18, viewportWidth - rect.right + 18),
@@ -2378,7 +2411,7 @@ export function PlanView({
       window.removeEventListener('resize', updateRecapDock);
       window.removeEventListener('scroll', updateRecapDock, true);
     };
-  }, []);
+  }, [showTimelinePane]);
 
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
   const handleDrop = (segmentId: string, dropIndex?: number) => (e: React.DragEvent) => {
@@ -2996,13 +3029,63 @@ export function PlanView({
         </div>
       )}
 
-      {/* Main split layout */}
-      <div className="flex gap-0" style={{ minHeight: 'calc(100vh - 180px)' }}>
-        {/* Center: Task List (50%) */}
+      {/* Mobile pane switcher — other apps (Calendar, Maps, mail) show one
+          pane at a time under ~768px instead of a squeezed 50/50 split. */}
+      {isMobile && (
+        <div className="sticky top-0 z-10 mb-2 flex items-center justify-center px-2 pt-1">
+          <div
+            role="tablist"
+            aria-label={lang === 'zh' ? '计划视图' : 'Plan view'}
+            className="inline-flex w-full max-w-sm items-center gap-1 rounded-full border border-border/40 bg-muted/25 p-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobilePane === 'list'}
+              onClick={() => setMobilePane('list')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors',
+                mobilePane === 'list'
+                  ? 'bg-background text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.28)]'
+                  : 'text-muted-foreground/70 hover:text-foreground/85',
+              )}
+            >
+              <ListTodo size={14} strokeWidth={2} />
+              <span>{lang === 'zh' ? '任务' : 'Tasks'}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobilePane === 'timeline'}
+              onClick={() => setMobilePane('timeline')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors',
+                mobilePane === 'timeline'
+                  ? 'bg-background text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.28)]'
+                  : 'text-muted-foreground/70 hover:text-foreground/85',
+              )}
+            >
+              <CalendarDays size={14} strokeWidth={2} />
+              <span>{lang === 'zh' ? '时间轴' : 'Timeline'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main split layout — full-width single pane on mobile */}
+      <div
+        className={cn('flex gap-0', isMobile ? 'flex-col' : 'flex-row')}
+        style={{ minHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
+      >
+        {/* Task list */}
         <div
           ref={taskColumnRef}
-          className="flex-1 border-r border-border/20 pr-0.5 flex flex-col min-h-0"
-          style={{ maxHeight: 'calc(100vh - 180px)' }}
+          className={cn(
+            'flex min-h-0 flex-col pr-0.5',
+            isMobile ? 'w-full border-r-0' : 'flex-1 border-r border-border/20',
+            !showListPane && 'hidden',
+          )}
+          style={{ maxHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
         >
           <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-2 space-y-1 pb-28">
@@ -3336,7 +3419,7 @@ export function PlanView({
           </div>
           </div>
           {/* Fixed task input rendered separately so it stays at the current viewport bottom */}
-          {!showOverlayForId && !voiceSheetOpen && taskInputDock && (
+          {!showOverlayForId && !voiceSheetOpen && showListPane && taskInputDock && (
             <div
               className="fixed z-20 pointer-events-none"
               style={{ left: taskInputDock.left, width: taskInputDock.width, bottom: 16 }}
@@ -3480,8 +3563,15 @@ export function PlanView({
           )}
         </div>
 
-        {/* Right: Timeline (takes remaining space, ~50%) */}
-          <div className="flex-1 flex flex-col min-w-0 pl-0">
+        {/* Timeline — full width on mobile when selected */}
+          <div
+            className={cn(
+              'flex min-w-0 flex-col pl-0',
+              isMobile ? 'w-full' : 'flex-1',
+              !showTimelinePane && 'hidden',
+            )}
+            style={isMobile ? { minHeight: 'calc(100vh - 220px)' } : undefined}
+          >
           <div
             ref={timelineFrameRef}
             className="relative flex-1 min-h-0 rounded-3xl border border-[rgba(55,55,62,0.07)] bg-[#f9fafc] px-2.5 py-4 dark:border-border/35 dark:bg-transparent"
@@ -3513,7 +3603,7 @@ export function PlanView({
         </div>
       </div>
 
-      {!showOverlayForId && !voiceSheetOpen && !captureSheetOpen && !overlayOpen && recapDock && (
+      {!showOverlayForId && !voiceSheetOpen && !captureSheetOpen && !overlayOpen && showTimelinePane && recapDock && (
         <button
           onClick={() => setCaptureSheetOpen(true)}
           className="fixed z-[55] inline-flex items-center gap-1.5 rounded-full border border-[#dccfc1]/60 bg-[#fbf8f4]/82 px-3 py-1.5 text-[11.5px] font-medium tracking-[-0.005em] text-[#8a7465]/90 shadow-[0_4px_14px_rgba(94,79,65,0.06)] backdrop-blur-md transition-all hover:border-[#c9b9a8]/85 hover:bg-[#f6efe8]/92 hover:text-[#725d50] dark:border-foreground/[0.14] dark:bg-foreground/[0.06] dark:text-foreground/72 dark:shadow-[0_4px_14px_rgba(0,0,0,0.32)] dark:hover:border-foreground/22 dark:hover:bg-foreground/[0.10] dark:hover:text-foreground/90"
@@ -3665,6 +3755,7 @@ export function PlanView({
                   </button>
                   {showCaptureLocationPopover && (
                     <LocationPopover
+                      className="absolute bottom-[calc(100%+10px)] left-0 z-[60] w-[min(300px,calc(100vw-2.5rem))]"
                       onSelect={(loc) => {
                         setCaptureLocation(loc);
                         setCaptureLocationAutoFilled(false);
