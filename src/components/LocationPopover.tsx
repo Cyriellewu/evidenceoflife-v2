@@ -4,16 +4,28 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn, isImeComposing } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { readCachedGeoCoords, writeCachedGeoCoords } from '@/lib/geoCoords';
+import {
+  formatDistanceLabel,
+  sanitizePlaceName,
+} from '@/lib/geoPlaceName';
 
 interface LocationResult {
   name: string;
   lat: number;
   lng: number;
   category?: string;
+  distance_m?: number;
 }
 
 type LocationCategory = 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
-type GeoBody = { type: string; q: string; limit: number; lat?: number; lng?: number };
+type GeoBody = {
+  type: string;
+  q?: string;
+  limit?: number;
+  lat?: number;
+  lng?: number;
+  lang?: string;
+};
 
 interface LocationPopoverProps {
   onSelect: (location: { name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' }) => void;
@@ -40,12 +52,15 @@ function getPosition(): Promise<GeolocationPosition> {
 }
 
 function mapGeoResults(data: { results?: Array<Record<string, unknown>> } | null): LocationResult[] {
-  return (data?.results ?? []).map((r) => ({
-    name: String(r.name ?? ''),
-    lat: Number(r.lat),
-    lng: Number(r.lng),
-    category: (r.category as string) || 'other',
-  }));
+  return (data?.results ?? [])
+    .map((r) => ({
+      name: sanitizePlaceName(String(r.name ?? ''), ''),
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      category: (r.category as string) || 'other',
+      distance_m: typeof r.distance_m === 'number' ? r.distance_m : undefined,
+    }))
+    .filter((r) => r.name && Number.isFinite(r.lat) && Number.isFinite(r.lng));
 }
 
 export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
@@ -121,35 +136,33 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     }, [search, coordsEpoch, runSearch]);
 
     const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+      const fallback = lang === 'zh' ? '当前位置' : 'Current location';
       try {
         const { data, error } = await supabase.functions.invoke('geo', {
-          body: { type: 'reverse', lat, lng },
+          body: { type: 'reverse', lat, lng, lang },
         });
         if (error) throw error;
-        const name = String(data?.name ?? '').trim();
+        const name = sanitizePlaceName(String(data?.name ?? ''), '');
+        const city = sanitizePlaceName(String(data?.city ?? ''), '');
         const category = data?.category || 'other';
-        if (!name || name === 'Nearby') {
-          const city = String(data?.city ?? '').trim();
-          return { name: city || 'Current location', category };
-        }
-        return { name, category };
+        return { name: name || city || fallback, category };
       } catch {
-        return { name: 'Current location', category: 'other' };
+        return { name: fallback, category: 'other' };
       }
-    }, []);
+    }, [lang]);
 
     const handleUseCurrentLocation = useCallback(async () => {
       setIsGettingLocation(true);
       try {
-        // Prefer cached coords — fresh GPS every tap is what made this feel slow.
-        const coords = await ensureCoords(false);
+        const q = searchRef.current.trim();
+        // Fresh fix when the user explicitly asks for near-me recommendations.
+        const coords = await ensureCoords(q.length >= 2);
         if (!coords) {
           setIsGettingLocation(false);
           return;
         }
 
-        const q = searchRef.current.trim();
-        // Joint search: typed query + current position → nearby results, not a blind reverse pin.
+        // Typed query + current position → closest place recommendations (maps-style).
         if (q.length >= 2) {
           await runSearch(q, coords);
           setIsGettingLocation(false);
@@ -175,9 +188,14 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     }, [autoLocateToken, handleUseCurrentLocation]);
 
     const handleSelectResult = useCallback((r: LocationResult) => {
-      onSelect({ name: r.name, lat: r.lat, lng: r.lng, category: (r.category || 'other') as LocationCategory });
+      onSelect({
+        name: sanitizePlaceName(r.name, lang === 'zh' ? '当前位置' : 'Current location'),
+        lat: r.lat,
+        lng: r.lng,
+        category: (r.category || 'other') as LocationCategory,
+      });
       onClose();
-    }, [onSelect, onClose]);
+    }, [onSelect, onClose, lang]);
 
     const handleAddManual = useCallback(async () => {
       if (!search.trim()) return;
@@ -189,12 +207,12 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           body.lng = coords.lng;
         }
         const { data } = await supabase.functions.invoke('geo', { body });
-        const first = data?.results?.[0];
-        if (first?.lat && first?.lng) {
+        const first = mapGeoResults(data)[0];
+        if (first) {
           onSelect({
-            name: first.name || search.trim(),
-            lat: Number(first.lat),
-            lng: Number(first.lng),
+            name: first.name,
+            lat: first.lat,
+            lng: first.lng,
             category: (first.category || 'other') as LocationCategory,
           });
           onClose();
@@ -202,7 +220,12 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         }
       } catch { /* fall through */ }
       const coords = coordsRef.current;
-      onSelect({ name: search.trim(), lat: coords?.lat ?? 0, lng: coords?.lng ?? 0, category: 'other' });
+      onSelect({
+        name: search.trim(),
+        lat: coords?.lat ?? 0,
+        lng: coords?.lng ?? 0,
+        category: 'other',
+      });
       onClose();
     }, [search, onSelect, onClose, ensureCoords]);
 
@@ -210,6 +233,9 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     const useCurrentLabel = hasQuery
       ? (lang === 'zh' ? '在附近搜索' : 'Search near me')
       : (lang === 'zh' ? '使用当前位置' : 'Use current location');
+    const nearHint = hasQuery
+      ? (lang === 'zh' ? '按距离推荐最贴近的地点' : 'Closest matches near you')
+      : (lang === 'zh' ? '解析为最合适的地点名称' : 'Resolve to the best place name');
 
     return (
       <div
@@ -232,11 +258,9 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[13px] font-medium text-foreground/88">{useCurrentLabel}</span>
-            {hasQuery && (
-              <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/65">
-                “{search.trim()}”
-              </span>
-            )}
+            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/65">
+              {hasQuery ? `“${search.trim()}” · ${nearHint}` : nearHint}
+            </span>
           </span>
         </button>
 
@@ -268,7 +292,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           />
         </div>
 
-        {/* Results */}
+        {/* Results — nearest first when coords are known */}
         {results.length > 0 && (
           <>
             <div className="mx-2 h-px bg-border/30" />
@@ -281,7 +305,12 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[hsl(var(--surface-soft))]"
                 >
                   <MapPin size={12} className="flex-shrink-0 text-muted-foreground/50" />
-                  <span className="truncate text-[12.5px] text-foreground/85">{r.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-foreground/85">{r.name}</span>
+                  {typeof r.distance_m === 'number' && (
+                    <span className="flex-shrink-0 text-[11px] tabular-nums text-muted-foreground/55">
+                      {formatDistanceLabel(r.distance_m, lang === 'zh' ? 'zh' : 'en')}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
