@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { SideNav } from '@/components/SideNav';
+import { MobileNavChrome } from '@/components/MobileNavChrome';
+import { PlanPaneSwitcher } from '@/components/PlanPaneSwitcher';
 import { TodayView } from '@/components/views/TodayView';
 import { PlanView } from '@/components/views/PlanView';
 
@@ -114,6 +116,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const [todayMode, setTodayMode] = useState<TodayMode>('plan');
   const [voiceSheetOpen, setVoiceSheetOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Pending "focus this place on the map" request, carried into MapView when we jump there.
   const [mapFocus, setMapFocus] = useState<{ name: string; lat: number; lng: number; token: number } | null>(null);
   // Only one side sheet can be open at a time.
@@ -449,12 +452,34 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               if (tab === 'dues') { setActiveSheet('dues'); return; }
               if (tab === 'habits') { setActiveSheet('habits'); return; }
               if (tab === 'linkup') { setActiveSheet('links'); return; }
+              setActiveSheet(null);
               setActiveTab(tab);
             }}
           />
         </AppSectionErrorBoundary>
-        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto px-2 sm:px-3 lg:px-4">
+        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 md:pb-0 lg:px-4">
           <AppSectionErrorBoundary label="MainContent">
+          {(publicDemo || !landingDemoMode) && (
+            <MobileNavChrome
+              open={mobileNavOpen}
+              onOpenChange={setMobileNavOpen}
+              activeTab={activeTab}
+              activeSheet={activeSheet}
+              onTabChange={(tab) => {
+                if (tab === 'notes') { setActiveSheet('notes'); return; }
+                if (tab === 'dues') { setActiveSheet('dues'); return; }
+                if (tab === 'habits') { setActiveSheet('habits'); return; }
+                if (tab === 'linkup') { setActiveSheet('links'); return; }
+                setActiveSheet(null);
+                setActiveTab(tab);
+              }}
+              centerSlot={
+                activeTab === 'today' && todayMode === 'plan'
+                  ? <PlanPaneSwitcher />
+                  : undefined
+              }
+            />
+          )}
           {activeTab === 'today' && (
           <>
             <TodayView

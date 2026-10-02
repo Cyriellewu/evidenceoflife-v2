@@ -16,6 +16,8 @@ interface SideNavProps {
   activeTab: TabType;
   activeSheet?: SheetKey | null;
   onTabChange: (tab: TabType) => void;
+  /** `rail` = desktop strip; `panel` = always-expanded drawer body (phone menu). */
+  variant?: 'rail' | 'panel';
 }
 
 // Maps a sheet-opener tab id to the Index activeSheet key.
@@ -55,13 +57,14 @@ const sheetGroups: { labelKey: string; items: SheetItem[] }[] = [
 ];
 const TAB_ORDER_KEY = 'side-nav-tab-order';
 
-export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
+export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' }: SideNavProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { dues } = useDues();
   const { signOut } = useAuth();
-  const [expanded, setExpanded] = useState(false);
+  const isPanel = variant === 'panel';
+  const [expanded, setExpanded] = useState(isPanel);
   const [logoVisible, setLogoVisible] = useState(true);
   const [showProfileHoverCard, setShowProfileHoverCard] = useState(false);
   const [draggedTab, setDraggedTab] = useState<TabType | null>(null);
@@ -83,7 +86,11 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
   const sideNavRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!expanded) return;
+    if (isPanel) setExpanded(true);
+  }, [isPanel]);
+
+  useEffect(() => {
+    if (!expanded || isPanel) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (sideNavRef.current && !sideNavRef.current.contains(e.target as Node)) {
         setExpanded(false);
@@ -91,7 +98,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [expanded]);
+  }, [expanded, isPanel]);
   const displayName = profile?.display_name?.trim() || 'Demo User';
   const validTimedDues = dues.filter((due) => {
     if (due.is_completed || !due.due_date) return false;
@@ -165,19 +172,31 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
     <aside
       ref={sideNavRef}
       className={cn(
-        'flex-shrink-0 border-r border-border bg-[hsl(var(--surface-contrast))] transition-[width] duration-200 ease-out',
-        expanded ? 'w-[236px]' : 'w-[52px]'
+        'border-border bg-[hsl(var(--surface-contrast))] transition-[width] duration-200 ease-out',
+        isPanel
+          ? 'flex h-full w-full flex-col border-0'
+          : // Phone layout uses a hamburger drawer (MobileNavChrome) — keep the
+            // permanent rail out of the flex flow so content is full-bleed.
+            'hidden md:block flex-shrink-0 border-r',
+        !isPanel && (expanded ? 'w-[236px]' : 'w-[52px]'),
       )}
     >
-      <div className="sticky top-0 flex h-screen flex-col py-2.5">
+      <div className={cn(
+        'flex flex-col py-2.5',
+        isPanel ? 'h-full' : 'sticky top-0 h-screen',
+      )}>
         <div className={cn(expanded ? 'px-1.5' : 'px-2')}>
           <button
-            onClick={() => setExpanded((prev) => !prev)}
+            onClick={() => {
+              if (isPanel) return;
+              setExpanded((prev) => !prev);
+            }}
             className={cn(
               'flex h-10 w-full items-center rounded-[12px] transition-colors',
-              expanded ? 'justify-between gap-2 bg-[hsl(var(--surface-soft))] px-2' : 'justify-center'
+              expanded ? 'justify-between gap-2 bg-[hsl(var(--surface-soft))] px-2' : 'justify-center',
+              isPanel && 'cursor-default',
             )}
-            title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            title={isPanel ? 'Evidence of life' : expanded ? 'Collapse sidebar' : 'Expand sidebar'}
           >
             <span className={cn(
               'flex items-center justify-center rounded-[10px]',
