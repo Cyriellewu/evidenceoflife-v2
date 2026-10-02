@@ -108,3 +108,80 @@ demo data, no Supabase required.
 - `link-preview` / `life-replay` require a user JWT.
 - Google Calendar OAuth `state` is HMAC-signed; redirects are origin-allowlisted.
 - See [SECURITY.md](../../SECURITY.md) and [PRIVACY.md](../../PRIVACY.md).
+
+## Troubleshooting
+
+If you run into problems while setting up the project, check the following common issues.
+
+### Blank app on first load
+
+**Cause**
+
+One or more required `VITE_SUPABASE_*` environment variables are missing or incorrect.
+
+**Fix**
+
+Verify your `.env` file includes:
+
+```env
+VITE_SUPABASE_PROJECT_ID=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_SUPABASE_URL=
+```
+
+After updating the values, restart the development server.
+
+---
+
+### `supabase db push` fails
+
+**Cause**
+
+Your local project is not linked to Supabase or your Supabase CLI version is outdated.
+
+**Fix**
+
+Link the project before running database migrations:
+
+```sh
+supabase link --project-ref <your-project-id>
+supabase db push
+```
+
+Also ensure you are using a recent version of the Supabase CLI.
+
+---
+
+### Google Calendar login fails
+
+**Cause**
+
+`APP_URL` or `ALLOWED_REDIRECT_ORIGINS` does not match your Google OAuth configuration.
+
+**Fix**
+
+Update the values in your `.env` file and make sure the same redirect URL is configured in the Google Cloud Console.
+
+---
+
+### Link preview returns 401 Unauthorized
+
+**Cause**
+
+The link preview endpoint requires an authenticated user.
+
+**Fix**
+
+Sign in before testing link previews. The endpoint requires a valid user JWT.
+
+---
+
+### Smart input or life replay features are unavailable
+
+**Cause**
+
+`LOVABLE_API_KEY` is not configured.
+
+**Fix**
+
+Set the optional `LOVABLE_API_KEY` environment variable if you want to enable AI-powered smart input and life replay features.
