@@ -37,6 +37,15 @@ type PhotonProps = {
   type?: string;
 };
 
+/** Public Overpass mirrors — free, no API key. Prefer CORS-friendly hosts. */
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+] as const;
+
+const NEARBY_RADIUS_M = 1_500;
+
 function photonLabel(props: PhotonProps): string {
   const primary =
     props.name ||
@@ -62,7 +71,63 @@ function photonCategory(props: PhotonProps): string {
   return 'other';
 }
 
-/** Public Photon API — CORS-friendly Nominatim-style fallback when the geo edge is down. */
+/** Map Overpass amenity/leisure/shop tags → app categories. */
+export function overpassCategory(tags: Record<string, string | undefined>): string {
+  const amenity = (tags.amenity || '').toLowerCase();
+  const leisure = (tags.leisure || '').toLowerCase();
+  const shop = (tags.shop || '').toLowerCase();
+  const tourism = (tags.tourism || '').toLowerCase();
+  if (/restaurant|fast_food|food_court/.test(amenity)) return 'restaurant';
+  if (/cafe|coffee|bar|pub|biergarten/.test(amenity)) return 'coffee';
+  if (/supermarket|convenience|mall|grocery/.test(shop)) return 'grocery';
+  if (/park|garden|nature_reserve/.test(leisure)) return 'park';
+  if (/museum|gallery/.test(tourism) || amenity === 'library' || amenity === 'theatre' || amenity === 'cinema') {
+    return 'museum';
+  }
+  return 'other';
+}
+
+export type OverpassElement = {
+  type?: string;
+  lat?: number;
+  lon?: number;
+  center?: { lat?: number; lon?: number };
+  tags?: Record<string, string>;
+};
+
+/** Pure mapper — unit-tested without hitting Overpass. */
+export function mapOverpassElements(
+  elements: OverpassElement[],
+  origin: GeoCoords,
+  limit = 8,
+): GeoPlaceResult[] {
+  const mapped: GeoPlaceResult[] = [];
+  for (const el of elements) {
+    const tags = el.tags ?? {};
+    const rawName = (tags.name || tags['name:en'] || tags['name:zh'] || '').trim();
+    if (!rawName) continue;
+    const lat = Number(el.lat ?? el.center?.lat);
+    const lng = Number(el.lon ?? el.center?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const city = (tags['addr:city'] || tags['addr:town'] || '').trim();
+    const name = city && !rawName.includes(city)
+      ? sanitizePlaceName(`${rawName}, ${city}`, rawName)
+      : sanitizePlaceName(rawName, rawName);
+    if (!name) continue;
+    mapped.push({
+      name,
+      lat,
+      lng,
+      category: overpassCategory(tags),
+      distance_m: Math.round(haversineMeters(origin, { lat, lng })),
+      ...(city ? { city } : {}),
+    });
+  }
+  mapped.sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
+  return mapped.slice(0, limit);
+}
+
+/** Public Photon API — free, no key, CORS-friendly (Komoot fair-use). */
 async function photonSearch(opts: SearchOpts): Promise<GeoPlaceResult[]> {
   const limit = Math.max(1, Math.min(opts.limit ?? 8, 12));
   const params = new URLSearchParams({
@@ -180,45 +245,89 @@ async function edgeReverse(opts: ReverseOpts): Promise<GeoPlaceResult> {
   };
 }
 
-/** Prefer the geo edge; fall back to Photon so Use current / nearby still works offline-of-edge. */
+function buildNearbyOverpassQuery(coords: GeoCoords, radiusM = NEARBY_RADIUS_M): string {
+  const { lat, lng } = coords;
+  // Named POIs only — cafe / restaurant / park within walking distance.
+  return `
+[out:json][timeout:15];
+(
+  node["name"]["amenity"="cafe"](around:${radiusM},${lat},${lng});
+  node["name"]["amenity"="restaurant"](around:${radiusM},${lat},${lng});
+  node["name"]["amenity"="fast_food"](around:${radiusM},${lat},${lng});
+  node["name"]["leisure"="park"](around:${radiusM},${lat},${lng});
+  way["name"]["leisure"="park"](around:${radiusM},${lat},${lng});
+  node["name"]["shop"~"supermarket|convenience"](around:${radiusM},${lat},${lng});
+);
+out center 24;
+`.trim();
+}
+
+async function overpassNearby(coords: GeoCoords, limit = 8): Promise<GeoPlaceResult[]> {
+  // Simple urlencoded POST (no custom headers) so browsers skip CORS preflight.
+  const body = new URLSearchParams({ data: buildNearbyOverpassQuery(coords) });
+  let lastErr: unknown;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, { method: 'POST', body });
+      if (!res.ok) throw new Error(`Overpass ${res.status}`);
+      const json = (await res.json()) as { elements?: OverpassElement[] };
+      return mapOverpassElements(json.elements ?? [], coords, limit);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('Overpass nearby failed');
+}
+
+/**
+ * Prefer free no-key Photon; fall back to the Nominatim edge proxy.
+ * Neither path requires a paid API key.
+ */
 export async function searchPlaces(opts: SearchOpts): Promise<GeoPlaceResult[]> {
   const q = opts.q.trim();
   if (q.length < 2) return [];
   try {
-    const edge = await edgeSearch(opts);
-    if (edge.length > 0) return edge;
+    const photon = await photonSearch(opts);
+    if (photon.length > 0) return photon;
   } catch {
     /* fall through */
   }
-  return photonSearch(opts);
+  return edgeSearch(opts);
 }
 
 export async function reversePlace(opts: ReverseOpts): Promise<GeoPlaceResult> {
   try {
-    return await edgeReverse(opts);
+    return await photonReverse(opts);
   } catch {
-    return photonReverse(opts);
+    return edgeReverse(opts);
   }
 }
 
 /**
  * Map-style “near me” recommendations when the user taps Use current with no query:
- * reverse for the best place underfoot, plus a few nearby named hits.
+ * reverse for the best place underfoot, plus nearby named OSM POIs via Overpass
+ * (free, no key). Falls back to Photon category searches if Overpass is down.
  */
 export async function nearbyRecommendations(
   coords: GeoCoords,
   lang?: string,
 ): Promise<GeoPlaceResult[]> {
   const here = await reversePlace({ ...coords, lang });
-  const queries = lang?.startsWith('zh')
-    ? ['咖啡', '餐厅', '公园']
-    : ['cafe', 'restaurant', 'park'];
 
-  const batches = await Promise.all(
-    queries.map((q) =>
-      searchPlaces({ q, limit: 4, coords }).catch(() => [] as GeoPlaceResult[]),
-    ),
-  );
+  let nearby: GeoPlaceResult[] = [];
+  try {
+    nearby = await overpassNearby(coords, 8);
+  } catch {
+    const queries = lang?.startsWith('zh')
+      ? ['咖啡', '餐厅', '公园']
+      : ['cafe', 'restaurant', 'park'];
+    const batches = await Promise.all(
+      queries.map((q) =>
+        searchPlaces({ q, limit: 4, coords }).catch(() => [] as GeoPlaceResult[]),
+      ),
+    );
+    nearby = batches.flat();
+  }
 
   const seen = new Set<string>();
   const out: GeoPlaceResult[] = [];
@@ -230,9 +339,7 @@ export async function nearbyRecommendations(
   };
 
   push({ ...here, distance_m: 0 });
-  for (const batch of batches) {
-    for (const r of batch) push(r);
-  }
+  for (const r of nearby) push(r);
 
   return out
     .sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0))
