@@ -79,7 +79,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'focus.completeTask': { zh: '完成任务', en: 'Complete' },
   'focus.overlayContinuing': { zh: '继续计时', en: 'Resume' },
   'focus.overlayFocusing': { zh: '专注中', en: 'Focusing' },
-  'focus.resumeChip': { zh: '可继续计时', en: 'Tap to resume' },
+  'focus.resumeChip': { zh: '继续', en: 'Resume' },
   'plan.resumeHere': { zh: '从此继续', en: 'Resume here' },
   'plan.startFocusTimer': { zh: '开始专注计时', en: 'Start focus timer' },
   'profile.title': { zh: '个人设置', en: 'Profile Settings' },

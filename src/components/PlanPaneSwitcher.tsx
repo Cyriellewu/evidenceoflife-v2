@@ -39,7 +39,9 @@ export function PlanPaneSwitcher({ className }: { className?: string }) {
       role="tablist"
       aria-label={lang === 'zh' ? '计划视图' : 'Plan view'}
       className={cn(
-        'inline-flex items-center rounded-full bg-[hsl(var(--surface-soft))] p-0.5',
+        // Strong track + border so BOTH labels stay readable in light mode
+        // (inactive used to wash out into the header and look like a lone "Tasks" chip).
+        'inline-flex w-full max-w-[240px] items-center rounded-full border border-border/55 bg-muted/55 p-[3px]',
         className,
       )}
     >
@@ -49,10 +51,10 @@ export function PlanPaneSwitcher({ className }: { className?: string }) {
         aria-selected={pane === 'list'}
         onClick={() => writePlanMobilePane('list')}
         className={cn(
-          'rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+          'min-w-0 flex-1 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors',
           pane === 'list'
-            ? 'bg-[hsl(var(--surface-contrast))] text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.35)]'
-            : 'text-muted-foreground/75 hover:text-foreground/90',
+            ? 'bg-background text-foreground shadow-[0_1px_2px_hsl(var(--foreground)/0.08)]'
+            : 'text-foreground/55 hover:text-foreground/85',
         )}
       >
         {lang === 'zh' ? '任务' : 'Tasks'}
@@ -63,10 +65,10 @@ export function PlanPaneSwitcher({ className }: { className?: string }) {
         aria-selected={pane === 'timeline'}
         onClick={() => writePlanMobilePane('timeline')}
         className={cn(
-          'rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+          'min-w-0 flex-1 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors',
           pane === 'timeline'
-            ? 'bg-[hsl(var(--surface-contrast))] text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.35)]'
-            : 'text-muted-foreground/75 hover:text-foreground/90',
+            ? 'bg-background text-foreground shadow-[0_1px_2px_hsl(var(--foreground)/0.08)]'
+            : 'text-foreground/55 hover:text-foreground/85',
         )}
       >
         {lang === 'zh' ? '时间轴' : 'Timeline'}
