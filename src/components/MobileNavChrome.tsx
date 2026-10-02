@@ -77,9 +77,9 @@ export function MobileNavChrome({
             {lang === 'zh' ? '导航' : 'Navigation'}
           </SheetTitle>
           <div className="flex h-full flex-col">
-            <div className="flex items-center gap-2 border-b border-black/[0.06] px-3 pb-2.5 pt-3.5 dark:border-white/[0.08]">
-              <BrandLogo alt="Evidence of life" className="h-8 w-8 flex-shrink-0" />
-              <span className="font-brand min-w-0 flex-1 truncate text-[14px] font-medium tracking-tight text-foreground/90">
+            <div className="flex items-center gap-2.5 border-b border-black/[0.06] px-3 pb-2.5 pt-3.5 dark:border-white/[0.08]">
+              <BrandLogo alt="Evidence of life" className="h-9 w-9 flex-shrink-0" />
+              <span className="font-brand min-w-0 flex-1 truncate text-[18px] font-medium leading-none tracking-tight text-foreground/90">
                 Evidence of life
               </span>
               <button
