@@ -34,6 +34,7 @@ import monetPainting from '@/assets/monet-impression-sunrise.jpg';
 import dailyPainting from '@/assets/daily-painting.jpg';
 import { WeekDateBar } from '@/components/WeekDateBar';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { mergedWallClockFocusMinutes } from '@/lib/mergedWallClockMinutes';
 import { getMomentDisplayTags } from '@/lib/momentTags';
 import { useCustomOptions } from '@/hooks/useCustomOptions';
@@ -127,6 +128,7 @@ const DEFAULT_WAKE_MINUTE = 0;
 export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, onFocusLocationOnMap, todayMode, onTodayModeChange, todosDone, todosTotal, completedTodos, allTodos, allMoments, historyMoments, importedEvents = [], onUpdateTodo, onUpdateImportedEvent, wakeHour: propWakeHour, wakeMinute: propWakeMinute, bedtimeHour: propBedtimeHour, bedtimeMinute: propBedtimeMinute, homepageImageUrl, onOpenVoiceSheet, voiceSheetOpen }: TodayViewProps) {
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
+  const isMobile = useIsMobile();
   const isDarkMode = useIsDarkMode();
   const { getWorkType } = useWorkTypes();
   const { dues, addDue, updateDue, incrementHabitCount, setHabitCount } = useDues();
@@ -1201,10 +1203,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             >
               <Image size={15} />
             </button>
-            {/* Direct location button */}
-            <Popover open={locationOpen} onOpenChange={setLocationOpen}>
-              <PopoverTrigger asChild>
+            {/* Direct location button — phone uses bottom sheet, desktop popover */}
+            {isMobile ? (
+              <>
                 <button
+                  type="button"
+                  onClick={() => setLocationOpen(true)}
                   className={cn(
                     "w-8 h-8 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
                     selectedLocation
@@ -1215,14 +1219,38 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 >
                   <MapPin size={15} />
                 </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-3 bg-popover z-50" align="end" side="top">
-                <LocationPopover
-                  onSelect={(loc) => { setSelectedLocation(loc); setLocationOpen(false); }}
-                  onClose={() => setLocationOpen(false)}
-                />
-              </PopoverContent>
-            </Popover>
+                {locationOpen && (
+                  <LocationPopover
+                    presentation="sheet"
+                    onSelect={(loc) => { setSelectedLocation(loc); setLocationOpen(false); }}
+                    onClose={() => setLocationOpen(false)}
+                  />
+                )}
+              </>
+            ) : (
+              <Popover open={locationOpen} onOpenChange={setLocationOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "w-8 h-8 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
+                      selectedLocation
+                        ? "bg-[hsl(var(--surface-inset))] text-foreground"
+                        : "hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground"
+                    )}
+                    title="Add location"
+                  >
+                    <MapPin size={15} />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0 bg-transparent border-0 shadow-none z-50" align="end" side="top">
+                  <LocationPopover
+                    presentation="popover"
+                    onSelect={(loc) => { setSelectedLocation(loc); setLocationOpen(false); }}
+                    onClose={() => setLocationOpen(false)}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
             {onOpenVoiceSheet && (
               <button
                 onClick={onOpenVoiceSheet}
@@ -2189,30 +2217,59 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   )}
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <MomentTimeEditor moment={moment} onEditMoment={onEditMoment} />
-                                    <Popover open={editLocationOpen} onOpenChange={setEditLocationOpen}>
-                                      <PopoverTrigger asChild>
+                                    {isMobile ? (
+                                      <>
                                         <button
+                                          type="button"
+                                          onClick={() => setEditLocationOpen(true)}
                                           className={cn(
-                                            "inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] transition-colors",
+                                            "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[12px] transition-colors",
                                             editLocation
                                               ? "bg-[hsl(var(--surface-inset))] text-foreground"
                                               : "bg-secondary/40 text-muted-foreground hover:text-foreground"
                                           )}
                                           title="Add location"
                                         >
-                                          <MapPin size={13} />
-                                          <span className="max-w-[140px] truncate">
+                                          <MapPin size={13} className="flex-shrink-0" />
+                                          <span className="min-w-0 max-w-[min(52vw,180px)] truncate">
                                             {editLocation ? editLocation.name : (lang === 'zh' ? '添加地点' : 'Add location')}
                                           </span>
                                         </button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-72 p-3 bg-popover z-50" align="start" side="bottom">
-                                        <LocationPopover
-                                          onSelect={(loc) => { setEditLocation(loc); setEditLocationOpen(false); }}
-                                          onClose={() => setEditLocationOpen(false)}
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
+                                        {editLocationOpen && (
+                                          <LocationPopover
+                                            presentation="sheet"
+                                            onSelect={(loc) => { setEditLocation(loc); setEditLocationOpen(false); }}
+                                            onClose={() => setEditLocationOpen(false)}
+                                          />
+                                        )}
+                                      </>
+                                    ) : (
+                                      <Popover open={editLocationOpen} onOpenChange={setEditLocationOpen}>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            className={cn(
+                                              "inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] transition-colors",
+                                              editLocation
+                                                ? "bg-[hsl(var(--surface-inset))] text-foreground"
+                                                : "bg-secondary/40 text-muted-foreground hover:text-foreground"
+                                            )}
+                                            title="Add location"
+                                          >
+                                            <MapPin size={13} />
+                                            <span className="max-w-[160px] truncate">
+                                              {editLocation ? editLocation.name : (lang === 'zh' ? '添加地点' : 'Add location')}
+                                            </span>
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-80 p-0 bg-transparent border-0 shadow-none z-50" align="start" side="bottom">
+                                          <LocationPopover
+                                            presentation="popover"
+                                            onSelect={(loc) => { setEditLocation(loc); setEditLocationOpen(false); }}
+                                            onClose={() => setEditLocationOpen(false)}
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    )}
                                   </div>
                                   {editPhotos.length > 0 && (
                                     <div className="flex gap-1.5 overflow-x-auto">

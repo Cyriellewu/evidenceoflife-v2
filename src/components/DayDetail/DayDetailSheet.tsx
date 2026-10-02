@@ -291,10 +291,11 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                         <MapPin size={16} />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-72 p-3 bg-popover z-50" align="start">
-                      <LocationPopover 
-                        onSelect={setSelectedLocation} 
-                        onClose={() => setLocationOpen(false)} 
+                    <PopoverContent className="w-80 p-0 bg-transparent border-0 shadow-none z-50" align="start">
+                      <LocationPopover
+                        presentation="popover"
+                        onSelect={setSelectedLocation}
+                        onClose={() => setLocationOpen(false)}
                       />
                     </PopoverContent>
                   </Popover>

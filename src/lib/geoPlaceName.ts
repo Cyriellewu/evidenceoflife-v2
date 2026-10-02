@@ -29,6 +29,18 @@ export function haversineMeters(a: GeoCoords, b: GeoCoords): number {
   return 2 * EARTH_M * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** Split "Place, City" into title + secondary line for list rows. */
+export function splitPlaceLabel(name: string): { title: string; subtitle: string } {
+  const t = name.trim();
+  if (!t) return { title: '', subtitle: '' };
+  const idx = t.indexOf(',');
+  if (idx <= 0 || idx >= t.length - 1) return { title: t, subtitle: '' };
+  return {
+    title: t.slice(0, idx).trim(),
+    subtitle: t.slice(idx + 1).trim(),
+  };
+}
+
 /** Short distance label for nearby search results (maps-style). */
 export function formatDistanceLabel(meters: number, lang: 'en' | 'zh' = 'en'): string {
   if (!Number.isFinite(meters) || meters < 0) return '';
