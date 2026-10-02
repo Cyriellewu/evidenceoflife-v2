@@ -91,6 +91,22 @@ describe('geoPlaceName', () => {
   });
 });
 
+<<<<<<< HEAD
+=======
+describe('geolocation error classification', () => {
+  it('does not treat timeout as permission denial', async () => {
+    const { classifyGeoError, geoErrorMessage, GeoPositionError } = await import('@/lib/geolocation');
+    expect(classifyGeoError({ code: 1 })).toBe('permission');
+    expect(classifyGeoError({ code: 2 })).toBe('unavailable');
+    expect(classifyGeoError({ code: 3 })).toBe('timeout');
+    expect(classifyGeoError(new GeoPositionError('timeout'))).toBe('timeout');
+    expect(geoErrorMessage('timeout', 'zh')).toMatch(/超时/);
+    expect(geoErrorMessage('permission', 'zh')).toMatch(/权限/);
+    expect(geoErrorMessage('timeout', 'en')).not.toMatch(/permission/i);
+  });
+});
+
+>>>>>>> 7903ca8 (fix: iOS location reliability + less clumsy place picker)
 describe('overpass nearby POI mapping (free, no API key)', () => {
   it('maps amenity/leisure tags to app categories', () => {
     expect(overpassCategory({ amenity: 'cafe' })).toBe('coffee');

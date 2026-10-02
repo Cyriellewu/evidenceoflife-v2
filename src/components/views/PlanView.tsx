@@ -34,6 +34,8 @@ import { AnytimeIcon, MorningIcon, AfternoonIcon, EveningIcon } from './segmentI
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
 import { reversePlace } from '@/lib/geoClient';
+import { classifyGeoError, getGeoPosition } from '@/lib/geolocation';
+import { writeCachedGeoCoords } from '@/lib/geoCoords';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
 import { extractFirstUrl, normalizeUrl, isUrlLike, getDomain } from '@/lib/linkUtils';
 import { resolveStepLink, type DueLink } from '@/lib/dueLinks';
@@ -1805,13 +1807,9 @@ export function PlanView({
     }
   }, [captureDraftStorageKey]);
 
-  // Auto-tag current location when the user opens the Capture sheet, unless:
-  //   - they already have a location (manual or restored draft)
-  //   - they denied geolocation earlier in this browser session
-  //   - the browser has no geolocation support
-  // Failures (denied, unavailable, reverse-geocode error) are silent and set
-  // a session-scoped "denied" flag so we don't re-prompt every time the user
-  // re-opens the sheet within the same session. A new browser session retries.
+  // Soft-fill current location when Capture opens. Only mark "denied" for
+  // real permission refusals — timeouts/unavailable used to poison the whole
+  // session and make "I already allowed location" feel broken on iOS.
   useEffect(() => {
     if (!captureSheetOpen) return;
     if (captureLocation) return;
@@ -1819,33 +1817,29 @@ export function PlanView({
     if (sessionStorage.getItem('capture-geo-denied') === '1') return;
 
     let cancelled = false;
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+    void (async () => {
+      try {
+        const { lat, lng } = await getGeoPosition({ force: false, allowCache: true });
         if (cancelled) return;
-        const { latitude: lat, longitude: lng } = pos.coords;
+        writeCachedGeoCoords({ lat, lng });
         try {
           const place = await reversePlace({ lat, lng, lang });
           if (cancelled) return;
           const name = place.name || 'Current location';
           const category = (place.category || 'other') as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
-          // Re-check in case the user picked one manually while we were
-          // resolving — never clobber an explicit choice.
           setCaptureLocation((prev) => prev ?? { name, lat: place.lat, lng: place.lng, category });
           setCaptureLocationAutoFilled(true);
         } catch {
-          // reverse-geocode failed but we still know coords — fall back to a
-          // generic "Current location" tag rather than dropping the data.
           if (cancelled) return;
           setCaptureLocation((prev) => prev ?? { name: 'Current location', lat, lng, category: 'other' });
           setCaptureLocationAutoFilled(true);
         }
-      },
-      () => {
-        // Denied / unavailable / timeout. Stay quiet for the rest of the session.
-        try { sessionStorage.setItem('capture-geo-denied', '1'); } catch { /* private mode */ }
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
-    );
+      } catch (err) {
+        if (classifyGeoError(err) === 'permission') {
+          try { sessionStorage.setItem('capture-geo-denied', '1'); } catch { /* private mode */ }
+        }
+      }
+    })();
     return () => { cancelled = true; };
   }, [captureSheetOpen, captureLocation, lang]);
 
@@ -3044,7 +3038,7 @@ export function PlanView({
           Tasks|Timeline switcher lives in MobileNavChrome (top center). */}
       <div
         className={cn('flex gap-0', isMobile ? 'flex-col' : 'flex-row')}
-        style={{ minHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
+        style={{ minHeight: isMobile ? 'calc(100dvh - 220px)' : 'calc(100vh - 180px)' }}
       >
         {/* Task list */}
         <div
@@ -3054,7 +3048,7 @@ export function PlanView({
             isMobile ? 'w-full border-r-0' : 'flex-1 border-r border-border/20',
             !showListPane && 'hidden',
           )}
-          style={{ maxHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
+          style={{ maxHeight: isMobile ? 'calc(100dvh - 220px)' : 'calc(100vh - 180px)' }}
         >
           <div className="flex-1 overflow-y-auto min-h-0">
           <div
@@ -3553,7 +3547,7 @@ export function PlanView({
               isMobile ? 'w-full' : 'flex-1',
               !showTimelinePane && 'hidden',
             )}
-            style={isMobile ? { minHeight: 'calc(100vh - 220px)' } : undefined}
+            style={isMobile ? { minHeight: 'calc(100dvh - 220px)' } : undefined}
           >
           <div
             ref={timelineFrameRef}

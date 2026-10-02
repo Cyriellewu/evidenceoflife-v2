@@ -852,7 +852,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       navigator.geolocation.getCurrentPosition(
         (pos) => pickClosest(pos.coords.latitude, pos.coords.longitude),
         fallback,
-        { timeout: 5000 }
+        // iOS: prefer cached Wi‑Fi fix; don't enableHighAccuracy (hangs indoors).
+        { enableHighAccuracy: false, timeout: 10_000, maximumAge: 120_000 },
       );
     } else {
       fallback();
