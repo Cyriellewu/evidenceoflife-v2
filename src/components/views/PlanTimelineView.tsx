@@ -1355,6 +1355,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     onRenameTodo?.(block.id, trimmed);
   }, [onRenameTodo, onUpdateMoment, parseMomentBlockId]);
 
+  const displayBlockTitle = useCallback((title: string) => {
+    const trimmed = title?.trim();
+    if (trimmed) return trimmed;
+    return lang === 'zh' ? '未命名' : 'Untitled';
+  }, [lang]);
+
   const renderBlock = (block: TimeBlock, col: number, totalCols: number, visibleCols: number, hiddenSiblingIds: string[], tailRowIndex: number) => {
     const isDraggingThis = dragging?.id === block.id;
     const isImported = block.source === 'imported';
@@ -2309,6 +2315,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               </button>
             )}
             <button
+              type="button"
               onClick={() => {
                 if (displayMode === 'actual' && hasActual && !isTimerActive) {
                   setEditingActualBlockId(block.id);
@@ -2322,20 +2329,17 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 // collapses to match. Plan-only/in-progress blocks keep plan.
                 const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
                 const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
-                if (veryCompactLayout || microLayout) {
-                  setEditingTimeBlockId(block.id);
-                  setEditingTimeStart(fmtTime(seedStart));
-                  setEditingTimeEnd(fmtTime(seedEnd));
-                  return;
-                }
+                // Always open title rename — compact blocks used to only edit
+                // times, which felt like "can't rename" on phone.
                 setEditingBlockId(block.id);
-                setEditingBlockTitle(block.title);
+                setEditingBlockTitle(block.title || '');
                 setEditingTimeStart(fmtTime(seedStart));
                 setEditingTimeEnd(fmtTime(seedEnd));
+                setEditingTimeBlockId(null);
               }}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
-              title="Edit"
-              aria-label="Edit"
+              title={lang === 'zh' ? '重命名' : 'Rename'}
+              aria-label={lang === 'zh' ? '重命名' : 'Rename'}
             >
               <Pencil size={14} />
             </button>
@@ -2564,16 +2568,40 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       </span>
                     )}
                     <span
-                      className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap leading-tight"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (block.readOnly) return;
+                        const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
+                        const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
+                        setEditingBlockId(block.id);
+                        setEditingBlockTitle(block.title || '');
+                        setEditingTimeStart(fmtTime(seedStart));
+                        setEditingTimeEnd(fmtTime(seedEnd));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          (e.currentTarget as HTMLElement).click();
+                        }
+                      }}
+                      className="min-w-0 flex-1 cursor-text overflow-hidden text-ellipsis whitespace-nowrap leading-tight"
                       style={{
                         fontSize: ultraShortOuter ? '11px' : microLayout ? '11.5px' : ultraNarrowLayout ? '12.5px' : '14px',
                         fontWeight: 500,
                         lineHeight: 1.08,
                         margin: 0,
-                        color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? tintedText(0.45) : 'hsl(var(--foreground))',
+                        color: block.isCompleted
+                          ? tintedText(0.12)
+                          : !block.title?.trim()
+                            ? 'hsl(var(--muted-foreground) / 0.55)'
+                            : isPlanOnly ? tintedText(0.45) : 'hsl(var(--foreground))',
+                        fontStyle: !block.title?.trim() ? 'italic' : undefined,
                       }}
                     >
-                      {hideTitleTooNarrow ? '' : block.title}
+                      {hideTitleTooNarrow ? '' : displayBlockTitle(block.title)}
                     </span>
                     {!hideElapsedWhileTiming && !narrowLayout && blockWidthPx >= 280 && compactDurationLabel.length <= 10 && (
                       <span
@@ -2594,16 +2622,45 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           {block.emoji || tagIcon}
                         </span>
                       )}
-                      <span className={cn("min-w-0 overflow-hidden text-ellipsis leading-[1.2]", tallNarrowLayout ? "text-center" : "flex-1")} style={{
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (block.readOnly) return;
+                          const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
+                          const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
+                          setEditingBlockId(block.id);
+                          setEditingBlockTitle(block.title || '');
+                          setEditingTimeStart(fmtTime(seedStart));
+                          setEditingTimeEnd(fmtTime(seedEnd));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            (e.currentTarget as HTMLElement).click();
+                          }
+                        }}
+                        className={cn("min-w-0 cursor-text overflow-hidden text-ellipsis leading-[1.2]", tallNarrowLayout ? "text-center" : "flex-1")}
+                        style={{
                         fontSize: titleFontSize,
                         fontWeight: 500,
                         display: allowWrappedTitle ? '-webkit-box' : 'block',
                         WebkitLineClamp: allowWrappedTitle ? 2 : 'unset',
                         WebkitBoxOrient: allowWrappedTitle ? 'vertical' : 'unset',
                         whiteSpace: allowWrappedTitle ? 'normal' : 'nowrap',
-                        color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? (isDarkMode ? 'hsl(0 0% 100% / 0.9)' : tintedText(0.48)) : 'hsl(var(--foreground))',
+                        color: block.isCompleted
+                          ? tintedText(0.12)
+                          : !block.title?.trim()
+                            ? 'hsl(var(--muted-foreground) / 0.55)'
+                            : isPlanOnly ? (isDarkMode ? 'hsl(0 0% 100% / 0.9)' : tintedText(0.48)) : 'hsl(var(--foreground))',
                         textShadow: isDarkMode && !block.isCompleted ? '0 1px 1.5px rgba(0,0,0,0.30)' : undefined,
-                      }}>{hideTitleTooNarrow ? '' : block.title}</span>
+                        fontStyle: !block.title?.trim() ? 'italic' : undefined,
+                      }}
+                      >
+                        {hideTitleTooNarrow ? '' : displayBlockTitle(block.title)}
+                      </span>
                     </div>
                     {editingTimeBlockId === block.id && (
                       <div className={cn("mt-0.5 gap-1", narrowLayout ? "flex flex-col items-center" : "flex items-center flex-wrap")} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
@@ -3062,7 +3119,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {/* Inline creation card at selected range — looks like a dashed plan block */}
           {selectedRange && (() => {
             const rangeTop = minToY(selectedRange.startMin);
-            const rangeHeight = Math.max(minToY(selectedRange.endMin) - rangeTop, 48);
+            // Stacked name + time row needs ~76px; short drags used to clip the
+            // title input so phone create looked like "times only / can't name".
+            const rangeHeight = Math.max(minToY(selectedRange.endMin) - rangeTop, 76);
             const isPastRange = isElapsedSlot({
               viewingDate: viewingDateKey,
               today: format(new Date(), 'yyyy-MM-dd'),
@@ -3147,59 +3206,65 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     }}
                   >
                   {(
-                    <div className="flex h-full min-w-0 items-center gap-2 pr-7">
-                      {isPastRange && (
-                        <span
-                          className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-medium"
-                          style={{
-                            color: pastAccent,
-                            background: 'hsl(152 32% 24% / 0.22)',
-                            boxShadow: 'inset 0 0 0 1px hsl(152 30% 42% / 0.22)',
+                    <div className={cn('flex h-full min-w-0 flex-col justify-center gap-1.5', compactRange ? 'pr-6' : 'pr-7')}>
+                      <div className="flex min-w-0 items-center gap-2">
+                        {isPastRange && (
+                          <span
+                            className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-medium"
+                            style={{
+                              color: pastAccent,
+                              background: 'hsl(152 32% 24% / 0.22)',
+                              boxShadow: 'inset 0 0 0 1px hsl(152 30% 42% / 0.22)',
+                            }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                        <input
+                          ref={slotInputRef}
+                          value={slotAddTitle}
+                          onChange={e => setSlotAddTitle(e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          onKeyDown={e => {
+                            const native = e.nativeEvent as KeyboardEvent;
+                            if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
+                              const range = selectedRange;
+                              const targetDay = date || format(new Date(), 'yyyy-MM-dd');
+                              const startISO = localMinuteToISOString(targetDay, range.startMin);
+                              const endISO = localMinuteToISOString(targetDay, range.endMin);
+                              const diffSec = (range.endMin - range.startMin) * 60;
+                              const title = slotAddTitle.trim();
+                              dismiss();
+                              void (async () => {
+                                if (isPastRange) {
+                                  await onAddTodo(title, 'anytime', {
+                                    timer_started_at: startISO,
+                                    timer_ended_at: endISO,
+                                    timer_seconds: diffSec,
+                                    is_completed: true,
+                                    progress: 100,
+                                  });
+                                } else {
+                                  await onAddTodo(title, 'anytime', {
+                                    plan_started_at: startISO,
+                                    plan_ended_at: endISO,
+                                  });
+                                }
+                              })();
+                            }
+                            if (e.key === 'Escape') dismiss();
                           }}
-                        >
-                          ✓
-                        </span>
-                      )}
-                      <input
-                        ref={slotInputRef}
-                        value={slotAddTitle}
-                        onChange={e => setSlotAddTitle(e.target.value)}
-                        onKeyDown={e => {
-                          const native = e.nativeEvent as KeyboardEvent;
-                          if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
-                            const range = selectedRange;
-                            const targetDay = date || format(new Date(), 'yyyy-MM-dd');
-                            const startISO = localMinuteToISOString(targetDay, range.startMin);
-                            const endISO = localMinuteToISOString(targetDay, range.endMin);
-                            const diffSec = (range.endMin - range.startMin) * 60;
-                            const title = slotAddTitle.trim();
-                            dismiss();
-                            void (async () => {
-                              if (isPastRange) {
-                                // One write: past-slot create = already done.
-                                await onAddTodo(title, 'anytime', {
-                                  timer_started_at: startISO,
-                                  timer_ended_at: endISO,
-                                  timer_seconds: diffSec,
-                                  is_completed: true,
-                                  progress: 100,
-                                });
-                              } else {
-                                await onAddTodo(title, 'anytime', {
-                                  plan_started_at: startISO,
-                                  plan_ended_at: endISO,
-                                });
-                              }
-                            })();
+                          placeholder={
+                            isPastRange
+                              ? (lang === 'zh' ? '刚才做了什么？' : 'What did you do?')
+                              : (lang === 'zh' ? '任务名称…' : 'Task name…')
                           }
-                          if (e.key === 'Escape') dismiss();
-                        }}
-                        placeholder={isPastRange ? 'What did you do?' : 'Add task...'}
-                        className="min-w-0 flex-1 bg-transparent text-[14px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/40 text-foreground"
-                        style={{ color: creationTagColor || undefined }}
-                        autoFocus
-                      />
-                      <div className="ml-auto flex flex-shrink-0 items-center gap-1.5 font-mono tabular-nums text-muted-foreground/72" style={{ fontSize: '10px' }}>
+                          className="min-w-0 flex-1 bg-transparent text-[15px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/45 text-foreground sm:text-[14px]"
+                          style={{ color: creationTagColor || undefined }}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 font-mono tabular-nums text-muted-foreground/72" style={{ fontSize: '10px' }}>
                         <div className="inline-flex items-center gap-1 rounded-full bg-background/55 px-1.5 py-1 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.34)]">
                           <input
                             className="w-[36px] bg-transparent text-center focus:outline-none"
@@ -3207,6 +3272,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             key={`start-${selectedRange.startMin}`}
                             onBlur={e => applyTimeEdit('start', e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            onPointerDown={e => e.stopPropagation()}
                           />
                           <span className="text-muted-foreground/40">→</span>
                           <input
@@ -3215,13 +3281,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             key={`end-${selectedRange.endMin}`}
                             onBlur={e => applyTimeEdit('end', e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            onPointerDown={e => e.stopPropagation()}
                           />
                         </div>
                         <span className="inline-flex items-center rounded-full bg-background/45 px-1.5 py-1 text-[9.5px] font-semibold tracking-[0.02em] text-muted-foreground/78 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.28)]">
                           {durStr}
                         </span>
                         {isPastRange && (
-                          <span className="inline-flex items-center rounded-full px-1.5 py-1 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] shadow-[inset_0_0_0_1px_hsl(152_30%_42%_/_0.25)]" style={{ color: pastAccent, background: 'hsl(152 30% 20% / 0.18)' }}>done</span>
+                          <span className="inline-flex items-center rounded-full px-1.5 py-1 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] shadow-[inset_0_0_0_1px_hsl(152_30%_42%_/_0.25)]" style={{ color: pastAccent, background: 'hsl(152 30% 20% / 0.18)' }}>
+                            {lang === 'zh' ? '完成' : 'done'}
+                          </span>
                         )}
                       </div>
                     </div>
