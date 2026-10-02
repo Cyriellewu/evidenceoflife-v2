@@ -91,8 +91,6 @@ describe('geoPlaceName', () => {
   });
 });
 
-<<<<<<< HEAD
-=======
 describe('geolocation error classification', () => {
   it('does not treat timeout as permission denial', async () => {
     const { classifyGeoError, geoErrorMessage, GeoPositionError } = await import('@/lib/geolocation');
@@ -106,7 +104,6 @@ describe('geolocation error classification', () => {
   });
 });
 
->>>>>>> 7903ca8 (fix: iOS location reliability + less clumsy place picker)
 describe('overpass nearby POI mapping (free, no API key)', () => {
   it('maps amenity/leisure tags to app categories', () => {
     expect(overpassCategory({ amenity: 'cafe' })).toBe('coffee');
