@@ -165,7 +165,9 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
     <aside
       ref={sideNavRef}
       className={cn(
-        'flex-shrink-0 border-r border-border bg-[hsl(var(--surface-contrast))] transition-[width] duration-200 ease-out',
+        // Phone: bottom nav owns chrome — keep this rail out of the layout so
+        // content can use the full width (see MobileBottomNav).
+        'hidden md:block flex-shrink-0 border-r border-border bg-[hsl(var(--surface-contrast))] transition-[width] duration-200 ease-out',
         expanded ? 'w-[236px]' : 'w-[52px]'
       )}
     >
