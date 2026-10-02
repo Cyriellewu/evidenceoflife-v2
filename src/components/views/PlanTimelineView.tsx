@@ -810,13 +810,17 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const parseMomentBlockId = useCallback((blockId: string) =>
     blockId.startsWith('moment-') ? blockId.slice('moment-'.length) : null, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent, block: TimeBlock, edge: 'move' | 'top' | 'bottom') => {
+  const handleBlockPointerDown = useCallback((e: React.PointerEvent, block: TimeBlock, edge: 'move' | 'top' | 'bottom') => {
+    // Touch + mouse both go through Pointer Events. Mouse-only handlers never
+    // received move/up on iOS, so drag-to-reschedule / insert looked broken.
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (block.source === 'imported') return;
     // Moment blocks have a single (actual) span — drag/resize edits that span.
     if (block.source === 'moment') {
       if (!onUpdateMoment) return;
       e.preventDefault();
       e.stopPropagation();
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
       const startMin = clientYToMin(e.clientY);
       setDragging({ id: block.id, target: 'moment', edge, startY: e.clientY, startMin, origStart: block.startMin, origEnd: block.endMin });
       setDragPreview({ startMin: block.startMin, endMin: block.endMin });
@@ -827,6 +831,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     if (!target) return;
     e.preventDefault();
     e.stopPropagation();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
     const startMin = clientYToMin(e.clientY);
     const origStart = target === 'actual'
       ? (block.actualStartMin ?? block.startMin)
@@ -894,11 +899,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     });
   }, [dragging, rangeDragging, clientYToMin, clampSelectionRange, isOutsideTimeline]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent | PointerEvent) => {
     updateDragPreview(e.clientX, e.clientY);
   }, [updateDragPreview]);
 
-  const handleMouseUp = useCallback((clientX?: number, clientY?: number) => {
+  const handlePointerUp = useCallback((clientX?: number, clientY?: number) => {
     if (rangeDragging) setRangeDragging(null);
 
     if (dragging && dragPreview) {
@@ -1077,16 +1082,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     setEditingActualBlockId(null);
   }, [editingActualStart, editingActualEnd, date, onUpdateTodo]);
 
-  const handleEdgeDragStart = useCallback((edge: 'top' | 'bottom', e: React.MouseEvent) => {
+  const handleEdgeDragStart = useCallback((edge: 'top' | 'bottom', e: React.PointerEvent) => {
     if (!selectedRange) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
     setEdgeDragging(edge);
     edgeDragStartY.current = e.clientY;
     edgeDragOrigRange.current = { ...selectedRange };
   }, [selectedRange]);
 
-  const handleEdgeDragMove = useCallback((e: MouseEvent) => {
+  const handleEdgeDragMove = useCallback((e: PointerEvent) => {
     if (!edgeDragging || !edgeDragOrigRange.current || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const yInScrollable = e.clientY - rect.top + containerRef.current.scrollTop;
@@ -1115,11 +1122,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
   useEffect(() => {
     if (!edgeDragging) return;
-    window.addEventListener('mousemove', handleEdgeDragMove);
-    window.addEventListener('mouseup', handleEdgeDragEnd);
+    window.addEventListener('pointermove', handleEdgeDragMove);
+    window.addEventListener('pointerup', handleEdgeDragEnd);
+    window.addEventListener('pointercancel', handleEdgeDragEnd);
     return () => {
-      window.removeEventListener('mousemove', handleEdgeDragMove);
-      window.removeEventListener('mouseup', handleEdgeDragEnd);
+      window.removeEventListener('pointermove', handleEdgeDragMove);
+      window.removeEventListener('pointerup', handleEdgeDragEnd);
+      window.removeEventListener('pointercancel', handleEdgeDragEnd);
     };
   }, [edgeDragging, handleEdgeDragMove, handleEdgeDragEnd]);
 
@@ -1161,18 +1170,39 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     return () => window.removeEventListener('eol-timer-started', handler);
   }, [restKey, setRestBlocks, setRestStartMin]);
 
-  // Global mouse listeners for block dragging (so drag-to-unschedule works outside timeline)
+  // Global pointer listeners for block dragging (so drag-to-unschedule works outside timeline)
   useEffect(() => {
     if (!dragging) return;
-    const onMove = (e: MouseEvent) => updateDragPreview(e.clientX, e.clientY);
-    const onUp = (e: MouseEvent) => handleMouseUp(e.clientX, e.clientY);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    const onMove = (e: PointerEvent) => updateDragPreview(e.clientX, e.clientY);
+    const onUp = (e: PointerEvent) => handlePointerUp(e.clientX, e.clientY);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
-  }, [dragging, handleMouseUp, updateDragPreview]);
+  }, [dragging, handlePointerUp, updateDragPreview]);
+
+  // While creating a free-range selection on the canvas, keep tracking even if the
+  // finger leaves the column (common on iPhone).
+  useEffect(() => {
+    if (!rangeDragging) return;
+    const onMove = (e: PointerEvent) => {
+      e.preventDefault();
+      updateDragPreview(e.clientX, e.clientY);
+    };
+    const onUp = (e: PointerEvent) => handlePointerUp(e.clientX, e.clientY);
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [rangeDragging, handlePointerUp, updateDragPreview]);
 
   useEffect(() => {
     return () => {
@@ -1822,7 +1852,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           opacity: isOverflowCol && !isDraggingThis ? 0.28 : undefined,
           pointerEvents: isOverflowCol ? 'none' : undefined,
         }}
-        onMouseDown={isEditable && !isEditingThis ? (e) => handleMouseDown(e, block, 'move') : undefined}
+        onPointerDown={isEditable && !isEditingThis ? (e) => handleBlockPointerDown(e, block, 'move') : undefined}
         onClick={(e) => {
           if (justDraggedRef.current || isEditingThis) return;
           const target = e.target as HTMLElement;
@@ -2179,7 +2209,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 'absolute top-0 left-0 right-0 cursor-n-resize flex items-start justify-center z-[15]',
                 ultraSlimHandles ? '-top-1 h-3 pt-1' : slimResize ? '-top-1 h-4 pt-1' : midResize ? 'h-5 pt-1' : 'h-7 pt-1.5',
               )}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, block, 'top'); }}
+              onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'top'); }}
             >
               <div
                 className={cn(
@@ -2194,7 +2224,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 'absolute bottom-0 left-0 right-0 cursor-s-resize flex items-end justify-center z-[15]',
                 ultraSlimHandles ? '-bottom-1 h-3 pb-1' : slimResize ? '-bottom-1 h-4 pb-1' : midResize ? 'h-5 pb-1' : 'h-7 pb-1.5',
               )}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, block, 'bottom'); }}
+              onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'bottom'); }}
             >
               <div
                 className={cn(
@@ -2810,12 +2840,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   return (
     <div
       className="select-none flex-1 flex flex-col min-h-0 relative isolate"
-      onMouseMove={handleMouseMove}
-      onMouseUp={(e) => { handleMouseUp(e.clientX, e.clientY); }}
-      onMouseLeave={(e) => {
-        // Block drags (move/top/bottom) continue via window listeners — only cancel range selection
-        if (dragging) return;
-        handleMouseUp(e.clientX, e.clientY);
+      onPointerMove={handlePointerMove}
+      onPointerUp={(e) => { handlePointerUp(e.clientX, e.clientY); }}
+      onPointerCancel={(e) => { handlePointerUp(e.clientX, e.clientY); }}
+      onPointerLeave={(e) => {
+        // Block drags continue via window listeners — only cancel free-range
+        // selection if the pointer leaves without capture (desktop mouse).
+        if (dragging || rangeDragging) return;
+        handlePointerUp(e.clientX, e.clientY);
       }}
     >
       {/* Timeline area. The maxHeight used to be a flat 600px which, on
@@ -2868,14 +2900,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         {/* Timeline content */}
         <div
           className={cn(
-            "flex-1 relative transition-colors",
-            dragTaskTitle && "bg-primary/[0.03]"
+            "flex-1 relative transition-colors touch-none",
+            dragTaskTitle && "bg-primary/[0.03]",
           )}
-          style={{ height: totalHeight, backgroundColor: timelineCanvasBg }}
+          style={{ height: totalHeight, backgroundColor: timelineCanvasBg, touchAction: 'none' }}
+          title={lang === 'zh' ? '在空白处拖拽选择时段' : 'Drag on empty space to pick a time range'}
           onDragOver={handleTimelineDragOver}
           onDrop={handleTimelineDrop}
           onDragLeave={handleTimelineDragLeave}
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
             const target = e.target as HTMLElement;
             if (target.closest('[data-plan-block="true"]') || target.closest('[data-range-handle="true"]') || target.closest('[data-creation-card="true"]')) return;
             if (selectedRange) {
@@ -2884,6 +2918,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               setCustomRange(null);
               return;
             }
+            e.preventDefault();
+            try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
             const anchor = clientYToMin(e.clientY);
             const initial = clampSelectionRange(anchor, anchor + 15);
             setSelectedSlots(new Set());
@@ -3212,7 +3248,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   data-range-handle="true"
                   className="absolute left-0 right-0 z-[25] h-4 cursor-n-resize flex items-center justify-center"
                   style={{ top: topPx - 8 }}
-                  onMouseDown={e => handleEdgeDragStart('top', e)}
+                  onPointerDown={e => handleEdgeDragStart('top', e)}
                 >
                   <div className="h-[3px] w-8 rounded-full bg-primary/30" />
                 </div>
@@ -3220,7 +3256,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   data-range-handle="true"
                   className="absolute left-0 right-0 z-[25] h-4 cursor-s-resize flex items-center justify-center"
                   style={{ top: bottomPx - 8 }}
-                  onMouseDown={e => handleEdgeDragStart('bottom', e)}
+                  onPointerDown={e => handleEdgeDragStart('bottom', e)}
                 >
                   <div className="h-[3px] w-8 rounded-full bg-primary/30" />
                 </div>
