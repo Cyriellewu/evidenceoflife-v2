@@ -102,6 +102,63 @@ demo data, no Supabase required.
 - Create a due with a link preview (while signed in)
 - Optional: connect Google Calendar and confirm redirect returns to `APP_URL`
 
+## Troubleshooting
+
+### Photos show as broken images
+
+- **Cause:** the `moment-photos` bucket is private, so the app needs the
+  signed-URL behavior from
+  `20260730020000_harden_storage_and_calendar_tokens.sql`. If that migration
+  was not applied, image URLs are not authorized.
+- **Fix:** link the project and apply all migrations, then redeploy the edge
+  functions:
+
+  ```sh
+  supabase link --project-ref <your-project-id>
+  supabase db push
+  supabase functions deploy image-proxy
+  ```
+
+### Google Calendar redirect fails
+
+- **Cause:** `APP_URL` or `ALLOWED_REDIRECT_ORIGINS` does not match the exact
+  origin registered in Supabase Auth redirect settings.
+- **Fix:** set both values to the same origin
+  (`http://localhost:8080` locally) and add the callback URL
+  (`/auth/callback`) to Supabase Auth.
+
+### `supabase db push` errors
+
+- **Cause:** the local project is not linked, or the Supabase CLI is too old.
+- **Fix:** run `supabase link --project-ref <your-project-id>` and upgrade the
+  CLI, then retry `supabase db push`.
+
+### Link preview returns 401
+
+- **Cause:** `link-preview` requires a signed-in user with a valid JWT.
+- **Fix:** sign in again, confirm the session is active, and make sure the
+  deployed function includes the current auth helper changes.
+
+### Smart input / life replay unavailable
+
+- **Cause:** the optional `LOVABLE_API_KEY` is unset, so those AI features are
+  disabled.
+- **Fix:** set the secret and redeploy the affected functions:
+
+  ```sh
+  supabase secrets set LOVABLE_API_KEY=...
+  supabase functions deploy smart-input
+  supabase functions deploy life-replay
+  ```
+
+### Blank app on first load
+
+- **Cause:** `.env` is missing `VITE_SUPABASE_URL` or
+  `VITE_SUPABASE_PUBLISHABLE_KEY`.
+- **Fix:** copy `.env.example` to `.env`, fill in the project URL and anon /
+  publishable key, then restart `npm run dev`. The UI-only route at
+  `/demo-app` works without a backend.
+
 ## Security notes
 
 - Photos use a **private** bucket; the client requests short-lived signed URLs.
