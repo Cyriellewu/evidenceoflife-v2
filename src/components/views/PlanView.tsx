@@ -2999,19 +2999,28 @@ export function PlanView({
           className="fixed z-[70] flex cursor-grab touch-none select-none flex-col items-end gap-2 active:cursor-grabbing"
           style={{
             pointerEvents: 'auto',
-            ...(timerDockPos
+            ...(timerDockPos && !isMobile
               ? { left: timerDockPos.x, top: timerDockPos.y }
-              : {
-                  right: recapDock ? recapDock.right : 8,
-                  bottom: isMobile
-                    ? (recapDock ? recapDock.bottom + 56 : 24)
-                    : (recapDock ? recapDock.bottom + 48 : 16),
-                }),
+              : isMobile && taskInputDock && showListPane
+                // Phone: stack the timer ABOVE the composer so they never share
+                // the same bottom strip (that was covering the last tasks).
+                ? {
+                    left: taskInputDock.left,
+                    width: taskInputDock.width,
+                    bottom: 'max(4.75rem, calc(4.25rem + env(safe-area-inset-bottom)))',
+                    alignItems: 'flex-end',
+                  }
+                : {
+                    right: recapDock ? recapDock.right : 8,
+                    bottom: isMobile
+                      ? 'max(4.75rem, calc(4.25rem + env(safe-area-inset-bottom)))'
+                      : (recapDock ? recapDock.bottom + 48 : 16),
+                  }),
           }}
-          onPointerDownCapture={handleTimerDockPointerDown}
-          onPointerMove={handleTimerDockPointerMove}
-          onPointerUp={handleTimerDockPointerUp}
-          onPointerCancel={handleTimerDockPointerCancel}
+          onPointerDownCapture={isMobile ? undefined : handleTimerDockPointerDown}
+          onPointerMove={isMobile ? undefined : handleTimerDockPointerMove}
+          onPointerUp={isMobile ? undefined : handleTimerDockPointerUp}
+          onPointerCancel={isMobile ? undefined : handleTimerDockPointerCancel}
           onClickCapture={(e) => {
             if (!suppressTimerClickRef.current) return;
             e.preventDefault();
@@ -3060,7 +3069,15 @@ export function PlanView({
           style={{ maxHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
         >
           <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-2 space-y-1 pb-32 md:pb-28">
+          <div
+            className={cn(
+              'px-2 space-y-1 md:pb-28',
+              // Extra room when a floating timer sits above the composer.
+              isMobile
+                ? (activeTimerTodos.some(t => t.id !== showOverlayForId) ? 'pb-56' : 'pb-40')
+                : 'pb-28',
+            )}
+          >
               {/* Empty state — when no active tasks, invite the first action rather
                   than leaving the column a black void next to a busy timeline. */}
               {mainListTodos.filter(t => !t.is_completed).length === 0 && (
@@ -3393,12 +3410,12 @@ export function PlanView({
           {/* Fixed task input rendered separately so it stays at the current viewport bottom */}
           {!showOverlayForId && !voiceSheetOpen && showListPane && taskInputDock && (
             <div
-              className="fixed z-20 pointer-events-none"
+              className="fixed z-[55] pointer-events-none"
               style={{
                 left: taskInputDock.left,
                 width: taskInputDock.width,
                 bottom: isMobile
-                  ? 'max(1rem, env(safe-area-inset-bottom))'
+                  ? 'max(0.75rem, env(safe-area-inset-bottom))'
                   : 16,
               }}
             >
