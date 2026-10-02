@@ -33,6 +33,7 @@ import type { MomentLinkPreview } from '@/types';
 import { AnytimeIcon, MorningIcon, AfternoonIcon, EveningIcon } from './segmentIcons';
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
+import { sanitizePlaceName } from '@/lib/geoPlaceName';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
 import { extractFirstUrl, normalizeUrl, isUrlLike, getDomain } from '@/lib/linkUtils';
 import { resolveStepLink, type DueLink } from '@/lib/dueLinks';
@@ -1828,9 +1829,10 @@ export function PlanView({
           });
           if (cancelled) return;
           if (error) throw error;
-          const rawName = String(data?.name ?? '').trim();
-          const city = String(data?.city ?? '').trim();
-          const name = (!rawName || rawName === 'Nearby') ? (city || 'Current location') : rawName;
+          const rawName = sanitizePlaceName(String(data?.name ?? ''), '');
+          const city = sanitizePlaceName(String(data?.city ?? ''), '');
+          // Never surface raw lat,lng — prefer named place, then city, then label.
+          const name = rawName || city || 'Current location';
           const category = (data?.category || 'other') as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
           // Re-check in case the user picked one manually while we were
           // resolving — never clobber an explicit choice.

@@ -8,10 +8,111 @@ const corsHeaders: Record<string, string> = {
 };
 
 type Body =
-  | { type: 'search'; q: string; limit?: number }
+  | { type: 'search'; q: string; limit?: number; lat?: number; lng?: number }
   | { type: 'reverse'; lat: number; lng: number; lang?: string }
   | { type: 'reclassify'; places: Array<{ id: string; name: string; lat: number; lng: number }> }
   | { type: 'boundaries'; cities: Array<{ name: string; lat: number; lng: number }> };
+
+const FALLBACK_PLACE = 'Current location';
+
+function isCoordLikeName(name: string): boolean {
+  return /^-?\d{1,3}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?$/.test(String(name || '').trim());
+}
+
+function pickCity(addr: Record<string, unknown>, lang: string): string {
+  let cityName =
+    (addr.city as string) ||
+    (addr.town as string) ||
+    (addr.municipality as string) ||
+    (addr.county as string) ||
+    (addr.state_district as string) ||
+    (addr.state as string) ||
+    (addr.province as string) ||
+    (addr.city_district as string) ||
+    (addr.district as string) ||
+    (addr.village as string) ||
+    '';
+  const isDistrict = (v: unknown) => typeof v === 'string' && (/区$/.test(v) || /\bDistrict$/i.test(v));
+  if (isDistrict(cityName)) {
+    const municipal = [addr.municipality, addr.city, addr.county, addr.state, addr.province]
+      .find((v: unknown) => typeof v === 'string' && v.trim() && !isDistrict(v));
+    if (municipal) {
+      cityName = municipal as string;
+    } else {
+      const iso = String(addr['ISO3166-2-lvl4'] || '').toUpperCase();
+      const isZh = lang.startsWith('zh');
+      const MUNICIPALITY_BY_ISO: Record<string, { zh: string; en: string }> = {
+        'CN-BJ': { zh: '北京市', en: 'Beijing' },
+        'CN-SH': { zh: '上海市', en: 'Shanghai' },
+        'CN-TJ': { zh: '天津市', en: 'Tianjin' },
+        'CN-CQ': { zh: '重庆市', en: 'Chongqing' },
+      };
+      const mapped = MUNICIPALITY_BY_ISO[iso];
+      if (mapped) cityName = isZh ? mapped.zh : mapped.en;
+    }
+  }
+  return cityName;
+}
+
+/** Prefer a named POI / road / locality — never raw lat,lng. */
+function formatPlaceLabel(
+  item: { name?: string; display_name?: string; address?: Record<string, unknown> },
+  lang: string,
+): { name: string; city: string } {
+  const addr = item.address || {};
+  const city = pickCity(addr, lang);
+  const poi =
+    (typeof item.name === 'string' && item.name.trim()) ||
+    (addr.amenity as string) ||
+    (addr.shop as string) ||
+    (addr.tourism as string) ||
+    (addr.leisure as string) ||
+    (addr.building as string) ||
+    (addr.office as string) ||
+    (addr.railway as string) ||
+    (addr.aeroway as string) ||
+    '';
+  const road = [addr.house_number, addr.road || addr.pedestrian || addr.footway || addr.path]
+    .filter((v) => typeof v === 'string' && String(v).trim())
+    .join(' ')
+    .trim();
+  const locality =
+    (addr.neighbourhood as string) ||
+    (addr.suburb as string) ||
+    (addr.quarter as string) ||
+    (addr.residential as string) ||
+    (addr.hamlet as string) ||
+    '';
+
+  let primary = (poi || road || locality || '').trim();
+  if (!primary && item.display_name) {
+    primary = String(item.display_name).split(',').slice(0, 2).join(', ').trim();
+  }
+  if (!primary || isCoordLikeName(primary)) {
+    primary = city || FALLBACK_PLACE;
+  }
+
+  // "Starbucks, Seattle" — skip when primary already embeds the city.
+  const withCity =
+    city && primary !== city && !primary.includes(city)
+      ? `${primary}, ${city}`
+      : primary;
+
+  return {
+    name: isCoordLikeName(withCity) ? FALLBACK_PLACE : withCity,
+    city: city || '',
+  };
+}
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
 
 // Map Nominatim class/type + name keywords to our categories
 function detectCategory(item: { class?: string; type?: string; display_name?: string; address?: any; extratags?: any; namedetails?: any }): string {
@@ -114,36 +215,73 @@ Deno.serve(async (req) => {
       }
 
       const limit = Math.max(1, Math.min(Number(body.limit ?? 8), 15));
-      // If user coordinates are provided, use viewbox to prioritize nearby results
-      const userLat = Number((body as any).lat);
-      const userLng = Number((body as any).lng);
+      const userLat = Number(body.lat);
+      const userLng = Number(body.lng);
+      const hasOrigin =
+        Number.isFinite(userLat) &&
+        Number.isFinite(userLng) &&
+        !(userLat === 0 && userLng === 0);
+
+      // ~12km viewbox when we know where the user is — maps-style nearby bias.
+      // bounded=0 still allows distant hits when the query is uniquely far away;
+      // we re-rank by distance afterward so closest recommendations surface first.
       let locationParams = '';
-      if (!isNaN(userLat) && !isNaN(userLng) && userLat !== 0 && userLng !== 0) {
-        // Create a ~50km bounding box around user location, with bounded=0 so it still shows global results but prefers nearby
-        const delta = 0.5; // ~50km
-        locationParams = `&viewbox=${userLng - delta},${userLat + delta},${userLng + delta},${userLat - delta}&bounded=0`;
+      if (hasOrigin) {
+        const delta = 0.11;
+        locationParams =
+          `&viewbox=${userLng - delta},${userLat + delta},${userLng + delta},${userLat - delta}&bounded=0`;
       }
-      const url = `https://nominatim.openstreetmap.org/search?format=json&accept-language=en&limit=${limit}&addressdetails=1&extratags=1${locationParams}&q=${encodeURIComponent(q)}`;
+
+      // Pull extra candidates when biasing so distance sort has room to work.
+      const fetchLimit = hasOrigin ? Math.min(Math.max(limit * 2, 12), 20) : limit;
+      const url =
+        `https://nominatim.openstreetmap.org/search?format=json&accept-language=en&limit=${fetchLimit}` +
+        `&addressdetails=1&extratags=1${locationParams}&q=${encodeURIComponent(q)}`;
       const res = await fetchWithRetry(url);
       if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-      const json = (await res.json()) as Array<{ display_name: string; lat: string; lon: string; class?: string; type?: string }>;
+      const json = (await res.json()) as Array<{
+        display_name: string;
+        lat: string;
+        lon: string;
+        name?: string;
+        class?: string;
+        type?: string;
+        address?: Record<string, unknown>;
+        extratags?: Record<string, unknown>;
+      }>;
 
-      let results = json.map((r: any) => ({
-        name: r.display_name.split(',').slice(0, 2).join(', '),
-        lat: Number(r.lat),
-        lng: Number(r.lon),
-        category: detectCategory({ class: r.class, type: r.type, display_name: r.display_name, address: r.address, extratags: r.extratags }),
-      }));
-
-      // When the client sent a current position, prefer nearer hits so
-      // "query + Use current" behaves like a true nearby search.
-      if (!isNaN(userLat) && !isNaN(userLng) && userLat !== 0 && userLng !== 0) {
-        const dist2 = (lat: number, lng: number) => {
-          const dLat = lat - userLat;
-          const dLng = lng - userLng;
-          return dLat * dLat + dLng * dLng;
+      let results = json.map((r) => {
+        const { name } = formatPlaceLabel(
+          { name: r.name, display_name: r.display_name, address: r.address },
+          'en',
+        );
+        const lat = Number(r.lat);
+        const lng = Number(r.lon);
+        const distance_m = hasOrigin ? Math.round(haversineMeters(userLat, userLng, lat, lng)) : undefined;
+        return {
+          name,
+          lat,
+          lng,
+          category: detectCategory({
+            class: r.class,
+            type: r.type,
+            display_name: r.display_name,
+            address: r.address,
+            extratags: r.extratags,
+          }),
+          ...(distance_m !== undefined ? { distance_m } : {}),
         };
-        results = results.sort((a, b) => dist2(a.lat, a.lng) - dist2(b.lat, b.lng));
+      }).filter((r) => r.name && !isCoordLikeName(r.name));
+
+      if (hasOrigin) {
+        results = results.sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
+        // Soft nearby preference: keep everything within ~40km first; if that
+        // leaves too few hits, fall back to the full distance-sorted list.
+        const nearby = results.filter((r) => (r.distance_m ?? Infinity) <= 40_000);
+        if (nearby.length >= Math.min(3, limit)) {
+          results = nearby;
+        }
+        results = results.slice(0, limit);
       }
 
       return Response.json({ results }, { headers: { ...corsHeaders } });
@@ -152,48 +290,53 @@ Deno.serve(async (req) => {
     if (body.type === 'reverse') {
       const lat = Number(body.lat);
       const lng = Number(body.lng);
-      // Localize names when requested (e.g. zh → "北京市" instead of "Beijing").
-      const rawLang = String((body as any).lang ?? 'en').toLowerCase();
-      const lang = /^[a-z]{2}(-[a-z]{2})?$/.test(rawLang) ? rawLang : 'en';
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=${lang}&lat=${lat}&lon=${lng}&addressdetails=1`;
-      const res = await fetchWithRetry(url);
-      if (!res.ok) return Response.json({ name: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, city: '', category: 'other' }, { headers: { ...corsHeaders } });
-      const json = (await res.json()) as { display_name?: string; name?: string; class?: string; type?: string; address?: any };
-      const addr = json.address || {};
-      // Extract city-level name - prefer actual city over neighborhood/district
-      // For places like "Morningside Heights, Manhattan, New York" we want "New York"
-      let cityName = addr.city || addr.town || addr.municipality || addr.county || addr.state_district || addr.state || addr.province || addr.city_district || addr.district || addr.village || '';
-      // In China the direct-administered municipalities (Beijing/Shanghai/Tianjin/
-      // Chongqing) tag their districts as `city`, e.g. "Haidian District" / "海淀区".
-      // Keep everything at the municipal level: if the picked name is a district
-      // (ends with "District" or 区), bump up to a higher admin field.
-      const isDistrict = (v: unknown) => typeof v === 'string' && (/区$/.test(v) || /\bDistrict$/i.test(v));
-      if (isDistrict(cityName)) {
-        const municipal = [addr.municipality, addr.city, addr.county, addr.state, addr.province]
-          .find((v: unknown) => typeof v === 'string' && v.trim() && !isDistrict(v));
-        if (municipal) {
-          cityName = municipal as string;
-        } else {
-          // At building-level zoom, Nominatim often returns ONLY the district as
-          // `city` with no province/state field — but it always carries the
-          // ISO 3166-2 province code. Map the 4 direct-administered municipalities
-          // by that code so e.g. "海淀区" (CN-BJ) resolves to "北京市" / "Beijing".
-          const iso = String(addr['ISO3166-2-lvl4'] || '').toUpperCase();
-          const isZh = lang.startsWith('zh');
-          const MUNICIPALITY_BY_ISO: Record<string, { zh: string; en: string }> = {
-            'CN-BJ': { zh: '北京市', en: 'Beijing' },
-            'CN-SH': { zh: '上海市', en: 'Shanghai' },
-            'CN-TJ': { zh: '天津市', en: 'Tianjin' },
-            'CN-CQ': { zh: '重庆市', en: 'Chongqing' },
-          };
-          const mapped = MUNICIPALITY_BY_ISO[iso];
-          if (mapped) cityName = isZh ? mapped.zh : mapped.en;
-        }
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return Response.json(
+          { name: FALLBACK_PLACE, city: '', category: 'other' },
+          { headers: { ...corsHeaders } },
+        );
       }
-      const display =
-        json.name || (json.display_name ? json.display_name.split(',').slice(0, 2).join(', ') : '');
-      const category = detectCategory({ class: json.class, type: json.type, display_name: json.display_name, address: json.address });
-      return Response.json({ name: display || cityName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`, city: cityName, category }, { headers: { ...corsHeaders } });
+      // Localize names when requested (e.g. zh → "北京市" instead of "Beijing").
+      const rawLang = String(body.lang ?? 'en').toLowerCase();
+      const lang = /^[a-z]{2}(-[a-z]{2})?$/.test(rawLang) ? rawLang : 'en';
+
+      // zoom=18 prefers building/POI-level names over coarse admin areas.
+      const url =
+        `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=${lang}` +
+        `&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`;
+      const res = await fetchWithRetry(url);
+      if (!res.ok) {
+        return Response.json(
+          { name: FALLBACK_PLACE, city: '', category: 'other' },
+          { headers: { ...corsHeaders } },
+        );
+      }
+      const json = (await res.json()) as {
+        display_name?: string;
+        name?: string;
+        class?: string;
+        type?: string;
+        address?: Record<string, unknown>;
+        error?: string;
+      };
+      if (json.error) {
+        return Response.json(
+          { name: FALLBACK_PLACE, city: '', category: 'other' },
+          { headers: { ...corsHeaders } },
+        );
+      }
+
+      const labeled = formatPlaceLabel(json, lang);
+      const category = detectCategory({
+        class: json.class,
+        type: json.type,
+        display_name: json.display_name,
+        address: json.address,
+      });
+      return Response.json(
+        { name: labeled.name, city: labeled.city, category },
+        { headers: { ...corsHeaders } },
+      );
     }
 
     if (body.type === 'reclassify') {
