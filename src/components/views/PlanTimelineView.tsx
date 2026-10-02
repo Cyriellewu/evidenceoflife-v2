@@ -3621,118 +3621,130 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         </div>
       </div>
 
-      {/* inset-right clears PlanView's absolute rhythm preset (palette) — same corner, ~w-8 + margin */}
-      <div className="pointer-events-none absolute right-12 top-3 z-30 flex items-start gap-1">
-        <button
-          onClick={handleRestToggle}
-          className="pointer-events-auto flex items-center gap-1 px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)]"
-          style={{
-            background: restStartMin !== null
-              ? `color-mix(in srgb, hsl(var(--surface-contrast)) 80%, ${REST_COLOR} 20%)`
-              : 'hsl(var(--surface-contrast) / 0.9)',
-            border: `1px solid ${restStartMin !== null ? REST_COLOR : 'hsl(var(--border) / 0.5)'}`,
-            color: restStartMin !== null ? REST_COLOR : 'hsl(var(--muted-foreground))',
-          }}
-        >
-          {restStartMin !== null ? (
-            <>
-              <span className="animate-pulse">●</span>
-              <span>Stop Rest</span>
-            </>
-          ) : (
-            <>
-              <span>😴</span>
-              <span>Rest</span>
-            </>
-          )}
-        </button>
-        {selectedRange && (
-          <span className="text-[12px] text-muted-foreground bg-[hsl(var(--surface-contrast)/0.9)] backdrop-blur-md border border-border/50 rounded-full px-2.5 py-1 shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] pointer-events-auto">
-            {t('plan.selected')} <span className="font-semibold text-foreground">
-              {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
-            </span> {t('plan.minutes')}
-          </span>
-        )}
-        {isViewingToday && (unscheduledTodos.length > 0 || suggestions) && (
-          <div className="flex items-center gap-1 pointer-events-auto">
-            {suggestions ? (
-              <div
-                className="flex items-center gap-1 rounded-full border p-[3px] backdrop-blur-md shadow-[0_8px_20px_hsl(var(--foreground)/0.08)]"
-                style={{ background: suggestionToolbarBg, borderColor: suggestionToolbarBorder }}
-                onPointerDown={e => e.stopPropagation()}
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => e.stopPropagation()}
-              >
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-[5px] text-[11px] font-medium leading-none"
-                  style={{ background: suggestionToolbarLabelBg, color: suggestionToolbarLabelFg }}
-                >
-                  <CalendarDays size={11} />
-                  {lang === 'zh' ? `${suggestions.length} 条建议` : `${suggestions.length} suggestions`}
-                </span>
-                <div
-                  className="flex items-center gap-0.5 rounded-full border p-[2px]"
-                  style={{ background: suggestionToolbarActionBg, borderColor: suggestionToolbarActionBorder }}
-                >
-                  <button
-                    onPointerDown={e => e.stopPropagation()}
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={acceptAllSuggestions}
-                    className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium transition-colors"
-                    style={{
-                      background: isDarkMode ? 'hsl(150 30% 40% / 0.22)' : 'hsl(150 40% 42% / 0.16)',
-                      border: `1px solid ${isDarkMode ? 'hsl(150 32% 55% / 0.40)' : 'hsl(150 38% 40% / 0.38)'}`,
-                      color: isDarkMode ? 'hsl(150 45% 68%)' : 'hsl(150 45% 34%)',
-                    }}
-                  >
-                    <Check size={12} />
-                    <span>{lang === 'zh' ? '全部接受' : 'Accept all'}</span>
-                  </button>
-                  <button
-                    onPointerDown={e => e.stopPropagation()}
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={dismissSuggestions}
-                    className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground"
-                    style={{
-                      background: isDarkMode ? 'hsl(0 0% 100% / 0.04)' : 'hsl(0 0% 100% / 0.46)',
-                      border: `1px solid ${isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)'}`,
-                    }}
-                  >
-                    <X size={12} />
-                    <span>{lang === 'zh' ? '取消' : 'Cancel'}</span>
-                  </button>
-                </div>
-              </div>
+      {/* Timeline chrome: on phone wrap + short labels so Rest/Auto-plan/mode
+          don't clip into the hour gutter. Desktop stays a single right cluster. */}
+      <div className="pointer-events-none absolute inset-x-2 top-2 z-30 flex flex-col items-end gap-1.5 sm:inset-x-auto sm:right-12 sm:top-3 sm:flex-row sm:items-start sm:gap-1">
+        <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={handleRestToggle}
+            className="pointer-events-auto flex items-center gap-1 rounded-full px-2.5 py-[5px] text-[12px] font-medium transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:py-[3px]"
+            style={{
+              background: restStartMin !== null
+                ? `color-mix(in srgb, hsl(var(--surface-contrast)) 80%, ${REST_COLOR} 20%)`
+                : 'hsl(var(--surface-contrast) / 0.9)',
+              border: `1px solid ${restStartMin !== null ? REST_COLOR : 'hsl(var(--border) / 0.5)'}`,
+              color: restStartMin !== null ? REST_COLOR : 'hsl(var(--muted-foreground))',
+            }}
+          >
+            {restStartMin !== null ? (
+              <>
+                <span className="animate-pulse">●</span>
+                <span>{lang === 'zh' ? '结束休息' : 'Stop Rest'}</span>
+              </>
             ) : (
-              <button
-                onClick={handleAutoPlan}
-                title={lang === 'zh' ? '按偏好把未排任务填进空隙' : 'Fill gaps with unscheduled tasks'}
-                className="flex items-center gap-1 px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-colors backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)]"
-                style={{
-                  background: isDarkMode ? 'hsl(24 40% 50% / 0.16)' : 'hsl(24 55% 48% / 0.10)',
-                  border: `1px solid ${isDarkMode ? 'hsl(24 45% 60% / 0.38)' : 'hsl(24 50% 46% / 0.34)'}`,
-                  color: isDarkMode ? 'hsl(24 55% 70%)' : 'hsl(24 60% 42%)',
-                }}
-              >
-                <CalendarDays size={13} />
-                <span>{lang === 'zh' ? '自动填充' : 'Auto-plan'}</span>
-              </button>
+              <>
+                <span aria-hidden>😴</span>
+                <span>{lang === 'zh' ? '休息' : 'Rest'}</span>
+              </>
             )}
-          </div>
-        )}
-        <div className="flex items-center bg-[hsl(var(--surface-contrast)/0.88)] backdrop-blur-md rounded-full p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] border border-border/45 pointer-events-auto">
-          {(['plan', 'actual', 'both'] as const).map(mode => (
+          </button>
+          {selectedRange && (
+            <span className="pointer-events-auto rounded-full border border-border/50 bg-[hsl(var(--surface-contrast)/0.9)] px-2.5 py-1 text-[12px] text-muted-foreground shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] backdrop-blur-md">
+              {t('plan.selected')} <span className="font-semibold text-foreground">
+                {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
+              </span> {t('plan.minutes')}
+            </span>
+          )}
+          {isViewingToday && (unscheduledTodos.length > 0 || suggestions) && (
+            <div className="pointer-events-auto flex items-center gap-1">
+              {suggestions ? (
+                <div
+                  className="flex max-w-[min(100%,320px)] flex-wrap items-center justify-end gap-1 rounded-full border p-[3px] backdrop-blur-md shadow-[0_8px_20px_hsl(var(--foreground)/0.08)]"
+                  style={{ background: suggestionToolbarBg, borderColor: suggestionToolbarBorder }}
+                  onPointerDown={e => e.stopPropagation()}
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-[5px] text-[11px] font-medium leading-none"
+                    style={{ background: suggestionToolbarLabelBg, color: suggestionToolbarLabelFg }}
+                  >
+                    <CalendarDays size={11} />
+                    {lang === 'zh' ? `${suggestions.length} 条建议` : `${suggestions.length} suggestions`}
+                  </span>
+                  <div
+                    className="flex items-center gap-0.5 rounded-full border p-[2px]"
+                    style={{ background: suggestionToolbarActionBg, borderColor: suggestionToolbarActionBorder }}
+                  >
+                    <button
+                      type="button"
+                      onPointerDown={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={acceptAllSuggestions}
+                      className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium transition-colors"
+                      style={{
+                        background: isDarkMode ? 'hsl(150 30% 40% / 0.22)' : 'hsl(150 40% 42% / 0.16)',
+                        border: `1px solid ${isDarkMode ? 'hsl(150 32% 55% / 0.40)' : 'hsl(150 38% 40% / 0.38)'}`,
+                        color: isDarkMode ? 'hsl(150 45% 68%)' : 'hsl(150 45% 34%)',
+                      }}
+                    >
+                      <Check size={12} />
+                      <span>{lang === 'zh' ? '全部接受' : 'Accept all'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onPointerDown={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={dismissSuggestions}
+                      className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground"
+                      style={{
+                        background: isDarkMode ? 'hsl(0 0% 100% / 0.04)' : 'hsl(0 0% 100% / 0.46)',
+                        border: `1px solid ${isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)'}`,
+                      }}
+                    >
+                      <X size={12} />
+                      <span>{lang === 'zh' ? '取消' : 'Cancel'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAutoPlan}
+                  title={lang === 'zh' ? '按偏好把未排任务填进空隙' : 'Fill gaps with unscheduled tasks'}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-[5px] text-[12px] font-medium transition-colors backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:py-[3px]"
+                  style={{
+                    background: isDarkMode ? 'hsl(24 40% 50% / 0.16)' : 'hsl(24 55% 48% / 0.10)',
+                    border: `1px solid ${isDarkMode ? 'hsl(24 45% 60% / 0.38)' : 'hsl(24 50% 46% / 0.34)'}`,
+                    color: isDarkMode ? 'hsl(24 55% 70%)' : 'hsl(24 60% 42%)',
+                  }}
+                >
+                  <CalendarDays size={13} />
+                  <span>{lang === 'zh' ? '自动填充' : 'Auto'}</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="pointer-events-auto flex items-center rounded-full border border-border/45 bg-[hsl(var(--surface-contrast)/0.88)] p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] backdrop-blur-md">
+          {([
+            { id: 'plan' as const, en: 'Plan', zh: '计划' },
+            { id: 'actual' as const, en: 'Doing', zh: '进行' },
+            { id: 'both' as const, en: 'Both', zh: '对照' },
+          ]).map(mode => (
             <button
-              key={mode}
-              onClick={() => setDisplayMode(mode)}
+              key={mode.id}
+              type="button"
+              onClick={() => setDisplayMode(mode.id)}
               className={cn(
-                "px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-all",
-                displayMode === mode
-                  ? "bg-[hsl(var(--surface-soft))] text-foreground shadow-sm"
-                  : "text-muted-foreground/85 hover:text-foreground"
+                'rounded-full px-2.5 py-[5px] text-[12px] font-medium transition-all sm:py-[3px]',
+                displayMode === mode.id
+                  ? 'bg-[hsl(var(--surface-soft))] text-foreground shadow-sm'
+                  : 'text-muted-foreground/85 hover:text-foreground',
               )}
             >
-              {mode === 'plan' ? 'Planned' : mode === 'actual' ? 'Doing' : 'Both'}
+              {lang === 'zh' ? mode.zh : mode.en}
             </button>
           ))}
         </div>
