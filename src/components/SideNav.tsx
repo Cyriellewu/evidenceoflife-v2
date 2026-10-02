@@ -228,13 +228,13 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
 
         <nav className={cn(
           'flex flex-col',
-          isPanel ? 'mt-0 gap-0.5 px-2' : 'mt-3 gap-1',
+          isPanel ? 'mt-1 gap-0.5 px-2 pb-2' : 'mt-3 gap-1',
           !isPanel && (expanded ? 'px-1.5' : 'px-2'),
         )}>
           {/* Daily loop: full-page core surfaces (plan → live → capture → revisit) */}
           {expanded && (
             <span className={cn(
-              'font-semibold uppercase tracking-[0.16em] text-muted-foreground/50',
+              'font-semibold uppercase tracking-[0.16em] text-muted-foreground/55',
               isPanel ? 'mb-1 px-2.5 text-[9px]' : 'mb-0.5 px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
             )}>
               {t('sidenav.dailyLoop')}
