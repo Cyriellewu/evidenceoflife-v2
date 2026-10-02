@@ -2392,7 +2392,10 @@ export function PlanView({
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
       setRecapDock({
         right: Math.max(18, viewportWidth - rect.right + 18),
-        bottom: 22,
+        // Clear the phone bottom nav when present.
+        bottom: window.innerWidth < 768
+          ? Math.max(22, 64 + 12)
+          : 22,
       });
     };
 
@@ -2992,7 +2995,14 @@ export function PlanView({
           className="fixed z-[70] flex cursor-grab touch-none select-none flex-col items-end gap-2 active:cursor-grabbing"
           style={{
             pointerEvents: 'auto',
-            ...(timerDockPos ? { left: timerDockPos.x, top: timerDockPos.y } : { right: recapDock ? recapDock.right : 8, bottom: recapDock ? recapDock.bottom + 48 : 16 }),
+            ...(timerDockPos
+              ? { left: timerDockPos.x, top: timerDockPos.y }
+              : {
+                  right: recapDock ? recapDock.right : 8,
+                  bottom: isMobile
+                    ? (recapDock ? recapDock.bottom + 56 : 72)
+                    : (recapDock ? recapDock.bottom + 48 : 16),
+                }),
           }}
           onPointerDownCapture={handleTimerDockPointerDown}
           onPointerMove={handleTimerDockPointerMove}
@@ -3088,7 +3098,7 @@ export function PlanView({
           style={{ maxHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
         >
           <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-2 space-y-1 pb-28">
+          <div className="px-2 space-y-1 pb-40 md:pb-28">
               {/* Empty state — when no active tasks, invite the first action rather
                   than leaving the column a black void next to a busy timeline. */}
               {mainListTodos.filter(t => !t.is_completed).length === 0 && (
@@ -3422,7 +3432,13 @@ export function PlanView({
           {!showOverlayForId && !voiceSheetOpen && showListPane && taskInputDock && (
             <div
               className="fixed z-20 pointer-events-none"
-              style={{ left: taskInputDock.left, width: taskInputDock.width, bottom: 16 }}
+              style={{
+                left: taskInputDock.left,
+                width: taskInputDock.width,
+                bottom: isMobile
+                  ? 'max(1rem, calc(3.75rem + env(safe-area-inset-bottom)))'
+                  : 16,
+              }}
             >
               <div className="pointer-events-auto">
               <div className="relative bg-[hsl(var(--toolbar-background))] border border-border rounded-2xl shadow-[0_2px_10px_hsl(var(--foreground)/0.08)] overflow-visible">

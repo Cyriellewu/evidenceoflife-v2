@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { SideNav } from '@/components/SideNav';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { TodayView } from '@/components/views/TodayView';
 import { PlanView } from '@/components/views/PlanView';
 
@@ -449,11 +450,12 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               if (tab === 'dues') { setActiveSheet('dues'); return; }
               if (tab === 'habits') { setActiveSheet('habits'); return; }
               if (tab === 'linkup') { setActiveSheet('links'); return; }
+              setActiveSheet(null);
               setActiveTab(tab);
             }}
           />
         </AppSectionErrorBoundary>
-        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto px-2 sm:px-3 lg:px-4">
+        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto px-2 pb-[calc(3.75rem+env(safe-area-inset-bottom))] sm:px-3 md:pb-0 lg:px-4">
           <AppSectionErrorBoundary label="MainContent">
           {activeTab === 'today' && (
           <>
@@ -787,6 +789,21 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
           ]}
         />
       </AppSectionErrorBoundary>
+
+      {(publicDemo || !landingDemoMode) && (
+        <MobileBottomNav
+          activeTab={activeTab}
+          activeSheet={activeSheet}
+          onTabChange={(tab) => {
+            if (tab === 'notes') { setActiveSheet('notes'); return; }
+            if (tab === 'dues') { setActiveSheet('dues'); return; }
+            if (tab === 'habits') { setActiveSheet('habits'); return; }
+            if (tab === 'linkup') { setActiveSheet('links'); return; }
+            setActiveSheet(null);
+            setActiveTab(tab);
+          }}
+        />
+      )}
     </div>
   );
 };
