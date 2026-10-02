@@ -655,7 +655,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
           <div className="min-w-0 w-full md:flex-1">
             <p
               className={cn(
-                "text-[16px] font-semibold leading-snug cursor-pointer transition-colors line-clamp-2 md:truncate md:leading-tight",
+                "text-[15px] font-semibold leading-snug cursor-pointer transition-colors line-clamp-2 md:text-[16px] md:truncate md:leading-tight",
                 todo.is_completed
                   ? "text-muted-foreground line-through decoration-muted-foreground/40"
                   : isDaily
