@@ -1010,13 +1010,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         className="hidden"
       />
 
-      {/* Date + time + image layout */}
-      <div className="pt-2 pb-1 overflow-hidden">
-        <div className="flex items-start gap-3 sm:gap-5 px-4 sm:px-6">
+      {/* Date + time + image layout — phone uses a compact iOS-style scale so
+          long month/weekday names are not clipped beside the painting. */}
+      <div className="overflow-hidden pb-1 pt-2">
+        <div className="flex items-start gap-2.5 px-2 sm:gap-5 sm:px-6">
           {/* Left: homepage image */}
           <div
-            className="w-[58%] lg:w-[66%] flex-shrink-0 overflow-hidden rounded-2xl select-none"
-            style={{ height: 84 }}
+            className="w-[118px] flex-shrink-0 overflow-hidden rounded-2xl select-none sm:w-[58%] lg:w-[66%]"
+            style={{ height: 'clamp(72px, 20vw, 84px)' }}
             onDragStart={(e) => e.preventDefault()}
             onMouseDown={(e) => e.preventDefault()}
           >
@@ -1044,26 +1045,19 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           </div>
 
           {/* Right: date info */}
-          <div className="w-[38%] lg:w-[32%] flex flex-col min-w-0 pt-1 sm:pt-1.5">
-            {/* Date row */}
-            <div className="flex items-start justify-between">
-              <span className="self-start text-[24px] sm:text-[30px] lg:text-[36px] font-light text-foreground leading-none">
+          <div className="flex min-w-0 flex-1 flex-col justify-center pt-0.5 sm:w-[38%] sm:flex-none lg:w-[32%] sm:pt-1.5">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 text-[26px] font-light tabular-nums leading-none text-foreground sm:text-[30px] lg:text-[36px]">
                 {format(today, 'd')}
               </span>
-              <div className="flex flex-col items-end gap-0 self-end">
-                <span className="text-[17px] sm:text-[20px] lg:text-[24px] font-semibold text-primary uppercase tracking-[0.18em] leading-none">
-                  {formatDate(today, 'MMMM')}
-                </span>
-                <div className="mt-1.5 flex items-center gap-1.5 leading-none">
-                  <span className="text-[17px] sm:text-[20px] text-muted-foreground">
-                    {formatDate(today, 'yyyy')}
-                  </span>
-                  <span className="text-muted-foreground text-[17px] sm:text-[20px]">·</span>
-                  <span className="text-[17px] sm:text-[20px] text-muted-foreground">
-                    {formatDate(today, 'EEEE')}
-                  </span>
-                </div>
-              </div>
+              <span className="min-w-0 truncate text-[13px] font-semibold uppercase leading-tight tracking-[0.06em] text-primary sm:text-[20px] sm:tracking-[0.18em] lg:text-[24px]">
+                {formatDate(today, 'MMMM')}
+              </span>
+            </div>
+            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] leading-none text-muted-foreground sm:mt-1.5 sm:text-[17px] lg:text-[20px]">
+              <span className="shrink-0 tabular-nums">{formatDate(today, 'yyyy')}</span>
+              <span className="text-muted-foreground/70">·</span>
+              <span className="min-w-0 truncate">{formatDate(today, 'EEEE')}</span>
             </div>
 
             {/* Time display intentionally hidden for now: users found the plan/recap logic hard to parse. */}
