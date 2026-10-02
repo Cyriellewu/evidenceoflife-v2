@@ -47,6 +47,11 @@ import { getActivityAccentColor } from '@/lib/activityColors';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 import { createTodoDoneUndoSnapshot, restoreTodoDoneFromUndo } from '@/lib/todoDoneUndo';
 import {
+  PLAN_MOBILE_PANE_EVENT,
+  readPlanMobilePane,
+  type PlanMobilePane,
+} from '@/components/PlanPaneSwitcher';
+import {
   getPlanTimelineRhythmPreset,
   loadPlanTimelineRhythmPresetId,
   presetToRhythmPalette,
@@ -61,16 +66,10 @@ function isActivelyRunningTodo(todo: Pick<Todo, 'timer_started_at' | 'timer_ende
 
 
 const PLAN_LIST_MODE_KEY = 'plan-list-default';
-const PLAN_MOBILE_PANE_KEY = 'plan-mobile-pane';
 
 function readPlanListMode(): 'grouped' | 'flat' {
   if (typeof window === 'undefined') return 'flat';
   return localStorage.getItem(PLAN_LIST_MODE_KEY) === 'grouped' ? 'grouped' : 'flat';
-}
-
-function readPlanMobilePane(): 'list' | 'timeline' {
-  if (typeof window === 'undefined') return 'list';
-  return localStorage.getItem(PLAN_MOBILE_PANE_KEY) === 'timeline' ? 'timeline' : 'list';
 }
 
 /** Above this movement (px, L1) we treat as dock drag and call setPointerCapture — below, leave click to FloatingTimer */
@@ -1621,15 +1620,10 @@ export function PlanView({
     }
   }, []);
   // Phone/tablet: one pane at a time (list ↔ timeline). Side-by-side 50/50
-  // squeezes both columns until titles and blocks are unreadable.
+  // squeezes both columns until titles and blocks are unreadable. The switcher
+  // lives in MobileNavChrome (Chat|Work-style top pill); we only keep state here.
   const isMobile = useIsMobile();
-  const [mobilePane, setMobilePaneState] = useState<'list' | 'timeline'>(() => readPlanMobilePane());
-  const setMobilePane = useCallback((pane: 'list' | 'timeline') => {
-    setMobilePaneState(pane);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(PLAN_MOBILE_PANE_KEY, pane);
-    }
-  }, []);
+  const [mobilePane, setMobilePaneState] = useState<PlanMobilePane>(() => readPlanMobilePane());
   const showListPane = !isMobile || mobilePane === 'list';
   const showTimelinePane = !isMobile || mobilePane === 'timeline';
 
@@ -1637,6 +1631,16 @@ export function PlanView({
     if (typeof window === 'undefined') return;
     localStorage.setItem(PLAN_LIST_MODE_KEY, listMode);
   }, [listMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePaneChange = (event: Event) => {
+      const next = (event as CustomEvent<PlanMobilePane>).detail;
+      if (next === 'list' || next === 'timeline') setMobilePaneState(next);
+    };
+    window.addEventListener(PLAN_MOBILE_PANE_EVENT, handlePaneChange);
+    return () => window.removeEventListener(PLAN_MOBILE_PANE_EVENT, handlePaneChange);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2392,9 +2396,9 @@ export function PlanView({
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
       setRecapDock({
         right: Math.max(18, viewportWidth - rect.right + 18),
-        // Clear the phone bottom nav when present.
+        // Clear home indicator; bottom nav no longer occupies this strip.
         bottom: window.innerWidth < 768
-          ? Math.max(22, 64 + 12)
+          ? Math.max(22, 16)
           : 22,
       });
     };
@@ -3000,7 +3004,7 @@ export function PlanView({
               : {
                   right: recapDock ? recapDock.right : 8,
                   bottom: isMobile
-                    ? (recapDock ? recapDock.bottom + 56 : 72)
+                    ? (recapDock ? recapDock.bottom + 56 : 24)
                     : (recapDock ? recapDock.bottom + 48 : 16),
                 }),
           }}
@@ -3039,50 +3043,8 @@ export function PlanView({
         </div>
       )}
 
-      {/* Mobile pane switcher — other apps (Calendar, Maps, mail) show one
-          pane at a time under ~768px instead of a squeezed 50/50 split. */}
-      {isMobile && (
-        <div className="sticky top-0 z-10 mb-2 flex items-center justify-center px-2 pt-1">
-          <div
-            role="tablist"
-            aria-label={lang === 'zh' ? '计划视图' : 'Plan view'}
-            className="inline-flex w-full max-w-sm items-center gap-1 rounded-full border border-border/40 bg-muted/25 p-1"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobilePane === 'list'}
-              onClick={() => setMobilePane('list')}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors',
-                mobilePane === 'list'
-                  ? 'bg-background text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.28)]'
-                  : 'text-muted-foreground/70 hover:text-foreground/85',
-              )}
-            >
-              <ListTodo size={14} strokeWidth={2} />
-              <span>{lang === 'zh' ? '任务' : 'Tasks'}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobilePane === 'timeline'}
-              onClick={() => setMobilePane('timeline')}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors',
-                mobilePane === 'timeline'
-                  ? 'bg-background text-foreground shadow-[0_0_0_1px_hsl(var(--border)/0.28)]'
-                  : 'text-muted-foreground/70 hover:text-foreground/85',
-              )}
-            >
-              <CalendarDays size={14} strokeWidth={2} />
-              <span>{lang === 'zh' ? '时间轴' : 'Timeline'}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main split layout — full-width single pane on mobile */}
+      {/* Main split layout — full-width single pane on mobile.
+          Tasks|Timeline switcher lives in MobileNavChrome (top center). */}
       <div
         className={cn('flex gap-0', isMobile ? 'flex-col' : 'flex-row')}
         style={{ minHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
@@ -3098,7 +3060,7 @@ export function PlanView({
           style={{ maxHeight: isMobile ? 'calc(100vh - 220px)' : 'calc(100vh - 180px)' }}
         >
           <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-2 space-y-1 pb-40 md:pb-28">
+          <div className="px-2 space-y-1 pb-32 md:pb-28">
               {/* Empty state — when no active tasks, invite the first action rather
                   than leaving the column a black void next to a busy timeline. */}
               {mainListTodos.filter(t => !t.is_completed).length === 0 && (
@@ -3436,7 +3398,7 @@ export function PlanView({
                 left: taskInputDock.left,
                 width: taskInputDock.width,
                 bottom: isMobile
-                  ? 'max(1rem, calc(3.75rem + env(safe-area-inset-bottom)))'
+                  ? 'max(1rem, env(safe-area-inset-bottom))'
                   : 16,
               }}
             >
