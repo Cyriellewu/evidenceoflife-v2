@@ -849,7 +849,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               e.stopPropagation();
               handleStartEditTime();
             }}
-            className="hidden h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-0 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary group-hover:opacity-100 focus-visible:opacity-100 md:flex"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
             title={lang === 'zh' ? '编辑完成时间' : 'Edit completion time'}
             aria-label={lang === 'zh' ? '编辑完成时间' : 'Edit completion time'}
           >
@@ -863,7 +863,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               e.stopPropagation();
               onReopen();
             }}
-            className="hidden h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-0 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary group-hover:opacity-100 focus-visible:opacity-100 md:flex"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
             title={lang === 'zh' ? '恢复为未完成' : 'Reopen task'}
             aria-label={lang === 'zh' ? '恢复为未完成' : 'Reopen task'}
           >
@@ -882,9 +882,9 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               "flex h-[28px] w-[28px] items-center justify-center rounded-full text-muted-foreground/55 transition-all",
               hasSteps
                 ? "opacity-60 hover:opacity-100 hover:text-foreground"
-                // Desktop: reveal on row hover. Phone: keep out of the flex
-                // flow so long titles can use the width (no empty 28px hole).
-                : "hidden opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-foreground md:flex",
+                // Desktop: reveal on row hover. Phone has no hover, so the
+                // add-steps control stays visible.
+                : "opacity-70 hover:text-foreground md:opacity-0 md:group-hover:opacity-60",
               isExpanded && "opacity-100 text-foreground rotate-90"
             )}
             title={isExpanded
@@ -898,7 +898,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         )}
         <button
           onClick={onDelete}
-          className="hidden h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-0 transition-opacity transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100 md:flex"
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-100 transition-opacity transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
           title={lang === 'zh' ? '删除' : 'Delete'}
           aria-label={lang === 'zh' ? '删除' : 'Delete'}
         >
