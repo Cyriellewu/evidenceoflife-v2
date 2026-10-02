@@ -9,6 +9,7 @@ import {
   haversineMeters,
   isCoordLikeName,
   sanitizePlaceName,
+  splitPlaceLabel,
 } from '@/lib/geoPlaceName';
 
 describe('geoCoords cache', () => {
@@ -78,5 +79,13 @@ describe('geoPlaceName', () => {
     expect(formatDistanceLabel(320, 'zh')).toBe('320米');
     expect(formatDistanceLabel(2400, 'en')).toBe('2.4 km');
     expect(formatDistanceLabel(2400, 'zh')).toBe('2.4公里');
+  });
+
+  it('splits place, city for two-line list rows', () => {
+    expect(splitPlaceLabel('Park Plaza Hotel, Beijing')).toEqual({
+      title: 'Park Plaza Hotel',
+      subtitle: 'Beijing',
+    });
+    expect(splitPlaceLabel('Starbucks')).toEqual({ title: 'Starbucks', subtitle: '' });
   });
 });

@@ -33,7 +33,7 @@ import type { MomentLinkPreview } from '@/types';
 import { AnytimeIcon, MorningIcon, AfternoonIcon, EveningIcon } from './segmentIcons';
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
-import { sanitizePlaceName } from '@/lib/geoPlaceName';
+import { reversePlace } from '@/lib/geoClient';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
 import { extractFirstUrl, normalizeUrl, isUrlLike, getDomain } from '@/lib/linkUtils';
 import { resolveStepLink, type DueLink } from '@/lib/dueLinks';
@@ -1824,19 +1824,13 @@ export function PlanView({
         if (cancelled) return;
         const { latitude: lat, longitude: lng } = pos.coords;
         try {
-          const { data, error } = await supabase.functions.invoke('geo', {
-            body: { type: 'reverse', lat, lng },
-          });
+          const place = await reversePlace({ lat, lng, lang });
           if (cancelled) return;
-          if (error) throw error;
-          const rawName = sanitizePlaceName(String(data?.name ?? ''), '');
-          const city = sanitizePlaceName(String(data?.city ?? ''), '');
-          // Never surface raw lat,lng — prefer named place, then city, then label.
-          const name = rawName || city || 'Current location';
-          const category = (data?.category || 'other') as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
+          const name = place.name || 'Current location';
+          const category = (place.category || 'other') as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
           // Re-check in case the user picked one manually while we were
           // resolving — never clobber an explicit choice.
-          setCaptureLocation((prev) => prev ?? { name, lat, lng, category });
+          setCaptureLocation((prev) => prev ?? { name, lat: place.lat, lng: place.lng, category });
           setCaptureLocationAutoFilled(true);
         } catch {
           // reverse-geocode failed but we still know coords — fall back to a
@@ -1853,7 +1847,7 @@ export function PlanView({
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
     );
     return () => { cancelled = true; };
-  }, [captureSheetOpen, captureLocation]);
+  }, [captureSheetOpen, captureLocation, lang]);
 
   useEffect(() => {
     const hasDraft = Boolean(
@@ -3708,52 +3702,47 @@ export function PlanView({
               {/* Bottom toolbar: attach actions (left) + send (right).
                   All touch targets are 36px to clear mobile minima with
                   comfortable spacing. */}
-              <div className="flex items-center gap-1.5 border-t border-border/40 px-2.5 py-2.5">
+              <div className="flex items-center gap-1 border-t border-border/40 px-2 py-2.5">
                 <button
                   type="button"
                   onClick={() => captureFileInputRef.current?.click()}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
                   title={lang === 'zh' ? '添加照片' : 'Add photo'}
                   aria-label={lang === 'zh' ? '添加照片' : 'Add photo'}
                 >
                   <Camera size={16} />
                 </button>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowCaptureLocationPopover(v => !v)}
-                    aria-label={lang === 'zh' ? '选择地点' : 'Choose location'}
-                    className={cn(
-                      "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
-                      captureLocation && !captureLocationAutoFilled
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : captureLocation && captureLocationAutoFilled
-                          ? "border-dashed border-primary/40 bg-primary/5 text-primary/85"
-                          : "border-border/55 bg-transparent text-muted-foreground hover:border-border hover:text-foreground"
-                    )}
-                  >
-                    <MapPin size={13} />
-                    <span className="max-w-[140px] truncate">
-                      {captureLocation ? captureLocation.name : (lang === 'zh' ? '地点' : 'Location')}
-                    </span>
-                    {captureLocation && captureLocationAutoFilled && (
-                      <span className="rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-primary/80">
-                        {lang === 'zh' ? '自动' : 'auto'}
-                      </span>
-                    )}
-                  </button>
-                  {showCaptureLocationPopover && (
-                    <LocationPopover
-                      className="absolute bottom-[calc(100%+10px)] left-0 z-[60] w-[min(300px,calc(100vw-2.5rem))]"
-                      onSelect={(loc) => {
-                        setCaptureLocation(loc);
-                        setCaptureLocationAutoFilled(false);
-                        setShowCaptureLocationPopover(false);
-                      }}
-                      onClose={() => setShowCaptureLocationPopover(false)}
-                    />
+                <button
+                  type="button"
+                  onClick={() => setShowCaptureLocationPopover(v => !v)}
+                  aria-label={lang === 'zh' ? '选择地点' : 'Choose location'}
+                  className={cn(
+                    "inline-flex h-9 min-w-0 max-w-[38%] items-center gap-1 rounded-full border px-2.5 text-[12px] font-medium transition-colors",
+                    captureLocation && !captureLocationAutoFilled
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : captureLocation && captureLocationAutoFilled
+                        ? "border-dashed border-primary/40 bg-primary/5 text-primary/85"
+                        : "border-border/55 bg-transparent text-muted-foreground hover:border-border hover:text-foreground"
                   )}
-                </div>
+                >
+                  <MapPin size={13} className="flex-shrink-0" />
+                  <span className="min-w-0 truncate">
+                    {captureLocation
+                      ? (captureLocation.name.split(',')[0]?.trim() || captureLocation.name)
+                      : (lang === 'zh' ? '地点' : 'Location')}
+                  </span>
+                </button>
+                {showCaptureLocationPopover && (
+                  <LocationPopover
+                    presentation="sheet"
+                    onSelect={(loc) => {
+                      setCaptureLocation(loc);
+                      setCaptureLocationAutoFilled(false);
+                      setShowCaptureLocationPopover(false);
+                    }}
+                    onClose={() => setShowCaptureLocationPopover(false)}
+                  />
+                )}
                 {captureLocation && (
                   <button
                     type="button"
@@ -3763,7 +3752,7 @@ export function PlanView({
                       try { sessionStorage.setItem('capture-geo-denied', '1'); } catch { /* private mode */ }
                     }}
                     aria-label={lang === 'zh' ? '清除地点' : 'Clear location'}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/55 transition-colors hover:bg-destructive/8 hover:text-destructive"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/55 transition-colors hover:bg-destructive/8 hover:text-destructive"
                   >
                     <X size={13} />
                   </button>
@@ -3778,7 +3767,7 @@ export function PlanView({
                   onClick={() => setShowMoodDrawer(v => !v)}
                   aria-expanded={showMoodDrawer}
                   className={cn(
-                    "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
+                    "inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors",
                     captureMood
                       ? "border-primary/40 bg-primary/10 text-primary"
                       : "border-border/55 bg-transparent text-muted-foreground hover:border-border hover:text-foreground"

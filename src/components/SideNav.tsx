@@ -172,31 +172,30 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
     <aside
       ref={sideNavRef}
       className={cn(
-        'border-border bg-[hsl(var(--surface-contrast))] transition-[width] duration-200 ease-out',
+        'border-border transition-[width] duration-200 ease-out',
         isPanel
-          ? 'flex h-full w-full flex-col border-0'
+          ? 'flex h-full w-full flex-col border-0 bg-transparent'
           : // Phone layout uses a hamburger drawer (MobileNavChrome) — keep the
             // permanent rail out of the flex flow so content is full-bleed.
-            'hidden md:block flex-shrink-0 border-r',
+            'hidden md:block flex-shrink-0 border-r bg-[hsl(var(--surface-contrast))]',
         !isPanel && (expanded ? 'w-[236px]' : 'w-[52px]'),
       )}
     >
       <div className={cn(
-        'flex flex-col py-2.5',
-        isPanel ? 'h-full' : 'sticky top-0 h-screen',
+        'flex flex-col',
+        isPanel ? 'h-full py-1' : 'sticky top-0 h-screen py-2.5',
       )}>
+        {!isPanel && (
         <div className={cn(expanded ? 'px-1.5' : 'px-2')}>
           <button
             onClick={() => {
-              if (isPanel) return;
               setExpanded((prev) => !prev);
             }}
             className={cn(
               'flex h-10 w-full items-center rounded-[12px] transition-colors',
               expanded ? 'justify-between gap-2 bg-[hsl(var(--surface-soft))] px-2' : 'justify-center',
-              isPanel && 'cursor-default',
             )}
-            title={isPanel ? 'Evidence of life' : expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
           >
             <span className={cn(
               'flex items-center justify-center rounded-[10px]',
@@ -225,11 +224,19 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
             )}
           </button>
         </div>
+        )}
 
-        <nav className={cn('mt-3 flex flex-col gap-1', expanded ? 'px-1.5' : 'px-2')}>
+        <nav className={cn(
+          'flex flex-col',
+          isPanel ? 'mt-0 gap-0.5 px-2' : 'mt-3 gap-1',
+          !isPanel && (expanded ? 'px-1.5' : 'px-2'),
+        )}>
           {/* Daily loop: full-page core surfaces (plan → live → capture → revisit) */}
           {expanded && (
-            <span className="mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+            <span className={cn(
+              'font-semibold uppercase tracking-[0.16em] text-muted-foreground/50',
+              isPanel ? 'mb-1 px-2.5 text-[9px]' : 'mb-0.5 px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
+            )}>
               {t('sidenav.dailyLoop')}
             </span>
           )}
@@ -237,11 +244,11 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
           {orderedTabs.map(({ id, icon: Icon, labelKey }) => (
             <button
               key={id}
-              draggable={expanded}
+              draggable={expanded && !isPanel}
               onClick={() => onTabChange(id)}
               onDragStart={() => setDraggedTab(id)}
               onDragOver={(e) => {
-                if (!expanded) return;
+                if (!expanded || isPanel) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
               }}
@@ -262,13 +269,14 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
               onDragEnd={() => setDraggedTab(null)}
               title={t(labelKey)}
               className={cn(
-                'relative flex h-10 items-center rounded-[10px] transition-colors',
-                expanded ? 'w-full justify-start gap-2.5 px-3' : 'w-10 justify-center self-center',
-                expanded && 'cursor-grab active:cursor-grabbing',
+                'relative flex items-center rounded-[10px] transition-colors',
+                isPanel ? 'h-9 w-full justify-start gap-2.5 px-2.5' : 'h-10',
+                !isPanel && (expanded ? 'w-full justify-start gap-2.5 px-3' : 'w-10 justify-center self-center'),
+                expanded && !isPanel && 'cursor-grab active:cursor-grabbing',
                 draggedTab === id && 'opacity-60',
                 activeTab === id
                   ? 'bg-primary/12 text-primary'
-                  : 'text-muted-foreground hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground'
+                  : 'text-muted-foreground hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-[hsl(var(--surface-soft-hover))]'
               )}
             >
               {activeTab === id && (
@@ -276,13 +284,14 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                   aria-hidden
                   className={cn(
                     'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary',
-                    !expanded && '-translate-x-1.5'
+                    !expanded && !isPanel && '-translate-x-1.5',
+                    isPanel && 'left-0.5 h-4',
                   )}
                 />
               )}
-              <Icon size={20} strokeWidth={activeTab === id ? 2.2 : 1.85} />
+              <Icon size={isPanel ? 17 : 20} strokeWidth={activeTab === id ? 2.2 : 1.85} />
               {expanded && (
-                <span className="text-[16px] font-medium text-inherit">
+                <span className={cn('font-medium text-inherit', isPanel ? 'text-[13.5px]' : 'text-[16px]')}>
                   {t(labelKey)}
                 </span>
               )}
@@ -291,10 +300,16 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
 
           {/* Utility library: sheet openers grouped by role (Evidence / Obligations) */}
           {expanded ? (
-            <div className="mt-4 space-y-3 border-t border-border/45 pt-3">
+            <div className={cn(
+              'border-t border-border/40',
+              isPanel ? 'mt-2 space-y-2 pt-2' : 'mt-4 space-y-3 border-border/45 pt-3',
+            )}>
               {sheetGroups.map((group) => (
                 <div key={group.labelKey}>
-                  <span className="mb-1 block px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                  <span className={cn(
+                    'mb-1 block font-semibold uppercase tracking-[0.16em] text-muted-foreground/50',
+                    isPanel ? 'px-2.5 text-[9px]' : 'px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
+                  )}>
                     {t(group.labelKey)}
                   </span>
                   <div className="space-y-0.5">
@@ -308,14 +323,18 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                         aria-label={`${shortLabel}: ${hint}`}
                         aria-current={isOpen ? 'true' : undefined}
                         className={cn(
-                          "group/lib flex h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left transition-colors",
+                          "group/lib flex w-full items-center rounded-[10px] text-left transition-colors",
+                          isPanel ? 'h-8 gap-2 px-2.5' : 'h-9 gap-2.5 px-3',
                           isOpen
                             ? "bg-primary/10 text-primary"
-                            : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                            : "text-[hsl(var(--text-soft))] hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-[hsl(var(--surface-soft-hover))]"
                         )}
                       >
-                        <Icon size={17} strokeWidth={isOpen ? 2 : 1.6} className="flex-shrink-0" />
-                        <span className="truncate text-[14px] font-medium leading-tight text-inherit">
+                        <Icon size={isPanel ? 15 : 17} strokeWidth={isOpen ? 2 : 1.6} className="flex-shrink-0" />
+                        <span className={cn(
+                          'truncate font-medium leading-tight text-inherit',
+                          isPanel ? 'text-[13px]' : 'text-[14px]',
+                        )}>
                           {shortLabel}
                         </span>
                       </button>
@@ -359,7 +378,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
           )}
         </nav>
 
-        {expanded && nextDue && (
+        {expanded && nextDue && !isPanel && (
           <div className="mt-4 px-1.5">
             <button
               onClick={() => {
@@ -394,28 +413,35 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
         )}
 
         <div
-          className={cn('relative mt-auto pt-3.5', expanded ? 'px-1.5' : 'px-2')}
-          onMouseEnter={openProfileHoverCardWithDelay}
-          onMouseLeave={closeProfileHoverCardWithDelay}
+          className={cn(
+            'relative',
+            // Phone drawer: keep profile under the nav (no giant empty void).
+            // Desktop rail: pin profile to the bottom like before.
+            isPanel ? 'mt-3 border-t border-border/35 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2' : 'mt-auto pt-3.5',
+            !isPanel && (expanded ? 'px-1.5' : 'px-2'),
+          )}
+          onMouseEnter={isPanel ? undefined : openProfileHoverCardWithDelay}
+          onMouseLeave={isPanel ? undefined : closeProfileHoverCardWithDelay}
         >
           <button
             onClick={() => onTabChange('profile')}
             title={displayName}
             className={cn(
-              'flex h-9 items-center rounded-[10px] transition-colors overflow-hidden',
-              expanded ? 'w-full justify-start gap-2 px-3' : 'w-9 justify-center self-center',
+              'flex items-center overflow-hidden rounded-[10px] transition-colors',
+              isPanel ? 'h-9 w-full justify-start gap-2 px-2.5' : 'h-9',
+              !isPanel && (expanded ? 'w-full justify-start gap-2 px-3' : 'w-9 justify-center self-center'),
               activeTab === 'profile'
-                ? 'bg-[hsl(var(--surface-soft))]'
-                : 'hover:bg-[hsl(var(--surface-soft-hover))]'
+                ? 'bg-black/[0.05] dark:bg-[hsl(var(--surface-soft))]'
+                : 'hover:bg-black/[0.04] dark:hover:bg-[hsl(var(--surface-soft-hover))]'
             )}
           >
             {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className={cn(expanded ? 'h-8 w-8' : 'h-9 w-9', 'rounded-full object-cover')} />
+              <img src={profile.avatar_url} alt="" className={cn(expanded || isPanel ? 'h-7 w-7' : 'h-9 w-9', 'rounded-full object-cover')} />
             ) : (
-              <User size={18} className="text-[hsl(var(--text-soft))]" />
+              <User size={isPanel ? 16 : 18} className="text-[hsl(var(--text-soft))]" />
             )}
-            {expanded && (
-              <span className="text-[16px] font-medium text-foreground">
+            {(expanded || isPanel) && (
+              <span className={cn('font-medium text-foreground', isPanel ? 'text-[13px]' : 'text-[16px]')}>
                 {displayName}
               </span>
             )}

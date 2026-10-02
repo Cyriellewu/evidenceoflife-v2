@@ -226,6 +226,7 @@ export function InputPlusMenu({
               )}
             </div>
             <LocationPopover
+              presentation="popover"
               autoLocateToken={locationAutoLocateToken}
               onSelect={(loc) => { onLocationChange(loc); setActivePanel('main'); setMenuOpen(false); }}
               onClose={() => setActivePanel('main')}
