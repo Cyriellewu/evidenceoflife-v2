@@ -67,7 +67,7 @@ export function MobileNavChrome({
           expandable={false}
           overlayClassName="!z-[210]"
           className={cn(
-            '!z-[220] w-[min(68vw,232px)] gap-0 border-r border-black/10 p-0 shadow-[8px_0_32px_-12px_rgba(0,0,0,0.32)] sm:max-w-[232px] sm:rounded-none',
+            '!z-[220] w-[min(74vw,260px)] gap-0 border-r border-black/10 p-0 shadow-[8px_0_32px_-12px_rgba(0,0,0,0.32)] sm:max-w-[260px] sm:rounded-none',
             // Deeper warm gray — less blank white than surface-contrast / #eceae6.
             'bg-[#cfcbc4] dark:border-white/10 dark:bg-[hsl(220_9%_11%)]',
             '[&>div.absolute]:hidden',
@@ -79,7 +79,7 @@ export function MobileNavChrome({
           <div className="flex h-full flex-col">
             <div className="flex items-center gap-2.5 border-b border-black/[0.06] px-3 pb-3 pt-3.5 dark:border-white/[0.08]">
               <BrandLogo alt="Evidence of life" className="h-10 w-10 flex-shrink-0" />
-              <span className="font-brand min-w-0 flex-1 truncate text-[22px] font-medium leading-none tracking-tight text-foreground/90">
+              <span className="font-brand min-w-0 flex-1 text-[22px] font-medium leading-[1.05] tracking-tight text-foreground/90">
                 Evidence of life
               </span>
               <button
