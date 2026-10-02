@@ -596,7 +596,8 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     <div className="flex w-full max-w-[920px] flex-col">
     <div
       className={cn(
-        "flex h-[50px] w-full items-center gap-3 px-3.5 group rounded-[16px] transition-colors relative select-none border overflow-hidden",
+        "group relative flex w-full select-none items-start gap-3 overflow-hidden rounded-[16px] border px-3.5 transition-colors md:h-[50px] md:items-center",
+        "min-h-[50px] py-2.5 md:py-0",
         holding && "brightness-110",
         containerCls
       )}
@@ -639,35 +640,31 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         setDaily(!isDaily);
       }}
     >
-      <button onClick={onToggleWithProgress} className="flex-shrink-0">
+      <button onClick={onToggleWithProgress} className="mt-0.5 flex-shrink-0 md:mt-0">
         {todo.is_completed ? <CheckCircle2 size={18} className="text-primary/85" /> : <Circle size={18} className="text-muted-foreground/45" />}
       </button>
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+      {/* Phone: title owns the width; chips move to a second row so long titles
+          are not truncated by date/Resume badges in the same flex line. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 md:flex-row md:items-center md:gap-2.5">
         {isEditing ? (
           <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
             onBlur={handleSaveTitle}
             onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setEditTitle(todo.title); setIsEditing(false); } }}
-            className="min-w-0 flex-1 text-[12px] font-medium bg-transparent border-b border-primary/30 focus:outline-none focus:border-primary py-0.5" autoFocus />
+            className="min-w-0 w-full flex-1 text-[12px] font-medium bg-transparent border-b border-primary/30 focus:outline-none focus:border-primary py-0.5" autoFocus />
         ) : (
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 w-full md:flex-1">
             <p
               className={cn(
-                "text-[16px] font-semibold leading-tight cursor-pointer transition-colors truncate",
+                "text-[16px] font-semibold leading-snug cursor-pointer transition-colors line-clamp-2 md:truncate md:leading-tight",
                 todo.is_completed
-                  // Done — already faded by container opacity, plus muted
-                  // strikethrough for unambiguous semantics.
                   ? "text-muted-foreground line-through decoration-muted-foreground/40"
                   : isDaily
                       ? "text-primary"
                     : isOngoing
-                    // Active — pure foreground. Hover tones slightly down
-                    // (instead of brightening) since it's already maxed.
                     ? "text-foreground hover:text-foreground/90"
-                    // Inactive — full in light mode, recede in dark so the
-                    // active row visually wins. Hover invites by lifting
-                    // the title back to full brightness.
                     : "text-foreground hover:text-foreground/85 dark:text-foreground/72 dark:hover:text-foreground"
               )}
+              title={todo.title}
               onClick={() => {
                 if (suppressTitleClickRef.current) {
                   suppressTitleClickRef.current = false;
@@ -685,56 +682,56 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
             </p>
           </div>
         )}
-        {!isEditing && isDaily && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDaily(false);
-            }}
-            className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/[0.12] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary/90 transition-colors hover:bg-primary/[0.2]"
-            title={tLang('plan.dailyBadgeHint')}
-            aria-label={tLang('plan.stopRepeatDaily')}
-          >
-            <Repeat size={10} strokeWidth={2.25} />
-            <span>{tLang('plan.dailyBadge')}</span>
-          </button>
-        )}
-        {!isEditing && carriedFromDate && (
-          <span
-            className="flex-shrink-0 rounded-full bg-amber-500/[0.14] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-amber-600/90 dark:text-amber-400/85"
-            title={lang === 'zh' ? '从往日延续 · 还没做' : 'Carried over from a past day'}
-          >
-            {format(new Date(`${carriedFromDate}T00:00:00`), lang === 'zh' ? 'M月d日' : 'MMM d')}
-          </span>
-        )}
-        {!isEditing && hasSteps && (
-          <span
-            className="flex-shrink-0 inline-flex items-center gap-1.5"
-            title={lang === 'zh' ? '完成步骤 / 总步骤' : 'Completed / total steps'}
-          >
-            <span className="h-1 w-6 overflow-hidden rounded-full bg-foreground/[0.12]">
-              <span
-                className="block h-full rounded-full transition-all"
-                style={{
-                  width: `${stepCount ? (stepsDone / stepCount) * 100 : 0}%`,
-                  backgroundColor: stepsDone === stepCount ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.55)',
-                }}
-              />
-            </span>
-            <span
-              className={cn(
-                "font-mono text-[11px] tabular-nums transition-colors",
-                stepsDone === stepCount ? "text-primary/80" : "text-muted-foreground/75"
-              )}
-            >
-              {stepsDone}/{stepCount}
-            </span>
-          </span>
-        )}
         {!isEditing && (
-          <div className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap">
-            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground/45">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 md:flex-shrink-0 md:flex-nowrap">
+            {isDaily && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDaily(false);
+                }}
+                className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/[0.12] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary/90 transition-colors hover:bg-primary/[0.2]"
+                title={tLang('plan.dailyBadgeHint')}
+                aria-label={tLang('plan.stopRepeatDaily')}
+              >
+                <Repeat size={10} strokeWidth={2.25} />
+                <span>{tLang('plan.dailyBadge')}</span>
+              </button>
+            )}
+            {carriedFromDate && (
+              <span
+                className="flex-shrink-0 rounded-full bg-amber-500/[0.14] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-amber-600/90 dark:text-amber-400/85"
+                title={lang === 'zh' ? '从往日延续 · 还没做' : 'Carried over from a past day'}
+              >
+                {format(new Date(`${carriedFromDate}T00:00:00`), lang === 'zh' ? 'M月d日' : 'MMM d')}
+              </span>
+            )}
+            {hasSteps && (
+              <span
+                className="flex-shrink-0 inline-flex items-center gap-1.5"
+                title={lang === 'zh' ? '完成步骤 / 总步骤' : 'Completed / total steps'}
+              >
+                <span className="h-1 w-6 overflow-hidden rounded-full bg-foreground/[0.12]">
+                  <span
+                    className="block h-full rounded-full transition-all"
+                    style={{
+                      width: `${stepCount ? (stepsDone / stepCount) * 100 : 0}%`,
+                      backgroundColor: stepsDone === stepCount ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.55)',
+                    }}
+                  />
+                </span>
+                <span
+                  className={cn(
+                    "font-mono text-[11px] tabular-nums transition-colors",
+                    stepsDone === stepCount ? "text-primary/80" : "text-muted-foreground/75"
+                  )}
+                >
+                  {stepsDone}/{stepCount}
+                </span>
+              </span>
+            )}
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground/45 md:flex-nowrap">
               {statusLabel && (
                 isResting ? (
                   <button
@@ -751,9 +748,6 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   {todo.is_completed
                     ? <CheckCircle2 size={11} strokeWidth={2} className="text-primary/70" />
                   : isOngoing
-                      // No icon and no dot for Ongoing. The 2px live-colored
-                      // spine on the row's left edge is the signal — a second
-                      // visual marker here would just be noise.
                       ? null
                       : isResting
                         ? <Timer size={11} strokeWidth={2} className="text-amber-500/65" />
@@ -769,7 +763,6 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                 </span>
                 )
               )}
-              {/* Resting: show work time + rest duration */}
               {isResting && (
                 <span className="inline-flex items-center gap-1 text-amber-500/70">
                   <span>{fmtSec(priorWorkSec)}</span>
@@ -779,9 +772,6 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               )}
               {!isResting && tagLabel && (
                 <span
-                  // dark:saturate softens the inline-style tag color (which
-                  // is a fully-saturated hex designed for white canvas) so it
-                  // doesn't read as neon on the dark surface.
                   className="inline-flex max-w-[88px] min-w-0 items-center gap-1 rounded-full px-1.5 py-[2px] text-[12px] font-medium dark:saturate-[0.78] dark:opacity-90"
                   style={{ backgroundColor: hexWithAlpha(tagPillStyle.bg, '20'), color: tagPillStyle.color }}
                 >
@@ -831,15 +821,15 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   </div>
                 </PopoverContent>
               </Popover>
-            </div>
-            {hasProgress && (
-              <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full bg-primary/8 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-                <span className="inline-block h-1 w-4 overflow-hidden rounded-full bg-primary/14">
-                  <span className="block h-full rounded-full bg-primary/60" style={{ width: `${todo.progress}%` }} />
+              {hasProgress && (
+                <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full bg-primary/8 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                  <span className="inline-block h-1 w-4 overflow-hidden rounded-full bg-primary/14">
+                    <span className="block h-full rounded-full bg-primary/60" style={{ width: `${todo.progress}%` }} />
+                  </span>
+                  <span>{todo.progress}%</span>
                 </span>
-                <span>{todo.progress}%</span>
-              </span>
-            )}
+              )}
+            </div>
           </div>
         )}
         {isEditingTime ? (
@@ -852,7 +842,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
           </div>
         ) : null}
       </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center gap-1.5 self-center">
         {todo.is_completed && (
           <button
             type="button"
@@ -860,7 +850,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               e.stopPropagation();
               handleStartEditTime();
             }}
-            className="flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
             title={lang === 'zh' ? '编辑完成时间' : 'Edit completion time'}
             aria-label={lang === 'zh' ? '编辑完成时间' : 'Edit completion time'}
           >
@@ -874,7 +864,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               e.stopPropagation();
               onReopen();
             }}
-            className="flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
             title={lang === 'zh' ? '恢复为未完成' : 'Reopen task'}
             aria-label={lang === 'zh' ? '恢复为未完成' : 'Reopen task'}
           >
@@ -890,11 +880,13 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               if (!isExpanded && stepCount === 0) setShowAddStepInput(true);
             }}
             className={cn(
-              "flex h-[28px] w-[28px] rounded-full items-center justify-center text-muted-foreground/55 transition-all",
+              "flex h-[28px] w-[28px] items-center justify-center rounded-full text-muted-foreground/55 transition-all",
               hasSteps
                 ? "opacity-60 hover:opacity-100 hover:text-foreground"
-                : "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-foreground",
-              isExpanded && "rotate-90 opacity-100 text-foreground"
+                // Desktop: reveal on row hover. Phone has no hover, so the
+                // add-steps control stays visible.
+                : "opacity-70 hover:text-foreground md:opacity-0 md:group-hover:opacity-60",
+              isExpanded && "opacity-100 text-foreground rotate-90"
             )}
             title={isExpanded
               ? (lang === 'zh' ? '收起步骤' : 'Collapse steps')
@@ -907,7 +899,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         )}
         <button
           onClick={onDelete}
-          className="flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive"
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-transparent text-muted-foreground/55 opacity-100 transition-opacity transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
           title={lang === 'zh' ? '删除' : 'Delete'}
           aria-label={lang === 'zh' ? '删除' : 'Delete'}
         >
@@ -917,7 +909,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
           <button
             onClick={onFocus}
             className={cn(
-              "h-[34px] w-[34px] rounded-full flex items-center justify-center transition-colors border",
+              "flex h-[34px] w-[34px] items-center justify-center rounded-full border transition-colors",
               canContinueWhenDone
                 ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/16 dark:border-primary/28 dark:bg-primary/14"
                 : isTiming
