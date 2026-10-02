@@ -573,9 +573,9 @@ export function FocusTimerOverlay({
         <div className="absolute left-1/2 top-[54%] h-64 w-64 -translate-x-1/2 rounded-full border border-border/20" />
       </div>
 
-      <div className="relative z-10 flex min-h-full items-center justify-center px-4 py-6 sm:px-6 sm:py-8">
+      <div className="relative z-10 flex min-h-full items-center justify-center px-3 py-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
         <div
-          className="max-h-[calc(100vh-2rem)] w-full max-w-[360px] overflow-y-auto rounded-[32px] border border-border/70 bg-[hsl(var(--surface-contrast)/0.98)] px-5 py-5 shadow-[0_18px_54px_hsl(var(--foreground)/0.13)] backdrop-blur-xl sm:max-h-[calc(100vh-3rem)] sm:max-w-[376px]"
+          className="max-h-[calc(100dvh-1.5rem)] w-full max-w-[min(100%,360px)] overflow-y-auto overscroll-contain rounded-[28px] border border-border/70 bg-[hsl(var(--surface-contrast)/0.98)] px-3.5 py-4 shadow-[0_18px_54px_hsl(var(--foreground)/0.13)] backdrop-blur-xl sm:max-h-[calc(100vh-3rem)] sm:max-w-[376px] sm:rounded-[32px] sm:px-5 sm:py-5"
           onClick={e => e.stopPropagation()}
         >
           <div className="text-center">
@@ -587,21 +587,32 @@ export function FocusTimerOverlay({
                   : t('focus.overlayFocusing')}
             </p>
 
-            <div className="mt-3 flex items-center justify-center gap-2">
+            <div className="mt-2.5 flex items-center justify-center gap-2 sm:mt-3">
               <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: treeColor }} />
               <span className="rounded-full bg-[hsl(var(--surface-soft))] px-3 py-1 text-[11px] font-medium capitalize text-[hsl(var(--text-soft))] shadow-[inset_0_0_0_1px_hsl(var(--border)/0.7)]">
                 {tag}
               </span>
             </div>
 
-            <h2 className="mx-auto mt-4 max-w-[300px] text-balance text-[19px] font-semibold leading-[1.2] tracking-[-0.03em] text-foreground sm:text-[20px]">
+            <h2 className="mx-auto mt-3 max-w-[280px] text-balance text-[16px] font-semibold leading-snug tracking-[-0.02em] text-foreground line-clamp-2 sm:mt-4 sm:max-w-[300px] sm:text-[20px] sm:leading-[1.2] sm:tracking-[-0.03em] sm:line-clamp-none">
               {todo.title}
             </h2>
           </div>
 
-          <div className="mt-5 flex justify-center">
-            <div className="relative flex h-[164px] w-[164px] items-center justify-center rounded-full bg-[hsl(var(--surface-soft))] shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55)] sm:h-[172px] sm:w-[172px]">
-              <svg width={154} height={154} viewBox="4 4 184 184" className="absolute inset-1/2 -translate-x-1/2 -translate-y-1/2 sm:h-[160px] sm:w-[160px]" style={{ transform: 'translate(-50%, -50%) rotate(-90deg)' }}>
+          {/* Compact chrome once the end/progress panel is open — the big ring
+              ate the whole phone viewport and hid Complete / Back actions. */}
+          {showStopConfirm ? (
+            <div className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-border/45 bg-[hsl(var(--surface-soft))] px-3 py-2">
+              <span className="text-[22px] leading-none">{treeEmoji}</span>
+              <span className="font-mono text-[16px] font-light tabular-nums tracking-[0.02em] text-foreground/80">
+                {pad(hrs)}:{pad(mins)}:{pad(secs)}
+              </span>
+              <span className="text-[10px] text-muted-foreground/55">· {Math.round(progressPct)}%</span>
+            </div>
+          ) : (
+          <div className="mt-3.5 flex justify-center sm:mt-5">
+            <div className="relative flex h-[132px] w-[132px] items-center justify-center rounded-full bg-[hsl(var(--surface-soft))] shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55)] sm:h-[172px] sm:w-[172px]">
+              <svg width={122} height={122} viewBox="4 4 184 184" className="absolute inset-1/2 -translate-x-1/2 -translate-y-1/2 sm:h-[160px] sm:w-[160px]" style={{ transform: 'translate(-50%, -50%) rotate(-90deg)' }}>
                 <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="hsl(var(--focus-track))" strokeWidth={7} />
                 <circle
                   cx={ringCx}
@@ -621,14 +632,14 @@ export function FocusTimerOverlay({
               <div className="relative z-10 flex flex-col items-center">
                 <span
                   className={cn(
-                    "text-[40px] leading-none transition-transform duration-500 sm:text-[44px]",
+                    "text-[32px] leading-none transition-transform duration-500 sm:text-[44px]",
                     stageAnimating && "animate-scale-in",
                     isPaused && "opacity-45 grayscale"
                   )}
                 >
                   {treeEmoji}
                 </span>
-                <span className="mt-2 font-mono text-[23px] font-light tabular-nums tracking-[0.03em] text-foreground/78 sm:text-[24px]">
+                <span className="mt-1.5 font-mono text-[20px] font-light tabular-nums tracking-[0.03em] text-foreground/78 sm:mt-2 sm:text-[24px]">
                   {pad(hrs)}:{pad(mins)}:{pad(secs)}
                 </span>
                 <div className="mt-1 flex items-center gap-2 text-[10px] text-[hsl(var(--text-soft))]">
@@ -653,11 +664,12 @@ export function FocusTimerOverlay({
               </div>
             </div>
           </div>
+          )}
 
           {/* Quiet "previously" hint — surfaces only when this task already has
               prior focus sessions. Confirms continuity ("you've spent Xh on
               this before") without inflating the live session timer. */}
-          {accumulatedLabel && (
+          {!showStopConfirm && accumulatedLabel && (
             <div className="mt-2 flex items-center justify-center">
               <span className="font-mono text-[10px] tabular-nums tracking-[0.08em] text-muted-foreground/45">
                 {lang === 'zh' ? `之前累计 ${accumulatedLabel}` : `Previously ${accumulatedLabel}`}
@@ -666,7 +678,7 @@ export function FocusTimerOverlay({
           )}
 
           {/* Adjustable end time */}
-          {!previewMode && (onUpdateEndTime || onUpdateStartTime) && todo.timer_started_at && (
+          {!showStopConfirm && !previewMode && (onUpdateEndTime || onUpdateStartTime) && todo.timer_started_at && (
             <div className="mt-3 flex justify-center" onClick={e => e.stopPropagation()}>
               {(() => {
                 const endTime = todo.plan_ended_at
@@ -720,102 +732,111 @@ export function FocusTimerOverlay({
             </div>
           )}
 
-          {looksForgotten && suggestedEndLabel && onFinishAt && (
-            <div className="mt-4 rounded-2xl border border-border/55 bg-[hsl(var(--surface-soft))] px-3.5 py-3 text-left">
-              <p className="flex items-center gap-2 text-[12px] font-semibold tracking-[-0.01em] text-foreground/85">
-                <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-destructive/70" />
-                {lang === 'zh'
-                  ? dayOffsetLabel
-                    ? `可能从${dayOffsetLabel}起忘了结束`
-                    : '可能忘记结束了'
-                  : dayOffsetLabel
-                    ? `Left running since ${dayOffsetLabel.toLowerCase()}`
-                    : 'Maybe left running'}
+          {!showStopConfirm && looksForgotten && suggestedEndLabel && onFinishAt && (
+            <div className="mt-3 rounded-2xl border border-border/55 bg-[hsl(var(--surface-soft))] px-3 py-2.5 text-left sm:mt-4 sm:px-3.5 sm:py-3">
+              <p className="flex items-start gap-2 text-[12px] font-semibold leading-snug tracking-[-0.01em] text-foreground/85">
+                <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-destructive/70" />
+                <span className="min-w-0">
+                  {lang === 'zh'
+                    ? dayOffsetLabel
+                      ? `可能从${dayOffsetLabel}起忘了结束`
+                      : '可能忘记结束了'
+                    : dayOffsetLabel
+                      ? `Left running since ${dayOffsetLabel.toLowerCase()}`
+                      : 'Maybe left running'}
+                </span>
               </p>
+              {/* Phone: stack label / day / time so nothing clips in one row. */}
               <div
-                className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] leading-5 text-muted-foreground"
+                className="mt-2 flex flex-col gap-2 sm:mt-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
                 onClick={e => e.stopPropagation()}
               >
-                <span>{lang === 'zh' ? '结束于' : 'End at'}</span>
-                {startedDaysAgo > 0 && (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1 py-[1px]">
-                    <button
-                      type="button"
-                      onClick={() => setEndDayOffset(Math.min(startedDaysAgo, effectiveEndDayOffset + 1))}
-                      disabled={effectiveEndDayOffset >= startedDaysAgo}
-                      className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
-                      aria-label={lang === 'zh' ? '往前一天' : 'Earlier day'}
-                    >
-                      <ChevronLeft size={12} />
-                    </button>
-                    <span className="min-w-[46px] text-center text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                      {dayLabelForOffset(effectiveEndDayOffset)}
+                <span className="text-[11px] text-muted-foreground">{lang === 'zh' ? '结束于' : 'End at'}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  {startedDaysAgo > 0 && (
+                    <span className="inline-flex min-w-0 flex-1 items-center justify-between gap-0.5 rounded-full bg-secondary px-1 py-0.5 sm:flex-none sm:justify-center sm:px-1 sm:py-[1px]">
+                      <button
+                        type="button"
+                        onClick={() => setEndDayOffset(Math.min(startedDaysAgo, effectiveEndDayOffset + 1))}
+                        disabled={effectiveEndDayOffset >= startedDaysAgo}
+                        className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground sm:h-5 sm:w-5"
+                        aria-label={lang === 'zh' ? '往前一天' : 'Earlier day'}
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="min-w-0 flex-1 truncate px-1 text-center text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground sm:min-w-[46px] sm:flex-none sm:text-[10px]">
+                        {dayLabelForOffset(effectiveEndDayOffset)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEndDayOffset(Math.max(0, effectiveEndDayOffset - 1))}
+                        disabled={effectiveEndDayOffset <= 0}
+                        className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground sm:h-5 sm:w-5"
+                        aria-label={lang === 'zh' ? '往后一天' : 'Later day'}
+                      >
+                        <ChevronRight size={14} />
+                      </button>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setEndDayOffset(Math.max(0, effectiveEndDayOffset - 1))}
-                      disabled={effectiveEndDayOffset <= 0}
-                      className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
-                      aria-label={lang === 'zh' ? '往后一天' : 'Later day'}
-                    >
-                      <ChevronRight size={12} />
-                    </button>
-                  </span>
-                )}
-                <input
-                  type="time"
-                  value={forgottenEndInput}
-                  onChange={e => setForgottenEndInput(e.target.value)}
-                  className="font-mono text-[12px] tabular-nums bg-[hsl(var(--surface-contrast))] border border-border/55 rounded-lg px-2 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                />
+                  )}
+                  <input
+                    type="time"
+                    value={forgottenEndInput}
+                    onChange={e => setForgottenEndInput(e.target.value)}
+                    className="h-8 min-w-0 flex-[0.9] rounded-lg border border-border/55 bg-[hsl(var(--surface-contrast))] px-2 py-0.5 font-mono text-[13px] tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 sm:h-auto sm:flex-none sm:text-[12px]"
+                  />
+                </div>
               </div>
-              <p className="mt-1 text-[11px] leading-5 text-muted-foreground/65">
+              <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground/65">
                 {lang === 'zh' ? '也可以继续计时。' : 'Or keep it running.'}
               </p>
               <div className="mt-2">
                 <button
                   onClick={() => handleFinishAtSuggestion(true)}
-                  className="h-8 w-full rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground transition-colors hover:brightness-105"
+                  className="flex h-10 w-full flex-col items-center justify-center rounded-full bg-primary px-3 text-primary-foreground transition-colors hover:brightness-105 sm:h-8 sm:flex-row sm:gap-1.5"
                 >
-                  {lang === 'zh'
-                    ? `完成于 ${startedDaysAgo > 0 ? dayLabelForOffset(effectiveEndDayOffset) + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`
-                    : `Complete at ${startedDaysAgo > 0 ? dayLabelForOffset(effectiveEndDayOffset).toLowerCase() + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`}
+                  <span className="text-[12px] font-semibold leading-none sm:text-[11px]">
+                    {lang === 'zh' ? '完成于' : 'Complete'}
+                  </span>
+                  <span className="mt-0.5 max-w-full truncate text-[11px] font-medium tabular-nums leading-none opacity-90 sm:mt-0">
+                    {startedDaysAgo > 0 ? `${dayLabelForOffset(effectiveEndDayOffset)} ` : ''}
+                    {forgottenEndInput || suggestedEndLabel}
+                  </span>
                 </button>
               </div>
             </div>
           )}
 
-          <div className="mt-4" onClick={e => e.stopPropagation()}>
+          <div className="mt-3 sm:mt-4" onClick={e => e.stopPropagation()}>
             {!showStopConfirm ? (
               <div className="space-y-3">
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
                   <button
                     onClick={handlePauseResume}
-                    className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-border bg-[hsl(var(--surface-contrast))] text-foreground/72 transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
+                    className="flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-border bg-[hsl(var(--surface-contrast))] text-foreground/72 transition-colors hover:bg-[hsl(var(--surface-soft-hover))] sm:h-11 sm:gap-2"
                   >
-                    {isPaused ? <Play size={17} /> : <Pause size={17} />}
+                    {isPaused ? <Play size={16} /> : <Pause size={16} />}
                     <span className="text-[12px] font-medium">{isPaused ? (lang === 'zh' ? '继续' : 'Resume') : (lang === 'zh' ? '暂停' : 'Pause')}</span>
                   </button>
                   <button
                     onClick={() => setShowStopConfirm(true)}
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-white shadow-[0_4px_14px_hsl(var(--foreground)/0.12)] transition-[filter] hover:brightness-[1.06]"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_4px_14px_hsl(var(--foreground)/0.12)] transition-[filter] hover:brightness-[1.06] sm:h-11 sm:w-11"
                     style={{ backgroundColor: treeColor }}
                     title="Stop"
                   >
-                    <Square size={16} className="fill-current" />
+                    <Square size={15} className="fill-current" />
                   </button>
                   <button
                     onClick={handleCancel}
-                    className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-destructive/18 bg-[hsl(var(--surface-contrast))] text-destructive/72 transition-colors hover:bg-destructive/8"
+                    className="flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-destructive/18 bg-[hsl(var(--surface-contrast))] text-destructive/72 transition-colors hover:bg-destructive/8 sm:h-11 sm:gap-2"
                     title="Cancel timer"
                   >
-                    <X size={17} />
+                    <X size={16} />
                     <span className="text-[12px] font-medium">{lang === 'zh' ? '取消' : 'Cancel'}</span>
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="rounded-[24px] border border-border/60 bg-[hsl(var(--surface-soft)/0.72)] p-3 shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.5)]">
+              <div className="rounded-[22px] border border-border/60 bg-[hsl(var(--surface-soft)/0.72)] p-2.5 shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.5)] sm:rounded-[24px] sm:p-3">
                 {/* Back affordance — a mis-tapped stop must never trap the user
                     in the end panel. This returns to the live timer untouched. */}
                 <button
@@ -885,7 +906,7 @@ export function FocusTimerOverlay({
             )}
           </div>
           {!showStopConfirm && (
-            <p className="mt-5 text-center text-[11px] text-muted-foreground/45">
+            <p className="mt-3 text-center text-[11px] text-muted-foreground/45 sm:mt-5">
               {lang === 'zh' ? '轻触空白处最小化' : 'Tap outside to minimize'}
             </p>
           )}
