@@ -94,8 +94,12 @@ function AppSideSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
+        // Sit above phone chrome (z-130), demo banner (z-120), and Plan
+        // composer/timer (z-55–70) so those never paint through Notes/etc.
+        // Stay below the hamburger drawer (z-210/220).
+        overlayClassName="!z-[190]"
         className={cn(
-          'w-full p-0 border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl',
+          '!z-[200] flex h-full w-full flex-col overflow-hidden p-0 border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl',
           maxWidthClass,
         )}
       >
