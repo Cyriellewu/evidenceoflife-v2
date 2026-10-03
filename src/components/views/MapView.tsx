@@ -120,50 +120,96 @@ const normalizeMunicipalityDistrict = (name: string, isZh: boolean): string => {
 
 interface TileSource {
   url: string;
-  subdomains: string;
+  subdomains?: string;
   maxZoom: number;
   className: string;
+  attribution: string;
 }
 
-// Ordered list of basemap providers. The first that loads wins; if many of its
-// tiles fail (e.g. the host is blocked on this network — tile.openstreetmap.org
-// is unreachable from mainland China), we fall through to the next one. Carto's
-// dark basemap is primary: it rides a widely-reachable CDN and matches the dark UI.
+// Free, no-key basemaps. Carto's public CDN now returns "API KEY REQUIRED"
+// watermark tiles (HTTP 200), so it is not usable without a paid key. Esri
+// ArcGIS Online canvas tiles still work anonymously with attribution.
 const TILE_SOURCES: TileSource[] = [
   {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    subdomains: 'abcd',
-    maxZoom: 20,
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    maxZoom: 16,
     className: 'map-tiles-dark',
+    attribution:
+      'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS',
   },
   {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    subdomains: 'abcd',
-    maxZoom: 20,
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    maxZoom: 16,
     className: 'map-tiles-light',
+    attribution:
+      'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS',
+  },
+  {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    subdomains: 'abc',
+    maxZoom: 17,
+    className: 'map-tiles-light',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="https://opentopomap.org">OpenTopoMap</a>',
   },
   {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     subdomains: 'abc',
     maxZoom: 19,
     className: 'map-tiles-light',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
 ];
 
+function preferredTileSources(): TileSource[] {
+  const prefersDark =
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  if (prefersDark) return TILE_SOURCES;
+  // Light UI: put light gray canvas first, keep dark as later fallback.
+  const [dark, light, ...rest] = TILE_SOURCES;
+  return [light, dark, ...rest];
+}
+
 function addResilientTiles(map: L.Map) {
-  // Attach a single basemap layer and NEVER tear it down. Earlier versions
-  // swapped/removed the tile layer on repeated `tileerror` events, but doing so
-  // while a pan/zoom animation was mid-flight made Leaflet's animation callback
-  // touch an already-removed layer and throw asynchronously — which blacked out
-  // the whole view after jumping between world & city a few times. The tile
-  // hosts are reachable, so a plain persistent layer is both simpler and stable.
-  const src = TILE_SOURCES[0];
-  L.tileLayer(src.url, {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    subdomains: src.subdomains,
-    maxZoom: src.maxZoom,
-    className: src.className,
-  }).addTo(map);
+  // Attach one basemap; on repeated tile failures, swap to the next free host.
+  // Do not tear down mid-animation without a replacement — that previously
+  // blacked out the map after world↔city jumps.
+  const sources = preferredTileSources();
+  let index = 0;
+  let failCount = 0;
+  let layer: L.TileLayer | null = null;
+
+  const attach = (src: TileSource) => {
+    failCount = 0;
+    const options: L.TileLayerOptions = {
+      attribution: src.attribution,
+      maxZoom: src.maxZoom,
+      className: src.className,
+      // Esri JPEG + OSM PNG — helps some WebViews paint reliably.
+      crossOrigin: true,
+    };
+    // Leaflet's default subdomains is 'abc'. Passing `undefined` overrides that
+    // and crashes in `_getSubdomain` (reads `.length` of undefined).
+    if (src.subdomains) options.subdomains = src.subdomains;
+    const next = L.tileLayer(src.url, options);
+    next.on('tileerror', () => {
+      failCount += 1;
+      // A burst of errors usually means the host is blocked — fall through.
+      if (failCount < 4 || index >= sources.length - 1) return;
+      index += 1;
+      try {
+        map.removeLayer(next);
+      } catch {
+        /* layer may already be gone */
+      }
+      if (layer === next) layer = null;
+      layer = attach(sources[index]);
+    });
+    next.addTo(map);
+    return next;
+  };
+
+  layer = attach(sources[0]);
 }
 
 
@@ -455,7 +501,7 @@ function spreadNearbyPlaces(places: PlaceInfo[]): DisplayPlacePoint[] {
   return groups.flatMap((group) => {
     if (group.length === 1) return group;
 
-    const radius = Math.min(0.0011 + group.length * 0.00008, 0.0016);
+    const radius = Math.min(0.0018 + group.length * 0.00014, 0.0032);
     return group.map((item, index) => {
       const angle = (-Math.PI / 2) + (index / group.length) * Math.PI * 2;
       return {
@@ -1603,13 +1649,14 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {/* Header */}
       {viewMode === 'city' ? (
         <PageHeader
+          className="px-5 pb-2 pt-2 sm:pb-3 sm:pt-3"
           leading={
             <Button
               variant="ghost"
               size="icon"
               onClick={() => { setViewMode('world'); }}
               aria-label="Back to world view"
-              className="mt-1 -ml-1 h-8 w-8 rounded-xl"
+              className="-ml-1 h-8 w-8 rounded-xl"
             >
               <ChevronLeft size={22} />
             </Button>
@@ -1617,7 +1664,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           title={currentCity?.cityName || t('map.places')}
           right={
             <span
-              className="mt-1 inline-flex items-baseline gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium"
+              className="inline-flex items-baseline gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium"
               style={{ backgroundColor: `${LIFE_MAP_COLOR}1F`, color: LIFE_MAP_COLOR }}
             >
               <span className="text-[13px] font-semibold tabular-nums">{cityPlaces.length}</span>
@@ -1646,7 +1693,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           when tapped. This keeps a wide blank search bar from dominating the
           city header on desktop while still being one tap away. */}
       {viewMode === 'city' && (
-        <div className="px-5 pb-3">
+        <div className="px-5 pb-2">
           <div className="flex items-center gap-2">
             {searchExpanded || placeQuery ? (
               <div
@@ -1790,7 +1837,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           <div
             className={cn(
               "rounded-2xl overflow-hidden shadow-sm transition-[height] duration-200",
-              viewMode === 'world' ? 'h-[320px] lg:h-[400px]' : 'h-[280px] lg:h-96'
+              viewMode === 'world' ? 'h-[320px] lg:h-[400px]' : 'h-[300px] lg:h-96'
             )}
             style={{ border: '1px solid hsl(var(--border) / 0.4)' }}
           >
