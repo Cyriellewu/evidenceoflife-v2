@@ -522,7 +522,7 @@ export function LinksView() {
       />
 
       {/* Groups grid */}
-      <div className="flex-1 overflow-y-auto px-3 pt-3 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-3 pb-4">
         {groups.length === 0 ? (
           <SheetEmptyState
             icon={<Link2 size={20} />}
