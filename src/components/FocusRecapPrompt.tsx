@@ -50,12 +50,12 @@ export function FocusRecapPrompt({ title, workingSec, completed, onSave, onSkip 
         className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
         onClick={onSkip}
       />
-      <div className="relative z-10 w-full max-w-md rounded-t-3xl bg-[hsl(var(--background))] p-6 shadow-2xl animate-slide-up sm:rounded-3xl sm:m-4">
+      <div className="relative z-10 w-full max-w-md rounded-t-3xl bg-[hsl(var(--background))] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-6 shadow-2xl animate-slide-up sm:m-4 sm:rounded-3xl sm:p-6">
         <button
           type="button"
           onClick={onSkip}
           aria-label={t('focusRecap.skip')}
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
         >
           <X size={18} />
         </button>
@@ -97,14 +97,14 @@ export function FocusRecapPrompt({ title, workingSec, completed, onSave, onSkip 
           placeholder={t('focusRecap.notePlaceholder')}
           rows={2}
           autoFocus
-          className="mt-2 w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-[hsl(var(--primary))]"
+          className="mt-2 w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[16px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-[hsl(var(--primary))] sm:text-sm"
         />
 
         <div className="mt-5 flex items-center gap-3">
           <button
             type="button"
             onClick={onSkip}
-            className="flex-1 rounded-2xl border border-border bg-card py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+            className="flex-1 rounded-2xl border border-border bg-card py-3.5 text-[15px] font-medium text-muted-foreground transition-colors hover:bg-muted active:scale-[0.99]"
           >
             {t('focusRecap.skip')}
           </button>
@@ -112,7 +112,7 @@ export function FocusRecapPrompt({ title, workingSec, completed, onSave, onSkip 
             type="button"
             onClick={handleSave}
             disabled={!canSave}
-            className="flex flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-[hsl(var(--primary))] py-3 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-opacity disabled:opacity-40"
+            className="flex flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-[hsl(var(--primary))] py-3.5 text-[15px] font-semibold text-[hsl(var(--primary-foreground))] transition-opacity disabled:opacity-40 active:scale-[0.99]"
           >
             <Check size={16} />
             {t('focusRecap.save')}

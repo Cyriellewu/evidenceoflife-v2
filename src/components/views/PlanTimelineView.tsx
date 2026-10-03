@@ -810,13 +810,19 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const parseMomentBlockId = useCallback((blockId: string) =>
     blockId.startsWith('moment-') ? blockId.slice('moment-'.length) : null, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent, block: TimeBlock, edge: 'move' | 'top' | 'bottom') => {
+  const handleBlockPointerDown = useCallback((e: React.PointerEvent, block: TimeBlock, edge: 'move' | 'top' | 'bottom') => {
+    // Touch + mouse both go through Pointer Events. Mouse-only handlers never
+    // received move/up on iOS, so drag-to-reschedule / insert looked broken.
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // Title tap opens rename — don't steal it as a block move.
+    if ((e.target as HTMLElement).closest('[data-block-title="true"]')) return;
     if (block.source === 'imported') return;
     // Moment blocks have a single (actual) span — drag/resize edits that span.
     if (block.source === 'moment') {
       if (!onUpdateMoment) return;
       e.preventDefault();
       e.stopPropagation();
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
       const startMin = clientYToMin(e.clientY);
       setDragging({ id: block.id, target: 'moment', edge, startY: e.clientY, startMin, origStart: block.startMin, origEnd: block.endMin });
       setDragPreview({ startMin: block.startMin, endMin: block.endMin });
@@ -827,6 +833,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     if (!target) return;
     e.preventDefault();
     e.stopPropagation();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
     const startMin = clientYToMin(e.clientY);
     const origStart = target === 'actual'
       ? (block.actualStartMin ?? block.startMin)
@@ -894,11 +901,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     });
   }, [dragging, rangeDragging, clientYToMin, clampSelectionRange, isOutsideTimeline]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent | PointerEvent) => {
     updateDragPreview(e.clientX, e.clientY);
   }, [updateDragPreview]);
 
-  const handleMouseUp = useCallback((clientX?: number, clientY?: number) => {
+  const handlePointerUp = useCallback((clientX?: number, clientY?: number) => {
     if (rangeDragging) setRangeDragging(null);
 
     if (dragging && dragPreview) {
@@ -1077,16 +1084,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     setEditingActualBlockId(null);
   }, [editingActualStart, editingActualEnd, date, onUpdateTodo]);
 
-  const handleEdgeDragStart = useCallback((edge: 'top' | 'bottom', e: React.MouseEvent) => {
+  const handleEdgeDragStart = useCallback((edge: 'top' | 'bottom', e: React.PointerEvent) => {
     if (!selectedRange) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
     setEdgeDragging(edge);
     edgeDragStartY.current = e.clientY;
     edgeDragOrigRange.current = { ...selectedRange };
   }, [selectedRange]);
 
-  const handleEdgeDragMove = useCallback((e: MouseEvent) => {
+  const handleEdgeDragMove = useCallback((e: PointerEvent) => {
     if (!edgeDragging || !edgeDragOrigRange.current || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const yInScrollable = e.clientY - rect.top + containerRef.current.scrollTop;
@@ -1115,11 +1124,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
   useEffect(() => {
     if (!edgeDragging) return;
-    window.addEventListener('mousemove', handleEdgeDragMove);
-    window.addEventListener('mouseup', handleEdgeDragEnd);
+    window.addEventListener('pointermove', handleEdgeDragMove);
+    window.addEventListener('pointerup', handleEdgeDragEnd);
+    window.addEventListener('pointercancel', handleEdgeDragEnd);
     return () => {
-      window.removeEventListener('mousemove', handleEdgeDragMove);
-      window.removeEventListener('mouseup', handleEdgeDragEnd);
+      window.removeEventListener('pointermove', handleEdgeDragMove);
+      window.removeEventListener('pointerup', handleEdgeDragEnd);
+      window.removeEventListener('pointercancel', handleEdgeDragEnd);
     };
   }, [edgeDragging, handleEdgeDragMove, handleEdgeDragEnd]);
 
@@ -1161,18 +1172,39 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     return () => window.removeEventListener('eol-timer-started', handler);
   }, [restKey, setRestBlocks, setRestStartMin]);
 
-  // Global mouse listeners for block dragging (so drag-to-unschedule works outside timeline)
+  // Global pointer listeners for block dragging (so drag-to-unschedule works outside timeline)
   useEffect(() => {
     if (!dragging) return;
-    const onMove = (e: MouseEvent) => updateDragPreview(e.clientX, e.clientY);
-    const onUp = (e: MouseEvent) => handleMouseUp(e.clientX, e.clientY);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    const onMove = (e: PointerEvent) => updateDragPreview(e.clientX, e.clientY);
+    const onUp = (e: PointerEvent) => handlePointerUp(e.clientX, e.clientY);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
-  }, [dragging, handleMouseUp, updateDragPreview]);
+  }, [dragging, handlePointerUp, updateDragPreview]);
+
+  // While creating a free-range selection on the canvas, keep tracking even if the
+  // finger leaves the column (common on iPhone).
+  useEffect(() => {
+    if (!rangeDragging) return;
+    const onMove = (e: PointerEvent) => {
+      e.preventDefault();
+      updateDragPreview(e.clientX, e.clientY);
+    };
+    const onUp = (e: PointerEvent) => handlePointerUp(e.clientX, e.clientY);
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [rangeDragging, handlePointerUp, updateDragPreview]);
 
   useEffect(() => {
     return () => {
@@ -1324,6 +1356,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     }
     onRenameTodo?.(block.id, trimmed);
   }, [onRenameTodo, onUpdateMoment, parseMomentBlockId]);
+
+  const displayBlockTitle = useCallback((title: string) => {
+    const trimmed = title?.trim();
+    if (trimmed) return trimmed;
+    return lang === 'zh' ? '未命名' : 'Untitled';
+  }, [lang]);
 
   const renderBlock = (block: TimeBlock, col: number, totalCols: number, visibleCols: number, hiddenSiblingIds: string[], tailRowIndex: number) => {
     const isDraggingThis = dragging?.id === block.id;
@@ -1822,11 +1860,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           opacity: isOverflowCol && !isDraggingThis ? 0.28 : undefined,
           pointerEvents: isOverflowCol ? 'none' : undefined,
         }}
-        onMouseDown={isEditable && !isEditingThis ? (e) => handleMouseDown(e, block, 'move') : undefined}
+        onPointerDown={isEditable && !isEditingThis ? (e) => handleBlockPointerDown(e, block, 'move') : undefined}
         onClick={(e) => {
           if (justDraggedRef.current || isEditingThis) return;
           const target = e.target as HTMLElement;
           if (target.closest('[data-block-action="true"]')) return;
+          if (target.closest('[data-block-title="true"]')) return;
           setSelectedResumeBlockId(prev => (prev === block.id ? null : block.id));
         }}
       >
@@ -2167,42 +2206,56 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         })()}
 
 
-        {/* Resize handles — z-[15] puts them above the content area (z-10) so they actually receive mousedown events */}
+        {/* Resize handles — thin edge strips only so title taps still rename on short pills */}
         {isEditable && !isEditingThis && (() => {
-          const ultraSlimHandles = ultraShortOuter;
-          const slimResize = height <= 38 && !ultraSlimHandles;
-          const midResize = !slimResize && height <= 50;
+          const ultraSlimHandles = ultraShortOuter || veryCompactLayout;
+          const slimResize = !ultraSlimHandles && height <= 38;
+          const midResize = !slimResize && !ultraSlimHandles && height <= 50;
           return (
           <>
             <div
               className={cn(
-                'absolute top-0 left-0 right-0 cursor-n-resize flex items-start justify-center z-[15]',
-                ultraSlimHandles ? '-top-1 h-3 pt-1' : slimResize ? '-top-1 h-4 pt-1' : midResize ? 'h-5 pt-1' : 'h-7 pt-1.5',
+                'pointer-events-none absolute top-0 left-0 right-0 z-[15] flex cursor-n-resize items-start justify-center',
+                ultraSlimHandles ? '-top-1 h-2.5' : slimResize ? '-top-1 h-3' : midResize ? 'h-3.5' : 'h-5',
               )}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, block, 'top'); }}
             >
               <div
                 className={cn(
-                  'rounded-full opacity-0 group-hover/block:opacity-70 transition-opacity',
-                  ultraSlimHandles ? 'w-8 h-[2px]' : slimResize ? 'w-6 h-[2px]' : 'w-8 h-[3px]',
+                  'pointer-events-auto flex w-full items-start justify-center',
+                  ultraSlimHandles ? 'h-2.5 pt-0.5' : slimResize ? 'h-3 pt-0.5' : midResize ? 'h-3.5 pt-1' : 'h-5 pt-1.5',
                 )}
-                style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
-              />
+                onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'top'); }}
+              >
+                <div
+                  className={cn(
+                    'rounded-full opacity-0 transition-opacity group-hover/block:opacity-70',
+                    ultraSlimHandles ? 'h-[2px] w-7' : slimResize ? 'h-[2px] w-6' : 'h-[3px] w-8',
+                  )}
+                  style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
+                />
+              </div>
             </div>
             <div
               className={cn(
-                'absolute bottom-0 left-0 right-0 cursor-s-resize flex items-end justify-center z-[15]',
-                ultraSlimHandles ? '-bottom-1 h-3 pb-1' : slimResize ? '-bottom-1 h-4 pb-1' : midResize ? 'h-5 pb-1' : 'h-7 pb-1.5',
+                'pointer-events-none absolute bottom-0 left-0 right-0 z-[15] flex cursor-s-resize items-end justify-center',
+                ultraSlimHandles ? '-bottom-1 h-2.5' : slimResize ? '-bottom-1 h-3' : midResize ? 'h-3.5' : 'h-5',
               )}
-              onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, block, 'bottom'); }}
             >
               <div
                 className={cn(
-                  'rounded-full opacity-0 group-hover/block:opacity-70 transition-opacity',
-                  ultraSlimHandles ? 'w-8 h-[2px]' : slimResize ? 'w-6 h-[2px]' : 'w-8 h-[3px]',
+                  'pointer-events-auto flex w-full items-end justify-center',
+                  ultraSlimHandles ? 'h-2.5 pb-0.5' : slimResize ? 'h-3 pb-0.5' : midResize ? 'h-3.5 pb-1' : 'h-5 pb-1.5',
                 )}
-                style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
-              />
+                onPointerDown={(e) => { e.stopPropagation(); handleBlockPointerDown(e, block, 'bottom'); }}
+              >
+                <div
+                  className={cn(
+                    'rounded-full opacity-0 transition-opacity group-hover/block:opacity-70',
+                    ultraSlimHandles ? 'h-[2px] w-7' : slimResize ? 'h-[2px] w-6' : 'h-[3px] w-8',
+                  )}
+                  style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
+                />
+              </div>
             </div>
           </>
           );
@@ -2279,6 +2332,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               </button>
             )}
             <button
+              type="button"
               onClick={() => {
                 if (displayMode === 'actual' && hasActual && !isTimerActive) {
                   setEditingActualBlockId(block.id);
@@ -2292,20 +2346,17 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 // collapses to match. Plan-only/in-progress blocks keep plan.
                 const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
                 const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
-                if (veryCompactLayout || microLayout) {
-                  setEditingTimeBlockId(block.id);
-                  setEditingTimeStart(fmtTime(seedStart));
-                  setEditingTimeEnd(fmtTime(seedEnd));
-                  return;
-                }
+                // Always open title rename — compact blocks used to only edit
+                // times, which felt like "can't rename" on phone.
                 setEditingBlockId(block.id);
-                setEditingBlockTitle(block.title);
+                setEditingBlockTitle(block.title || '');
                 setEditingTimeStart(fmtTime(seedStart));
                 setEditingTimeEnd(fmtTime(seedEnd));
+                setEditingTimeBlockId(null);
               }}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
-              title="Edit"
-              aria-label="Edit"
+              title={lang === 'zh' ? '重命名' : 'Rename'}
+              aria-label={lang === 'zh' ? '重命名' : 'Rename'}
             >
               <Pencil size={14} />
             </button>
@@ -2534,16 +2585,42 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       </span>
                     )}
                     <span
-                      className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap leading-tight"
+                      role="button"
+                      tabIndex={0}
+                      data-block-title="true"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (block.readOnly) return;
+                        const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
+                        const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
+                        setEditingBlockId(block.id);
+                        setEditingBlockTitle(block.title || '');
+                        setEditingTimeStart(fmtTime(seedStart));
+                        setEditingTimeEnd(fmtTime(seedEnd));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          (e.currentTarget as HTMLElement).click();
+                        }
+                      }}
+                      className="min-w-0 flex-1 cursor-text overflow-hidden text-ellipsis whitespace-nowrap leading-tight"
                       style={{
                         fontSize: ultraShortOuter ? '11px' : microLayout ? '11.5px' : ultraNarrowLayout ? '12.5px' : '14px',
                         fontWeight: 500,
                         lineHeight: 1.08,
                         margin: 0,
-                        color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? tintedText(0.45) : 'hsl(var(--foreground))',
+                        color: block.isCompleted
+                          ? tintedText(0.12)
+                          : !block.title?.trim()
+                            ? 'hsl(var(--muted-foreground) / 0.55)'
+                            : isPlanOnly ? tintedText(0.45) : 'hsl(var(--foreground))',
+                        fontStyle: !block.title?.trim() ? 'italic' : undefined,
                       }}
                     >
-                      {hideTitleTooNarrow ? '' : block.title}
+                      {hideTitleTooNarrow ? '' : displayBlockTitle(block.title)}
                     </span>
                     {!hideElapsedWhileTiming && !narrowLayout && blockWidthPx >= 280 && compactDurationLabel.length <= 10 && (
                       <span
@@ -2564,16 +2641,47 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           {block.emoji || tagIcon}
                         </span>
                       )}
-                      <span className={cn("min-w-0 overflow-hidden text-ellipsis leading-[1.2]", tallNarrowLayout ? "text-center" : "flex-1")} style={{
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        data-block-title="true"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (block.readOnly) return;
+                          const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
+                          const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
+                          setEditingBlockId(block.id);
+                          setEditingBlockTitle(block.title || '');
+                          setEditingTimeStart(fmtTime(seedStart));
+                          setEditingTimeEnd(fmtTime(seedEnd));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            (e.currentTarget as HTMLElement).click();
+                          }
+                        }}
+                        className={cn("min-w-0 cursor-text overflow-hidden text-ellipsis leading-[1.2]", tallNarrowLayout ? "text-center" : "flex-1")}
+                        style={{
                         fontSize: titleFontSize,
                         fontWeight: 500,
                         display: allowWrappedTitle ? '-webkit-box' : 'block',
                         WebkitLineClamp: allowWrappedTitle ? 2 : 'unset',
                         WebkitBoxOrient: allowWrappedTitle ? 'vertical' : 'unset',
                         whiteSpace: allowWrappedTitle ? 'normal' : 'nowrap',
-                        color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? (isDarkMode ? 'hsl(0 0% 100% / 0.9)' : tintedText(0.48)) : 'hsl(var(--foreground))',
+                        color: block.isCompleted
+                          ? tintedText(0.12)
+                          : !block.title?.trim()
+                            ? 'hsl(var(--muted-foreground) / 0.55)'
+                            : isPlanOnly ? (isDarkMode ? 'hsl(0 0% 100% / 0.9)' : tintedText(0.48)) : 'hsl(var(--foreground))',
                         textShadow: isDarkMode && !block.isCompleted ? '0 1px 1.5px rgba(0,0,0,0.30)' : undefined,
-                      }}>{hideTitleTooNarrow ? '' : block.title}</span>
+                        fontStyle: !block.title?.trim() ? 'italic' : undefined,
+                      }}
+                      >
+                        {hideTitleTooNarrow ? '' : displayBlockTitle(block.title)}
+                      </span>
                     </div>
                     {editingTimeBlockId === block.id && (
                       <div className={cn("mt-0.5 gap-1", narrowLayout ? "flex flex-col items-center" : "flex items-center flex-wrap")} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
@@ -2810,12 +2918,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   return (
     <div
       className="select-none flex-1 flex flex-col min-h-0 relative isolate"
-      onMouseMove={handleMouseMove}
-      onMouseUp={(e) => { handleMouseUp(e.clientX, e.clientY); }}
-      onMouseLeave={(e) => {
-        // Block drags (move/top/bottom) continue via window listeners — only cancel range selection
-        if (dragging) return;
-        handleMouseUp(e.clientX, e.clientY);
+      onPointerMove={handlePointerMove}
+      onPointerUp={(e) => { handlePointerUp(e.clientX, e.clientY); }}
+      onPointerCancel={(e) => { handlePointerUp(e.clientX, e.clientY); }}
+      onPointerLeave={(e) => {
+        // Block drags continue via window listeners — only cancel free-range
+        // selection if the pointer leaves without capture (desktop mouse).
+        if (dragging || rangeDragging) return;
+        handlePointerUp(e.clientX, e.clientY);
       }}
     >
       {/* Timeline area. The maxHeight used to be a flat 600px which, on
@@ -2868,14 +2978,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         {/* Timeline content */}
         <div
           className={cn(
-            "flex-1 relative transition-colors",
-            dragTaskTitle && "bg-primary/[0.03]"
+            "flex-1 relative transition-colors touch-none",
+            dragTaskTitle && "bg-primary/[0.03]",
           )}
-          style={{ height: totalHeight, backgroundColor: timelineCanvasBg }}
+          style={{ height: totalHeight, backgroundColor: timelineCanvasBg, touchAction: 'none' }}
+          title={lang === 'zh' ? '在空白处拖拽选择时段' : 'Drag on empty space to pick a time range'}
           onDragOver={handleTimelineDragOver}
           onDrop={handleTimelineDrop}
           onDragLeave={handleTimelineDragLeave}
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
             const target = e.target as HTMLElement;
             if (target.closest('[data-plan-block="true"]') || target.closest('[data-range-handle="true"]') || target.closest('[data-creation-card="true"]')) return;
             if (selectedRange) {
@@ -2884,6 +2996,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               setCustomRange(null);
               return;
             }
+            e.preventDefault();
+            try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
             const anchor = clientYToMin(e.clientY);
             const initial = clampSelectionRange(anchor, anchor + 15);
             setSelectedSlots(new Set());
@@ -3026,7 +3140,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {/* Inline creation card at selected range — looks like a dashed plan block */}
           {selectedRange && (() => {
             const rangeTop = minToY(selectedRange.startMin);
-            const rangeHeight = Math.max(minToY(selectedRange.endMin) - rangeTop, 48);
+            // Stacked name + time row needs ~76px; short drags used to clip the
+            // title input so phone create looked like "times only / can't name".
+            const rangeHeight = Math.max(minToY(selectedRange.endMin) - rangeTop, 76);
             const isPastRange = isElapsedSlot({
               viewingDate: viewingDateKey,
               today: format(new Date(), 'yyyy-MM-dd'),
@@ -3111,59 +3227,65 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     }}
                   >
                   {(
-                    <div className="flex h-full min-w-0 items-center gap-2 pr-7">
-                      {isPastRange && (
-                        <span
-                          className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-medium"
-                          style={{
-                            color: pastAccent,
-                            background: 'hsl(152 32% 24% / 0.22)',
-                            boxShadow: 'inset 0 0 0 1px hsl(152 30% 42% / 0.22)',
+                    <div className={cn('flex h-full min-w-0 flex-col justify-center gap-1.5', compactRange ? 'pr-6' : 'pr-7')}>
+                      <div className="flex min-w-0 items-center gap-2">
+                        {isPastRange && (
+                          <span
+                            className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-medium"
+                            style={{
+                              color: pastAccent,
+                              background: 'hsl(152 32% 24% / 0.22)',
+                              boxShadow: 'inset 0 0 0 1px hsl(152 30% 42% / 0.22)',
+                            }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                        <input
+                          ref={slotInputRef}
+                          value={slotAddTitle}
+                          onChange={e => setSlotAddTitle(e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          onKeyDown={e => {
+                            const native = e.nativeEvent as KeyboardEvent;
+                            if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
+                              const range = selectedRange;
+                              const targetDay = date || format(new Date(), 'yyyy-MM-dd');
+                              const startISO = localMinuteToISOString(targetDay, range.startMin);
+                              const endISO = localMinuteToISOString(targetDay, range.endMin);
+                              const diffSec = (range.endMin - range.startMin) * 60;
+                              const title = slotAddTitle.trim();
+                              dismiss();
+                              void (async () => {
+                                if (isPastRange) {
+                                  await onAddTodo(title, 'anytime', {
+                                    timer_started_at: startISO,
+                                    timer_ended_at: endISO,
+                                    timer_seconds: diffSec,
+                                    is_completed: true,
+                                    progress: 100,
+                                  });
+                                } else {
+                                  await onAddTodo(title, 'anytime', {
+                                    plan_started_at: startISO,
+                                    plan_ended_at: endISO,
+                                  });
+                                }
+                              })();
+                            }
+                            if (e.key === 'Escape') dismiss();
                           }}
-                        >
-                          ✓
-                        </span>
-                      )}
-                      <input
-                        ref={slotInputRef}
-                        value={slotAddTitle}
-                        onChange={e => setSlotAddTitle(e.target.value)}
-                        onKeyDown={e => {
-                          const native = e.nativeEvent as KeyboardEvent;
-                          if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
-                            const range = selectedRange;
-                            const targetDay = date || format(new Date(), 'yyyy-MM-dd');
-                            const startISO = localMinuteToISOString(targetDay, range.startMin);
-                            const endISO = localMinuteToISOString(targetDay, range.endMin);
-                            const diffSec = (range.endMin - range.startMin) * 60;
-                            const title = slotAddTitle.trim();
-                            dismiss();
-                            void (async () => {
-                              if (isPastRange) {
-                                // One write: past-slot create = already done.
-                                await onAddTodo(title, 'anytime', {
-                                  timer_started_at: startISO,
-                                  timer_ended_at: endISO,
-                                  timer_seconds: diffSec,
-                                  is_completed: true,
-                                  progress: 100,
-                                });
-                              } else {
-                                await onAddTodo(title, 'anytime', {
-                                  plan_started_at: startISO,
-                                  plan_ended_at: endISO,
-                                });
-                              }
-                            })();
+                          placeholder={
+                            isPastRange
+                              ? (lang === 'zh' ? '刚才做了什么？' : 'What did you do?')
+                              : (lang === 'zh' ? '任务名称…' : 'Task name…')
                           }
-                          if (e.key === 'Escape') dismiss();
-                        }}
-                        placeholder={isPastRange ? 'What did you do?' : 'Add task...'}
-                        className="min-w-0 flex-1 bg-transparent text-[14px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/40 text-foreground"
-                        style={{ color: creationTagColor || undefined }}
-                        autoFocus
-                      />
-                      <div className="ml-auto flex flex-shrink-0 items-center gap-1.5 font-mono tabular-nums text-muted-foreground/72" style={{ fontSize: '10px' }}>
+                          className="min-w-0 flex-1 bg-transparent text-[15px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/45 text-foreground sm:text-[14px]"
+                          style={{ color: creationTagColor || undefined }}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 font-mono tabular-nums text-muted-foreground/72" style={{ fontSize: '10px' }}>
                         <div className="inline-flex items-center gap-1 rounded-full bg-background/55 px-1.5 py-1 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.34)]">
                           <input
                             className="w-[36px] bg-transparent text-center focus:outline-none"
@@ -3171,6 +3293,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             key={`start-${selectedRange.startMin}`}
                             onBlur={e => applyTimeEdit('start', e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            onPointerDown={e => e.stopPropagation()}
                           />
                           <span className="text-muted-foreground/40">→</span>
                           <input
@@ -3179,13 +3302,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             key={`end-${selectedRange.endMin}`}
                             onBlur={e => applyTimeEdit('end', e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            onPointerDown={e => e.stopPropagation()}
                           />
                         </div>
                         <span className="inline-flex items-center rounded-full bg-background/45 px-1.5 py-1 text-[9.5px] font-semibold tracking-[0.02em] text-muted-foreground/78 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.28)]">
                           {durStr}
                         </span>
                         {isPastRange && (
-                          <span className="inline-flex items-center rounded-full px-1.5 py-1 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] shadow-[inset_0_0_0_1px_hsl(152_30%_42%_/_0.25)]" style={{ color: pastAccent, background: 'hsl(152 30% 20% / 0.18)' }}>done</span>
+                          <span className="inline-flex items-center rounded-full px-1.5 py-1 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] shadow-[inset_0_0_0_1px_hsl(152_30%_42%_/_0.25)]" style={{ color: pastAccent, background: 'hsl(152 30% 20% / 0.18)' }}>
+                            {lang === 'zh' ? '完成' : 'done'}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -3212,7 +3338,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   data-range-handle="true"
                   className="absolute left-0 right-0 z-[25] h-4 cursor-n-resize flex items-center justify-center"
                   style={{ top: topPx - 8 }}
-                  onMouseDown={e => handleEdgeDragStart('top', e)}
+                  onPointerDown={e => handleEdgeDragStart('top', e)}
                 >
                   <div className="h-[3px] w-8 rounded-full bg-primary/30" />
                 </div>
@@ -3220,7 +3346,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   data-range-handle="true"
                   className="absolute left-0 right-0 z-[25] h-4 cursor-s-resize flex items-center justify-center"
                   style={{ top: bottomPx - 8 }}
-                  onMouseDown={e => handleEdgeDragStart('bottom', e)}
+                  onPointerDown={e => handleEdgeDragStart('bottom', e)}
                 >
                   <div className="h-[3px] w-8 rounded-full bg-primary/30" />
                 </div>
@@ -3621,118 +3747,130 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         </div>
       </div>
 
-      {/* inset-right clears PlanView's absolute rhythm preset (palette) — same corner, ~w-8 + margin */}
-      <div className="pointer-events-none absolute right-12 top-3 z-30 flex items-start gap-1">
-        <button
-          onClick={handleRestToggle}
-          className="pointer-events-auto flex items-center gap-1 px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)]"
-          style={{
-            background: restStartMin !== null
-              ? `color-mix(in srgb, hsl(var(--surface-contrast)) 80%, ${REST_COLOR} 20%)`
-              : 'hsl(var(--surface-contrast) / 0.9)',
-            border: `1px solid ${restStartMin !== null ? REST_COLOR : 'hsl(var(--border) / 0.5)'}`,
-            color: restStartMin !== null ? REST_COLOR : 'hsl(var(--muted-foreground))',
-          }}
-        >
-          {restStartMin !== null ? (
-            <>
-              <span className="animate-pulse">●</span>
-              <span>Stop Rest</span>
-            </>
-          ) : (
-            <>
-              <span>😴</span>
-              <span>Rest</span>
-            </>
-          )}
-        </button>
-        {selectedRange && (
-          <span className="text-[12px] text-muted-foreground bg-[hsl(var(--surface-contrast)/0.9)] backdrop-blur-md border border-border/50 rounded-full px-2.5 py-1 shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] pointer-events-auto">
-            {t('plan.selected')} <span className="font-semibold text-foreground">
-              {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
-            </span> {t('plan.minutes')}
-          </span>
-        )}
-        {isViewingToday && (unscheduledTodos.length > 0 || suggestions) && (
-          <div className="flex items-center gap-1 pointer-events-auto">
-            {suggestions ? (
-              <div
-                className="flex items-center gap-1 rounded-full border p-[3px] backdrop-blur-md shadow-[0_8px_20px_hsl(var(--foreground)/0.08)]"
-                style={{ background: suggestionToolbarBg, borderColor: suggestionToolbarBorder }}
-                onPointerDown={e => e.stopPropagation()}
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => e.stopPropagation()}
-              >
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-[5px] text-[11px] font-medium leading-none"
-                  style={{ background: suggestionToolbarLabelBg, color: suggestionToolbarLabelFg }}
-                >
-                  <CalendarDays size={11} />
-                  {lang === 'zh' ? `${suggestions.length} 条建议` : `${suggestions.length} suggestions`}
-                </span>
-                <div
-                  className="flex items-center gap-0.5 rounded-full border p-[2px]"
-                  style={{ background: suggestionToolbarActionBg, borderColor: suggestionToolbarActionBorder }}
-                >
-                  <button
-                    onPointerDown={e => e.stopPropagation()}
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={acceptAllSuggestions}
-                    className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium transition-colors"
-                    style={{
-                      background: isDarkMode ? 'hsl(150 30% 40% / 0.22)' : 'hsl(150 40% 42% / 0.16)',
-                      border: `1px solid ${isDarkMode ? 'hsl(150 32% 55% / 0.40)' : 'hsl(150 38% 40% / 0.38)'}`,
-                      color: isDarkMode ? 'hsl(150 45% 68%)' : 'hsl(150 45% 34%)',
-                    }}
-                  >
-                    <Check size={12} />
-                    <span>{lang === 'zh' ? '全部接受' : 'Accept all'}</span>
-                  </button>
-                  <button
-                    onPointerDown={e => e.stopPropagation()}
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={dismissSuggestions}
-                    className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground"
-                    style={{
-                      background: isDarkMode ? 'hsl(0 0% 100% / 0.04)' : 'hsl(0 0% 100% / 0.46)',
-                      border: `1px solid ${isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)'}`,
-                    }}
-                  >
-                    <X size={12} />
-                    <span>{lang === 'zh' ? '取消' : 'Cancel'}</span>
-                  </button>
-                </div>
-              </div>
+      {/* Timeline chrome: phone uses a full-width bar so Rest stays on-screen
+          (left) and Plan/Doing/Both stay right — never one overflowing row.
+          Desktop keeps a single right cluster. */}
+      <div className="pointer-events-none absolute inset-x-1.5 top-1.5 z-30 flex w-[calc(100%-0.75rem)] max-w-full items-start justify-between gap-1 sm:inset-x-auto sm:right-12 sm:top-3 sm:w-auto sm:justify-end sm:gap-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-1 sm:justify-end">
+          <button
+            type="button"
+            onClick={handleRestToggle}
+            className="pointer-events-auto flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:px-2.5 sm:py-[3px] sm:text-[12px]"
+            style={{
+              background: restStartMin !== null
+                ? `color-mix(in srgb, hsl(var(--surface-contrast)) 80%, ${REST_COLOR} 20%)`
+                : 'hsl(var(--surface-contrast) / 0.9)',
+              border: `1px solid ${restStartMin !== null ? REST_COLOR : 'hsl(var(--border) / 0.5)'}`,
+              color: restStartMin !== null ? REST_COLOR : 'hsl(var(--muted-foreground))',
+            }}
+          >
+            {restStartMin !== null ? (
+              <>
+                <span className="animate-pulse">●</span>
+                <span>{lang === 'zh' ? '结束' : 'Stop'}</span>
+              </>
             ) : (
-              <button
-                onClick={handleAutoPlan}
-                title={lang === 'zh' ? '按偏好把未排任务填进空隙' : 'Fill gaps with unscheduled tasks'}
-                className="flex items-center gap-1 px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-colors backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)]"
-                style={{
-                  background: isDarkMode ? 'hsl(24 40% 50% / 0.16)' : 'hsl(24 55% 48% / 0.10)',
-                  border: `1px solid ${isDarkMode ? 'hsl(24 45% 60% / 0.38)' : 'hsl(24 50% 46% / 0.34)'}`,
-                  color: isDarkMode ? 'hsl(24 55% 70%)' : 'hsl(24 60% 42%)',
-                }}
-              >
-                <CalendarDays size={13} />
-                <span>{lang === 'zh' ? '自动填充' : 'Auto-plan'}</span>
-              </button>
+              <>
+                <span aria-hidden>😴</span>
+                <span>{lang === 'zh' ? '休息' : 'Rest'}</span>
+              </>
             )}
-          </div>
-        )}
-        <div className="flex items-center bg-[hsl(var(--surface-contrast)/0.88)] backdrop-blur-md rounded-full p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] border border-border/45 pointer-events-auto">
-          {(['plan', 'actual', 'both'] as const).map(mode => (
+          </button>
+          {selectedRange && (
+            <span className="pointer-events-auto shrink-0 whitespace-nowrap rounded-full border border-border/50 bg-[hsl(var(--surface-contrast)/0.9)] px-2 py-1 text-[11px] text-muted-foreground shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] backdrop-blur-md sm:px-2.5 sm:text-[12px]">
+              {t('plan.selected')} <span className="font-semibold text-foreground">
+                {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
+              </span> {t('plan.minutes')}
+            </span>
+          )}
+          {isViewingToday && (unscheduledTodos.length > 0 || suggestions) && (
+            <div className="pointer-events-auto flex min-w-0 items-center gap-1">
+              {suggestions ? (
+                <div
+                  className="flex max-w-[min(100%,280px)] flex-wrap items-center justify-start gap-1 rounded-full border p-[3px] backdrop-blur-md shadow-[0_8px_20px_hsl(var(--foreground)/0.08)] sm:justify-end"
+                  style={{ background: suggestionToolbarBg, borderColor: suggestionToolbarBorder }}
+                  onPointerDown={e => e.stopPropagation()}
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <span
+                    className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium leading-none"
+                    style={{ background: suggestionToolbarLabelBg, color: suggestionToolbarLabelFg }}
+                  >
+                    <CalendarDays size={11} />
+                    {lang === 'zh' ? `${suggestions.length} 条` : `${suggestions.length}`}
+                  </span>
+                  <div
+                    className="flex items-center gap-0.5 rounded-full border p-[2px]"
+                    style={{ background: suggestionToolbarActionBg, borderColor: suggestionToolbarActionBorder }}
+                  >
+                    <button
+                      type="button"
+                      onPointerDown={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={acceptAllSuggestions}
+                      className="flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-[4px] text-[11px] font-medium transition-colors"
+                      style={{
+                        background: isDarkMode ? 'hsl(150 30% 40% / 0.22)' : 'hsl(150 40% 42% / 0.16)',
+                        border: `1px solid ${isDarkMode ? 'hsl(150 32% 55% / 0.40)' : 'hsl(150 38% 40% / 0.38)'}`,
+                        color: isDarkMode ? 'hsl(150 45% 68%)' : 'hsl(150 45% 34%)',
+                      }}
+                    >
+                      <Check size={12} />
+                      <span>{lang === 'zh' ? '接受' : 'Accept'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onPointerDown={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={dismissSuggestions}
+                      className="flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-[4px] text-[11px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground"
+                      style={{
+                        background: isDarkMode ? 'hsl(0 0% 100% / 0.04)' : 'hsl(0 0% 100% / 0.46)',
+                        border: `1px solid ${isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)'}`,
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAutoPlan}
+                  title={lang === 'zh' ? '按偏好把未排任务填进空隙' : 'Fill gaps with unscheduled tasks'}
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium transition-colors backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:px-2.5 sm:py-[3px] sm:text-[12px]"
+                  style={{
+                    background: isDarkMode ? 'hsl(24 40% 50% / 0.16)' : 'hsl(24 55% 48% / 0.10)',
+                    border: `1px solid ${isDarkMode ? 'hsl(24 45% 60% / 0.38)' : 'hsl(24 50% 46% / 0.34)'}`,
+                    color: isDarkMode ? 'hsl(24 55% 70%)' : 'hsl(24 60% 42%)',
+                  }}
+                >
+                  <CalendarDays size={12} />
+                  <span>{lang === 'zh' ? '填充' : 'Auto'}</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="pointer-events-auto flex shrink-0 items-center rounded-full border border-border/45 bg-[hsl(var(--surface-contrast)/0.88)] p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] backdrop-blur-md">
+          {([
+            { id: 'plan' as const, en: 'Plan', zh: '计划' },
+            { id: 'actual' as const, en: 'Doing', zh: '进行' },
+            { id: 'both' as const, en: 'Both', zh: '对照' },
+          ]).map(mode => (
             <button
-              key={mode}
-              onClick={() => setDisplayMode(mode)}
+              key={mode.id}
+              type="button"
+              onClick={() => setDisplayMode(mode.id)}
               className={cn(
-                "px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-all",
-                displayMode === mode
-                  ? "bg-[hsl(var(--surface-soft))] text-foreground shadow-sm"
-                  : "text-muted-foreground/85 hover:text-foreground"
+                'whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium transition-all sm:px-2.5 sm:py-[3px] sm:text-[12px]',
+                displayMode === mode.id
+                  ? 'bg-[hsl(var(--surface-soft))] text-foreground shadow-sm'
+                  : 'text-muted-foreground/85 hover:text-foreground',
               )}
             >
-              {mode === 'plan' ? 'Planned' : mode === 'actual' ? 'Doing' : 'Both'}
+              {lang === 'zh' ? mode.zh : mode.en}
             </button>
           ))}
         </div>

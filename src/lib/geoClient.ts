@@ -127,6 +127,20 @@ export function mapOverpassElements(
   return mapped.slice(0, limit);
 }
 
+const FETCH_MS = 10_000;
+
+async function fetchJson(url: string, init?: RequestInit, timeoutMs = FETCH_MS): Promise<unknown> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Public Photon API — free, no key, CORS-friendly (Komoot fair-use). */
 async function photonSearch(opts: SearchOpts): Promise<GeoPlaceResult[]> {
   const limit = Math.max(1, Math.min(opts.limit ?? 8, 12));
@@ -139,9 +153,7 @@ async function photonSearch(opts: SearchOpts): Promise<GeoPlaceResult[]> {
     params.set('lat', String(opts.coords.lat));
     params.set('lon', String(opts.coords.lng));
   }
-  const res = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
-  if (!res.ok) throw new Error(`Photon search failed: ${res.status}`);
-  const json = (await res.json()) as {
+  const json = (await fetchJson(`https://photon.komoot.io/api/?${params.toString()}`)) as {
     features?: Array<{
       geometry?: { coordinates?: [number, number] };
       properties?: PhotonProps;
@@ -182,9 +194,7 @@ async function photonReverse(opts: ReverseOpts): Promise<GeoPlaceResult> {
     lon: String(opts.lng),
     lang: opts.lang?.startsWith('zh') ? 'zh' : 'en',
   });
-  const res = await fetch(`https://photon.komoot.io/reverse?${params.toString()}`);
-  if (!res.ok) throw new Error(`Photon reverse failed: ${res.status}`);
-  const json = (await res.json()) as {
+  const json = (await fetchJson(`https://photon.komoot.io/reverse?${params.toString()}`)) as {
     features?: Array<{
       geometry?: { coordinates?: [number, number] };
       properties?: PhotonProps;
@@ -249,7 +259,7 @@ function buildNearbyOverpassQuery(coords: GeoCoords, radiusM = NEARBY_RADIUS_M):
   const { lat, lng } = coords;
   // Named POIs only — cafe / restaurant / park within walking distance.
   return `
-[out:json][timeout:15];
+[out:json][timeout:8];
 (
   node["name"]["amenity"="cafe"](around:${radiusM},${lat},${lng});
   node["name"]["amenity"="restaurant"](around:${radiusM},${lat},${lng});
@@ -268,15 +278,27 @@ async function overpassNearby(coords: GeoCoords, limit = 8): Promise<GeoPlaceRes
   let lastErr: unknown;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
-      const res = await fetch(endpoint, { method: 'POST', body });
-      if (!res.ok) throw new Error(`Overpass ${res.status}`);
-      const json = (await res.json()) as { elements?: OverpassElement[] };
+      const json = (await fetchJson(endpoint, { method: 'POST', body }, 8_000)) as {
+        elements?: OverpassElement[];
+      };
       return mapOverpassElements(json.elements ?? [], coords, limit);
     } catch (err) {
       lastErr = err;
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error('Overpass nearby failed');
+}
+
+async function photonNearby(coords: GeoCoords, lang?: string): Promise<GeoPlaceResult[]> {
+  const queries = lang?.startsWith('zh')
+    ? ['咖啡', '餐厅', '公园']
+    : ['cafe', 'restaurant', 'park'];
+  const batches = await Promise.all(
+    queries.map((q) =>
+      searchPlaces({ q, limit: 4, coords }).catch(() => [] as GeoPlaceResult[]),
+    ),
+  );
+  return batches.flat();
 }
 
 /**
@@ -304,9 +326,9 @@ export async function reversePlace(opts: ReverseOpts): Promise<GeoPlaceResult> {
 }
 
 /**
- * Map-style “near me” recommendations when the user taps Use current with no query:
- * reverse for the best place underfoot, plus nearby named OSM POIs via Overpass
- * (free, no key). Falls back to Photon category searches if Overpass is down.
+ * Map-style “near me” recommendations:
+ * reverse for the place underfoot, then Photon keyword hits (fast), with
+ * Overpass OSM POIs as a parallel enrichment when it responds in time.
  */
 export async function nearbyRecommendations(
   coords: GeoCoords,
@@ -314,20 +336,19 @@ export async function nearbyRecommendations(
 ): Promise<GeoPlaceResult[]> {
   const here = await reversePlace({ ...coords, lang });
 
-  let nearby: GeoPlaceResult[] = [];
-  try {
-    nearby = await overpassNearby(coords, 8);
-  } catch {
-    const queries = lang?.startsWith('zh')
-      ? ['咖啡', '餐厅', '公园']
-      : ['cafe', 'restaurant', 'park'];
-    const batches = await Promise.all(
-      queries.map((q) =>
-        searchPlaces({ q, limit: 4, coords }).catch(() => [] as GeoPlaceResult[]),
-      ),
-    );
-    nearby = batches.flat();
-  }
+  const photonPromise = photonNearby(coords, lang);
+  const overpassPromise = overpassNearby(coords, 8).catch(() => [] as GeoPlaceResult[]);
+
+  // Don't wait forever on Overpass — Photon alone is enough for a good first paint.
+  const overpassRace = Promise.race([
+    overpassPromise,
+    new Promise<GeoPlaceResult[]>((resolve) => {
+      setTimeout(() => resolve([]), 6_000);
+    }),
+  ]);
+
+  const [photonHits, overpassHits] = await Promise.all([photonPromise, overpassRace]);
+  const nearby = [...overpassHits, ...photonHits];
 
   const seen = new Set<string>();
   const out: GeoPlaceResult[] = [];

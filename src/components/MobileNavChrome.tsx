@@ -40,24 +40,25 @@ export function MobileNavChrome({
       <div
         className={cn(
           'sticky top-0 -mx-2 mb-1 border-b border-border/35 bg-[hsl(var(--background)/0.92)] px-2 backdrop-blur-xl md:hidden sm:-mx-3 sm:px-3',
+          'pt-[env(safe-area-inset-top)]',
           open ? 'z-[40]' : 'z-[130]',
         )}
       >
-        <div className="grid h-12 grid-cols-[2.25rem_1fr_2.25rem] items-center">
+        <div className="grid h-10 grid-cols-[2.25rem_1fr_2.25rem] items-center">
           <button
             type="button"
             onClick={() => onOpenChange(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))]"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))]"
             aria-label={lang === 'zh' ? '打开菜单' : 'Open menu'}
             aria-haspopup="dialog"
             aria-expanded={open}
           >
-            <Menu size={20} strokeWidth={1.9} />
+            <Menu size={18} strokeWidth={1.9} />
           </button>
           <div className="flex min-w-0 items-center justify-center">
             {centerSlot}
           </div>
-          <div aria-hidden className="h-9 w-9" />
+          <div aria-hidden className="h-8 w-8" />
         </div>
       </div>
 

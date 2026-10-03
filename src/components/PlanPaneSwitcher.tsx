@@ -18,8 +18,8 @@ export function writePlanMobilePane(pane: PlanMobilePane) {
 }
 
 /**
- * Centered Chat|Work-style pill for phone Plan — lives in the top chrome
- * so sidebar stays a drawer and content stays full-bleed.
+ * Compact Tasks | Timeline switch for phone chrome.
+ * Sized to content — never stretches across the header (that fought the date layout).
  */
 export function PlanPaneSwitcher({ className }: { className?: string }) {
   const { lang } = useLanguage();
@@ -39,9 +39,7 @@ export function PlanPaneSwitcher({ className }: { className?: string }) {
       role="tablist"
       aria-label={lang === 'zh' ? '计划视图' : 'Plan view'}
       className={cn(
-        // Strong track + border so BOTH labels stay readable in light mode
-        // (inactive used to wash out into the header and look like a lone "Tasks" chip).
-        'inline-flex w-full max-w-[240px] items-center rounded-full border border-border/55 bg-muted/55 p-[3px]',
+        'inline-flex w-auto items-center rounded-full border border-border/50 bg-muted/40 p-[2px]',
         className,
       )}
     >
@@ -51,10 +49,10 @@ export function PlanPaneSwitcher({ className }: { className?: string }) {
         aria-selected={pane === 'list'}
         onClick={() => writePlanMobilePane('list')}
         className={cn(
-          'min-w-0 flex-1 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors',
+          'rounded-full px-2.5 py-1 text-[12px] font-semibold tracking-tight transition-colors',
           pane === 'list'
             ? 'bg-background text-foreground shadow-[0_1px_2px_hsl(var(--foreground)/0.08)]'
-            : 'text-foreground/55 hover:text-foreground/85',
+            : 'text-foreground/50 hover:text-foreground/80',
         )}
       >
         {lang === 'zh' ? '任务' : 'Tasks'}
@@ -65,10 +63,10 @@ export function PlanPaneSwitcher({ className }: { className?: string }) {
         aria-selected={pane === 'timeline'}
         onClick={() => writePlanMobilePane('timeline')}
         className={cn(
-          'min-w-0 flex-1 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors',
+          'rounded-full px-2.5 py-1 text-[12px] font-semibold tracking-tight transition-colors',
           pane === 'timeline'
             ? 'bg-background text-foreground shadow-[0_1px_2px_hsl(var(--foreground)/0.08)]'
-            : 'text-foreground/55 hover:text-foreground/85',
+            : 'text-foreground/50 hover:text-foreground/80',
         )}
       >
         {lang === 'zh' ? '时间轴' : 'Timeline'}

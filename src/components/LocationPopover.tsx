@@ -16,6 +16,11 @@ import {
   searchPlaces,
   type GeoPlaceResult,
 } from '@/lib/geoClient';
+import {
+  classifyGeoError,
+  geoErrorMessage,
+  getGeoPosition,
+} from '@/lib/geolocation';
 import { toast } from 'sonner';
 
 type LocationCategory = 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
@@ -27,22 +32,6 @@ interface LocationPopoverProps {
   className?: string;
   /** Force sheet/popover. Default: sheet on phone, popover on desktop. */
   presentation?: 'auto' | 'sheet' | 'popover';
-}
-
-const GEO_OPTS: PositionOptions = {
-  enableHighAccuracy: false,
-  maximumAge: 120_000,
-  timeout: 8_000,
-};
-
-function getPosition(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation unavailable'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(resolve, reject, GEO_OPTS);
-  });
 }
 
 function PlaceRow({
@@ -107,6 +96,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     const [results, setResults] = useState<GeoPlaceResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isGettingLocation, setIsGettingLocation] = useState(false);
+    const [geoHint, setGeoHint] = useState<string | null>(null);
     const [coordsEpoch, setCoordsEpoch] = useState(0);
     const composingRef = useRef(false);
     const coordsRef = useRef<{ lat: number; lng: number } | null>(readCachedGeoCoords());
@@ -114,23 +104,30 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     const didAutoNearby = useRef(false);
     searchRef.current = search;
 
-    const ensureCoords = useCallback(async (force = false): Promise<{ lat: number; lng: number } | null> => {
-      if (!force && coordsRef.current) return coordsRef.current;
-      try {
-        const pos = await getPosition();
-        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        coordsRef.current = next;
-        writeCachedGeoCoords(next);
-        setCoordsEpoch((n) => n + 1);
-        return next;
-      } catch {
-        return coordsRef.current;
-      }
+    const rememberCoords = useCallback((next: { lat: number; lng: number }) => {
+      coordsRef.current = next;
+      writeCachedGeoCoords(next);
+      setCoordsEpoch((n) => n + 1);
     }, []);
 
-    useEffect(() => {
-      void ensureCoords(false);
-    }, [ensureCoords]);
+    /** Resolve coords. Prefer cache; only hit GPS when needed / forced. */
+    const ensureCoords = useCallback(async (force = false): Promise<{
+      coords: { lat: number; lng: number } | null;
+      errorMsg: string | null;
+    }> => {
+      if (!force && coordsRef.current) return { coords: coordsRef.current, errorMsg: null };
+      try {
+        const next = await getGeoPosition({ force, allowCache: !force });
+        rememberCoords(next);
+        setGeoHint(null);
+        return { coords: next, errorMsg: null };
+      } catch (err) {
+        if (coordsRef.current) return { coords: coordsRef.current, errorMsg: null };
+        const errorMsg = geoErrorMessage(classifyGeoError(err), lang);
+        setGeoHint(errorMsg);
+        return { coords: null, errorMsg };
+      }
+    }, [lang, rememberCoords]);
 
     const runSearch = useCallback(async (q: string, coords: { lat: number; lng: number } | null) => {
       const trimmed = q.trim();
@@ -159,13 +156,17 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       return () => window.clearTimeout(handle);
     }, [search, coordsEpoch, runSearch]);
 
-    const loadNearby = useCallback(async () => {
+    const loadNearby = useCallback(async (opts?: { forceGps?: boolean; showToast?: boolean }) => {
+      const forceGps = opts?.forceGps === true;
+      const showToast = opts?.showToast === true;
       setIsGettingLocation(true);
       setIsSearching(true);
       try {
-        const coords = await ensureCoords(true);
+        // Auto-open uses cache first (iOS often blocks silent GPS from useEffect
+        // even when Settings says allowed). Explicit button tap forces a fresh fix.
+        const { coords, errorMsg } = await ensureCoords(forceGps);
         if (!coords) {
-          toast.error(lang === 'zh' ? '无法获取当前位置，请允许定位权限' : 'Could not get your location — allow location access');
+          if (showToast) toast.error(errorMsg || geoErrorMessage('unknown', lang));
           return;
         }
         const nearby = await nearbyRecommendations(coords, lang);
@@ -174,8 +175,11 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           const alone = await reversePlace({ ...coords, lang });
           setResults([{ ...alone, distance_m: 0 }]);
         }
+        setGeoHint(null);
       } catch {
-        toast.error(lang === 'zh' ? '附近地点加载失败，请稍后重试' : 'Could not load nearby places');
+        const msg = lang === 'zh' ? '附近地点加载失败，请稍后重试' : 'Could not load nearby places';
+        if (showToast) toast.error(msg);
+        else setGeoHint(msg);
       } finally {
         setIsGettingLocation(false);
         setIsSearching(false);
@@ -187,9 +191,9 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       if (q.length >= 2) {
         setIsGettingLocation(true);
         try {
-          const coords = await ensureCoords(true);
+          const { coords, errorMsg } = await ensureCoords(true);
           if (!coords) {
-            toast.error(lang === 'zh' ? '无法获取当前位置，请允许定位权限' : 'Could not get your location — allow location access');
+            toast.error(errorMsg || geoErrorMessage('unknown', lang));
             return;
           }
           await runSearch(q, coords);
@@ -198,14 +202,14 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         }
         return;
       }
-      await loadNearby();
+      await loadNearby({ forceGps: true, showToast: true });
     }, [ensureCoords, runSearch, loadNearby, lang]);
-
-    // Phone sheet: load nearby as soon as it opens — one tap less than the old flow.
+    // Phone sheet: quietly load nearby from cache / soft GPS. Never toast on open —
+    // "permission denied" toasts on open were the main iOS false alarm.
     useEffect(() => {
       if (!asSheet || didAutoNearby.current) return;
       didAutoNearby.current = true;
-      void loadNearby();
+      void loadNearby({ forceGps: false, showToast: false });
     }, [asSheet, loadNearby]);
 
     useEffect(() => {
@@ -235,8 +239,8 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     const handleAddManual = useCallback(async () => {
       if (!search.trim()) return;
       try {
-        const coords = coordsRef.current ?? (await ensureCoords(false));
-        const found = await searchPlaces({ q: search.trim(), limit: 1, coords });
+        const resolved = coordsRef.current ?? (await ensureCoords(false)).coords;
+        const found = await searchPlaces({ q: search.trim(), limit: 1, coords: resolved });
         const first = found[0];
         if (first) {
           onSelect({
@@ -263,7 +267,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     const headerTitle = lang === 'zh' ? '选择地点' : 'Choose a place';
     const useCurrentLabel = hasQuery
       ? (lang === 'zh' ? '在附近搜索' : 'Search near me')
-      : (lang === 'zh' ? '刷新附近推荐' : 'Refresh nearby');
+      : (lang === 'zh' ? '使用我的位置' : 'Use my location');
 
     const searchField = (
       <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-2.5">
@@ -272,7 +276,12 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           : <Search size={15} className="flex-shrink-0 text-muted-foreground/50" />
         }
         <input
-          type="text"
+          type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           value={search}
           onChange={e => setSearch(e.target.value)}
           onCompositionStart={() => { composingRef.current = true; }}
@@ -286,7 +295,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
             e.stopPropagation();
           }}
           placeholder={lang === 'zh' ? '搜索附近地点…' : 'Search nearby…'}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-[15px]"
           autoFocus={!asSheet}
         />
       </div>
@@ -323,9 +332,23 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
             </span>
           </button>
         ) : (
-          <p className="px-4 py-8 text-center text-[13px] text-muted-foreground/55">
-            {lang === 'zh' ? '点下方刷新，或直接搜索地点名称' : 'Refresh nearby, or search for a place'}
-          </p>
+          <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+            <p className="text-[13px] leading-relaxed text-muted-foreground/60">
+              {geoHint
+                || (lang === 'zh'
+                  ? '点下方「使用我的位置」，或直接搜索地点名称'
+                  : 'Tap “Use my location”, or search for a place name')}
+            </p>
+            {geoHint && (
+              <button
+                type="button"
+                onClick={() => { void loadNearby({ forceGps: true, showToast: true }); }}
+                className="text-[13px] font-medium text-primary"
+              >
+                {lang === 'zh' ? '再试一次' : 'Try again'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -335,9 +358,9 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         type="button"
         onClick={() => { void handleUseCurrentLocation(); }}
         disabled={isGettingLocation}
-        className="flex w-full items-center justify-center gap-2 rounded-full border border-border/55 bg-[hsl(var(--surface-contrast))] px-3 py-2.5 text-[13px] font-medium text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))] disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-full border border-border/55 bg-[hsl(var(--surface-contrast))] px-3 py-3 text-[15px] font-medium text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))] disabled:opacity-60 active:scale-[0.99]"
       >
-        {isGettingLocation ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} className="text-primary" />}
+        {isGettingLocation ? <Loader2 size={15} className="animate-spin" /> : <Navigation size={15} className="text-primary" />}
         {useCurrentLabel}
       </button>
     );
@@ -370,7 +393,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[hsl(var(--surface-soft))] hover:text-foreground"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-[hsl(var(--surface-soft))] hover:text-foreground"
                 aria-label={lang === 'zh' ? '关闭' : 'Close'}
               >
                 <X size={16} />
