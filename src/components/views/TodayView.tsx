@@ -2286,26 +2286,26 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                               ) : (
                                 <div className="group/card relative flex items-start justify-between gap-3">
                                   <div className="flex-1 min-w-0">
-                                    {/* Title row */}
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      {!item.tagIcon && moment.emoji && <span className="text-[15px] flex-shrink-0">{moment.emoji}</span>}
-                                      {item.tagIcon && <span className="text-[14px] flex-shrink-0">{item.tagIcon}</span>}
+                                    {/* Title row — wrap on mobile; hover actions overlay so they don't steal width */}
+                                    <div className="relative flex items-start gap-2 min-w-0 pr-0 sm:pr-16">
+                                      {!item.tagIcon && moment.emoji && <span className="text-[15px] flex-shrink-0 leading-[1.2]">{moment.emoji}</span>}
+                                      {item.tagIcon && <span className="text-[14px] flex-shrink-0 leading-[1.2]">{item.tagIcon}</span>}
                                       <span
-                                        className="truncate cursor-pointer text-foreground hover:text-primary/80 transition-colors"
-                                        style={{ fontSize: '17px', fontWeight: 600, lineHeight: 1.2 }}
+                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-foreground hover:text-primary/80 transition-colors"
+                                        style={{ fontSize: '17px', fontWeight: 600, lineHeight: 1.35 }}
                                         onClick={() => startEdit(moment)}
                                       >
                                         {subtitle || moment.emoji || 'Moment'}
                                       </span>
                                       {moment.isSpecial && (
-                                        <span className="flex-shrink-0 text-[13px]" title={lang === 'zh' ? '已留住' : 'Kept'}>💛</span>
+                                        <span className="flex-shrink-0 text-[13px] leading-[1.2]" title={lang === 'zh' ? '已留住' : 'Kept'}>💛</span>
                                       )}
-                                      {/* Hover action icons */}
-                                      <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity flex-shrink-0 ml-auto">
-                                        <button onClick={() => startMomentTimer(moment)} className="p-1 text-muted-foreground/30 hover:text-primary transition-colors"><Timer size={12} /></button>
-                                        <button onClick={() => startEdit(moment)} className="p-1 text-muted-foreground/30 hover:text-foreground transition-colors"><Pencil size={12} /></button>
+                                      {/* Desktop hover actions — absolute so invisible icons never truncate the title */}
+                                      <div className="pointer-events-none absolute right-0 top-0 hidden items-center gap-0.5 opacity-0 transition-opacity group-hover/card:pointer-events-auto group-hover/card:opacity-100 sm:flex">
+                                        <button type="button" onClick={() => startMomentTimer(moment)} className="p-1 text-muted-foreground/30 hover:text-primary transition-colors"><Timer size={12} /></button>
+                                        <button type="button" onClick={() => startEdit(moment)} className="p-1 text-muted-foreground/30 hover:text-foreground transition-colors"><Pencil size={12} /></button>
                                         {onDeleteMoment && (
-                                          <button onClick={() => onDeleteMoment(moment.id)} className="p-1 text-muted-foreground/30 hover:text-destructive transition-colors"><Trash2 size={12} /></button>
+                                          <button type="button" onClick={() => onDeleteMoment(moment.id)} className="p-1 text-muted-foreground/30 hover:text-destructive transition-colors"><Trash2 size={12} /></button>
                                         )}
                                       </div>
                                     </div>
