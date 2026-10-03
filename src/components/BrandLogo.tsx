@@ -1,14 +1,14 @@
 import lightLogo from '@/assets/evidence-logo-light.png';
 import darkLogo from '@/assets/evidence-logo-dark.png';
-import markLogo from '@/assets/footprint-mark.png';
 import { cn } from '@/lib/utils';
 
 interface BrandLogoProps {
   alt?: string;
   className?: string;
   /**
-   * `full` — wide PNG illustration (landing / auth).
-   * `mark` — square footprint mark for chrome/drawers (no invented SVG).
+   * `full` / `mark` — same hand-drawn path + sun logo.
+   * Kept as two names so drawer call sites stay readable; both point at the
+   * real PNG assets (not the footprint mark, not a generated SVG).
    */
   variant?: 'full' | 'mark';
 }
@@ -16,19 +16,8 @@ interface BrandLogoProps {
 export function BrandLogo({
   alt = 'Evidence of Life',
   className,
-  variant = 'full',
+  variant: _variant = 'full',
 }: BrandLogoProps) {
-  if (variant === 'mark') {
-    return (
-      <img
-        src={markLogo}
-        alt={alt}
-        className={cn('object-contain', className)}
-        draggable={false}
-      />
-    );
-  }
-
   return (
     <picture>
       <source media="(prefers-color-scheme: dark)" srcSet={darkLogo} />
@@ -36,6 +25,7 @@ export function BrandLogo({
         src={lightLogo}
         alt={alt}
         className={cn('object-contain', className)}
+        draggable={false}
       />
     </picture>
   );
