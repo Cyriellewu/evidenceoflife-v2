@@ -1,24 +1,44 @@
 <!--
   Evidence of Life — favicon.
-  Footprint mark from src/assets/footprint-logo.png, simplified for 16×16.
-  Cream paper canvas for contrast on light and dark browser chrome.
+  Distilled from src/assets/evidence-logo.svg into a square,
+  16x16-readable mark. Keeps the three brand signatures:
+    1. warm cream "paper" canvas (rounded square)
+    2. golden rising sun with rays
+    3. tan footprint trail receding toward the sun
+       + a green sprout next to the sun
+  Tuned for both light and dark browser chrome — the cream
+  background gives the mark contrast against either.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="geometricPrecision">
+  <defs>
+    <radialGradient id="eolSun" cx="44" cy="22" r="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F9E399" />
+      <stop offset="1" stop-color="#E5BE52" />
+    </radialGradient>
+  </defs>
+
+  <!-- Warm cream paper canvas -->
   <rect x="2" y="2" width="60" height="60" rx="14" fill="#FBF4E6" />
-  <!-- Left footprint -->
-  <g fill="#C9B59A">
-    <ellipse cx="24" cy="38" rx="9.5" ry="13" transform="rotate(-18 24 38)" />
-    <circle cx="17.5" cy="22.5" r="2.6" />
-    <circle cx="22.2" cy="20.2" r="2.9" />
-    <circle cx="27.2" cy="20.5" r="2.5" />
-    <circle cx="31.2" cy="23.2" r="2.1" />
+
+  <!-- Sun rays -->
+  <g fill="#E5BE52">
+    <rect x="42.2" y="2.5"  width="3.6" height="7"   rx="1.8" />
+    <rect x="32.0" y="6.6"  width="3.6" height="7"   rx="1.8" transform="rotate(-45 33.8 10.1)" />
+    <rect x="55.4" y="6.6"  width="3.6" height="7"   rx="1.8" transform="rotate(45 57.2 10.1)" />
+    <rect x="28.0" y="20.0" width="7"   height="3.6" rx="1.8" />
+    <rect x="55.0" y="20.0" width="7"   height="3.6" rx="1.8" />
   </g>
-  <!-- Right footprint -->
-  <g fill="#C9B59A">
-    <ellipse cx="42" cy="36" rx="9.5" ry="13" transform="rotate(16 42 36)" />
-    <circle cx="48.5" cy="20.5" r="2.6" />
-    <circle cx="43.8" cy="18.2" r="2.9" />
-    <circle cx="38.8" cy="18.8" r="2.5" />
-    <circle cx="34.8" cy="22" r="2.1" />
-  </g>
+
+  <!-- Sun (rising semicircle) -->
+  <path d="M30 26C30 18.268 36.268 12 44 12C51.732 12 58 18.268 58 26V27.5H30V26Z" fill="url(#eolSun)" />
+
+  <!-- Green sprout next to the sun -->
+  <circle cx="56" cy="32" r="4" fill="#9CAC8A" />
+  <circle cx="50" cy="29" r="2.6" fill="#C9D3B7" />
+
+  <!-- Footprint trail receding toward the sun -->
+  <ellipse cx="46" cy="40" rx="4.2" ry="2.8" transform="rotate(-12 46 40)" fill="#E0C896" />
+  <ellipse cx="36" cy="44" rx="4.6" ry="3.0" transform="rotate(-10 36 44)" fill="#DFC58E" />
+  <ellipse cx="25" cy="49" rx="5.0" ry="3.2" transform="rotate(-8 25 49)" fill="#DDC084" />
+  <ellipse cx="14" cy="54" rx="4.2" ry="2.8" transform="rotate(20 14 54)" fill="#D8B978" />
 </svg>
