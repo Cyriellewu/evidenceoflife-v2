@@ -1505,12 +1505,15 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             pointer-events:none;
             transform:translate(-50%,-50%);
             white-space:nowrap;
-            font-size:11px;
+            font-size:12px;
             font-weight:700;
-            letter-spacing:0.04em;
-            color:${isActive ? LIFE_MAP_COLOR : 'rgba(74,46,29,0.72)'};
-            text-shadow:0 1px 0 rgba(255,255,255,0.9), 0 0 6px rgba(255,255,255,0.85);
-            padding:2px 6px;
+            letter-spacing:0.02em;
+            color:${isActive ? LIFE_MAP_COLOR : 'rgba(74,46,29,0.82)'};
+            background:rgba(255,255,255,0.78);
+            border:1px solid rgba(74,46,29,0.12);
+            border-radius:999px;
+            box-shadow:0 1px 2px rgba(74,46,29,0.08);
+            padding:3px 8px;
           ">${name}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
@@ -1624,8 +1627,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       cityMarkerMapRef.current.set(place.name, { marker, category: place.category, lat: place.lat, lng: place.lng, renderLat, renderLng });
     });
 
-      // Fit to all boroughs on first city entry (so districts are visible),
-      // or to the selected district / places when the district filter changes.
+      // Fit to all boroughs on city entry (so districts are visible), or to a
+      // selected borough. Never fall through to place-tight zoom on the
+      // fallback timer — that previously undid the borough overview.
       const shouldFit =
         lastFitCityIdxRef.current !== selectedCityIdx ||
         lastFitDistrictRef.current !== activeDistrictId;
@@ -1648,14 +1652,14 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             }
           }
 
-          if (cityDistrictGeometries.length > 0 && lastFitCityIdxRef.current !== selectedCityIdx) {
+          if (cityDistrictGeometries.length > 0) {
             const bounds = L.latLngBounds(
               cityDistrictGeometries.flatMap((g) =>
                 g.ring.map(([lng, lat]) => [lat, lng] as [number, number]),
               ),
             );
             if (bounds.isValid()) {
-              map.fitBounds(bounds, { padding: [24, 24], maxZoom: 11, animate: false });
+              map.fitBounds(bounds, { padding: [20, 20], maxZoom: 11, animate: false });
               lastFitCityIdxRef.current = selectedCityIdx;
               lastFitDistrictRef.current = activeDistrictId;
               return;
