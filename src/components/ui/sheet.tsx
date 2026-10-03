@@ -84,7 +84,7 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         {...props}
       >
         {children}
-        <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+        <div className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 flex items-center gap-2">
           {expandable && (
             <button
               type="button"
