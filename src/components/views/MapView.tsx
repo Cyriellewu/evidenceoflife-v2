@@ -1010,8 +1010,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     [currentCity, cityDistrictCatalog.length],
   );
 
-  // Districts that actually have places — shown as a second chip row so NYC
-  // (and CN municipalities) answer "which areas are here?" at a glance.
+  // Always list the city's known districts (NYC boroughs / CN 区) so the
+  // answer to "which areas are here?" is visible even before every borough
+  // has a visit. Counts still drive empty-state filtering.
   const districtCounts = useMemo(() => {
     if (cityDistrictCatalog.length === 0) return [] as { district: DistrictLabel; count: number }[];
     const counts = new Map<string, number>();
@@ -1020,9 +1021,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       if (!id) return;
       counts.set(id, (counts.get(id) || 0) + 1);
     });
-    return cityDistrictCatalog
-      .map((district) => ({ district, count: counts.get(district.id) || 0 }))
-      .filter((row) => row.count > 0);
+    return cityDistrictCatalog.map((district) => ({
+      district,
+      count: counts.get(district.id) || 0,
+    }));
   }, [cityDistrictCatalog, cityPlaces, placeDistrictId]);
 
   // How many places sit in each category for the current city — drives the
@@ -1821,7 +1823,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       'inline-flex h-auto flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                       isActive
                         ? 'border-primary/45 bg-primary/10 text-primary'
-                        : 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
+                        : count > 0
+                          ? 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground'
+                          : 'border-border/40 bg-transparent text-muted-foreground/55 hover:text-muted-foreground',
                     )}
                   >
                     <span>{districtDisplayName(district, lang)}</span>
