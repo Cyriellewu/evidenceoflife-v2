@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
+import {
+  districtDisplayName,
+  districtGeometriesForCity,
+  districtsForCity,
+  isNewYorkCoords,
+  resolvePlaceDistrict,
+} from '@/lib/cityDistricts';
 
 interface MapViewProps {
   moments: Moment[];
@@ -120,18 +127,23 @@ const normalizeMunicipalityDistrict = (name: string, isZh: boolean): string => {
 
 interface TileSource {
   url: string;
+  /** Optional labels-only overlay (Esri canvas Reference). */
+  labelsUrl?: string;
   subdomains?: string;
   maxZoom: number;
   className: string;
   attribution: string;
 }
 
-// Free, no-key basemaps. Carto's public CDN now returns "API KEY REQUIRED"
-// watermark tiles (HTTP 200), so it is not usable without a paid key. Esri
-// ArcGIS Online canvas tiles still work anonymously with attribution.
+// Free, no-key basemaps. Carto's public CDN returns "API KEY REQUIRED"
+// watermarks (HTTP 200), so it is not usable without a paid key. Esri
+// ArcGIS Online canvas tiles still work anonymously — pair Base + Reference
+// so district / borough names stay readable (canvas Base alone is unlabeled).
 const TILE_SOURCES: TileSource[] = [
   {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    labelsUrl:
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
     maxZoom: 16,
     className: 'map-tiles-dark',
     attribution:
@@ -139,7 +151,17 @@ const TILE_SOURCES: TileSource[] = [
   },
   {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    labelsUrl:
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
     maxZoom: 16,
+    className: 'map-tiles-light',
+    attribution:
+      'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS',
+  },
+  {
+    // Street map has place labels baked in — used if canvas + reference fail.
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    maxZoom: 19,
     className: 'map-tiles-light',
     attribution:
       'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS',
@@ -151,13 +173,6 @@ const TILE_SOURCES: TileSource[] = [
     className: 'map-tiles-light',
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="https://opentopomap.org">OpenTopoMap</a>',
-  },
-  {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    subdomains: 'abc',
-    maxZoom: 19,
-    className: 'map-tiles-light',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
 ];
 
@@ -171,21 +186,33 @@ function preferredTileSources(): TileSource[] {
 }
 
 function addResilientTiles(map: L.Map) {
-  // Attach one basemap; on repeated tile failures, swap to the next free host.
-  // Do not tear down mid-animation without a replacement — that previously
-  // blacked out the map after world↔city jumps.
+  // Attach one basemap (+ optional label overlay); on repeated tile failures,
+  // swap to the next free host. Do not tear down mid-animation without a
+  // replacement — that previously blacked out the map after world↔city jumps.
   const sources = preferredTileSources();
   let index = 0;
   let failCount = 0;
-  let layer: L.TileLayer | null = null;
+  let baseLayer: L.TileLayer | null = null;
+  let labelsLayer: L.TileLayer | null = null;
+
+  const detach = (layer: L.TileLayer | null) => {
+    if (!layer) return;
+    try {
+      map.removeLayer(layer);
+    } catch {
+      /* layer may already be gone */
+    }
+  };
 
   const attach = (src: TileSource) => {
     failCount = 0;
+    detach(labelsLayer);
+    labelsLayer = null;
     const options: L.TileLayerOptions = {
       attribution: src.attribution,
       maxZoom: src.maxZoom,
       className: src.className,
-      // Esri JPEG + OSM PNG — helps some WebViews paint reliably.
+      // Esri JPEG/PNG — helps some WebViews paint reliably.
       crossOrigin: true,
     };
     // Leaflet's default subdomains is 'abc'. Passing `undefined` overrides that
@@ -197,19 +224,26 @@ function addResilientTiles(map: L.Map) {
       // A burst of errors usually means the host is blocked — fall through.
       if (failCount < 4 || index >= sources.length - 1) return;
       index += 1;
-      try {
-        map.removeLayer(next);
-      } catch {
-        /* layer may already be gone */
-      }
-      if (layer === next) layer = null;
-      layer = attach(sources[index]);
+      detach(next);
+      detach(labelsLayer);
+      labelsLayer = null;
+      if (baseLayer === next) baseLayer = null;
+      baseLayer = attach(sources[index]);
     });
     next.addTo(map);
+    if (src.labelsUrl) {
+      labelsLayer = L.tileLayer(src.labelsUrl, {
+        maxZoom: src.maxZoom,
+        className: `${src.className} map-tiles-labels`,
+        crossOrigin: true,
+        opacity: 0.95,
+      });
+      labelsLayer.addTo(map);
+    }
     return next;
   };
 
-  layer = attach(sources[0]);
+  baseLayer = attach(sources[0]);
 }
 
 
@@ -549,6 +583,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const { t, lang } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>('world');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
+  const [activeDistrictId, setActiveDistrictId] = useState<string | null>(null);
   const [placeQuery, setPlaceQuery] = useState('');
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
@@ -566,7 +601,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   // Which cityIdx we last fit the map to. Only bump when the user actually
   // enters a new city; that way filter/search changes update markers without
   // re-fitBounds every keystroke (which would visibly jump the map around).
+  // District chip taps also re-fit so you can see that borough's places.
   const lastFitCityIdxRef = useRef<number>(-1);
+  const lastFitDistrictRef = useRef<string | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const detailMapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -574,7 +611,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   // Store city-view markers keyed by place name for lightweight updates on selection
   const cityMarkerMapRef = useRef(new Map<string, { marker: L.Marker; category: string; lat: number; lng: number; renderLat: number; renderLng: number }>());
   const heatLayerRef = useRef<L.Layer | null>(null);
-  const boundaryLayersRef = useRef<L.GeoJSON[]>([]);
+  const boundaryLayersRef = useRef<L.Layer[]>([]);
   const [cityBoundaries, setCityBoundaries] = useState<Map<string, GeoJSON.GeoJsonObject>>(new Map());
   const detailFixTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // Build all places: merge from new places tables + legacy moments
@@ -738,7 +775,11 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           if (dist < 30) { resolvedName = dbCity.name; break; }
         }
       }
-      c.cityName = normalizeMunicipalityDistrict(resolvedName, lang.startsWith('zh')) || `Area ${i + 1}`;
+      c.cityName =
+        normalizeMunicipalityDistrict(resolvedName, lang.startsWith('zh')) ||
+        (isNewYorkCoords(c.centerLat, c.centerLng)
+          ? (lang.startsWith('zh') ? '纽约' : 'New York')
+          : `Area ${i + 1}`);
     });
     setCities(initialCities);
 
@@ -844,7 +885,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     // Leaving city view resets the fit token so re-entering any city triggers
     // a fresh fitBounds. Without this, going world → city2 → world → city2
     // would skip the fit on the second entry because the token still matches.
-    if (viewMode !== 'city') lastFitCityIdxRef.current = -1;
+    if (viewMode !== 'city') {
+      lastFitCityIdxRef.current = -1;
+      lastFitDistrictRef.current = null;
+    }
   }, [viewMode]);
 
   useEffect(() => {
@@ -939,6 +983,44 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const currentCity = selectedCityIdx >= 0 ? cities[selectedCityIdx] : null;
   const cityPlaces = useMemo(() => currentCity?.places ?? [], [currentCity]);
 
+  const cityDistrictCatalog = useMemo(
+    () =>
+      currentCity
+        ? districtsForCity(currentCity.cityName, {
+            lat: currentCity.centerLat,
+            lng: currentCity.centerLng,
+          })
+        : [],
+    [currentCity],
+  );
+
+  const cityDistrictGeometries = useMemo(
+    () =>
+      currentCity
+        ? districtGeometriesForCity(currentCity.cityName, {
+            lat: currentCity.centerLat,
+            lng: currentCity.centerLng,
+          })
+        : [],
+    [currentCity],
+  );
+
+  const placeDistrictId = useCallback(
+    (place: PlaceInfo): string | null => {
+      if (!currentCity || cityDistrictCatalog.length === 0) return null;
+      return (
+        resolvePlaceDistrict(
+          currentCity.cityName,
+          place.lat,
+          place.lng,
+          place.name,
+          { lat: currentCity.centerLat, lng: currentCity.centerLng },
+        )?.id ?? null
+      );
+    },
+    [currentCity, cityDistrictCatalog.length],
+  );
+
   // How many places sit in each category for the current city — drives the
   // filter pills so users can see what's available ("Coffee 3") and we can hide
   // categories the city has none of. Uses resolveCategory so the count matches
@@ -957,10 +1039,18 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     let list = activeCategory === 'all'
       ? cityPlaces
       : cityPlaces.filter(p => resolveCategory(p) === activeCategory);
+    if (activeDistrictId) {
+      list = list.filter((p) => placeDistrictId(p) === activeDistrictId);
+    }
     if (q) list = list.filter(p => p.name.toLowerCase().includes(q));
     // Most-visited first so the places that matter surface at the top.
     return [...list].sort((a, b) => b.visits - a.visits);
-  }, [cityPlaces, activeCategory, placeQuery]);
+  }, [cityPlaces, activeCategory, activeDistrictId, placeQuery, placeDistrictId]);
+
+  // Reset district filter when leaving / switching cities.
+  useEffect(() => {
+    setActiveDistrictId(null);
+  }, [selectedCityIdx, viewMode]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -1354,7 +1444,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
   }, [cities, viewMode, maxCityVisits, lang, worldZoom, mapPreviewFailed]);
 
-  // Render city view: individual place markers with glow
+  // Render city view: district overlays + place markers
   useEffect(() => {
     if (MAP_SAFE_MODE || mapPreviewFailed) return;
     if (!mapRef.current || viewMode !== 'city') return;
@@ -1383,26 +1473,97 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     }
     boundaryLayersRef.current = [];
 
-    // Invalidate size and fit bounds to places (detail map behavior)
     const map = mapRef.current;
 
-    // If there are no places, fall back to centering on the city center
+    // Color-fill each borough so districts read as regions, not empty outlines.
+    cityDistrictGeometries.forEach((geo) => {
+      const isActive = activeDistrictId === geo.label.id;
+      const dimOthers = !!activeDistrictId && !isActive;
+      const name = escapeHtml(districtDisplayName(geo.label, lang));
+      const latLngs = geo.ring.map(([lng, lat]) => [lat, lng] as [number, number]);
+      const fill = geo.color;
+      const polygon = L.polygon(latLngs, {
+        color: fill,
+        weight: isActive ? 2 : 0,
+        opacity: isActive ? 0.95 : 0,
+        fillColor: fill,
+        fillOpacity: dimOthers ? 0.1 : isActive ? 0.48 : 0.32,
+        interactive: true,
+      });
+      polygon.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        setActiveDistrictId((prev) => (prev === geo.label.id ? null : geo.label.id));
+      });
+      polygon.addTo(map);
+      boundaryLayersRef.current.push(polygon);
+
+      const label = L.marker([geo.centroid.lat, geo.centroid.lng], {
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: -200,
+        opacity: dimOthers ? 0.45 : 1,
+        icon: L.divIcon({
+          className: 'district-label-icon',
+          html: `<div style="
+            pointer-events:none;
+            white-space:nowrap;
+            font-size:12px;
+            font-weight:700;
+            letter-spacing:0.02em;
+            color:#fff;
+            background:${fill};
+            border-radius:999px;
+            box-shadow:0 2px 8px rgba(0,0,0,0.18);
+            padding:4px 10px;
+            opacity:${dimOthers ? 0.55 : 1};
+          ">${name}</div>`,
+        }),
+      });
+      label.addTo(map);
+      markersRef.current.push(label);
+    });
+
+    // If there are no places, still show districts and fit to them / city center.
     if (filteredPlaces.length === 0) {
-      if (currentCity) {
-        // ensure map knows its size then center
-        const centerTimer = setTimeout(() => {
-          if (cancelled) return;
-          try {
-            map.invalidateSize();
-            map.setView([currentCity.centerLat, currentCity.centerLng], 13, { animate: false });
-            lastFitCityIdxRef.current = selectedCityIdx;
-          } catch {
-            // Ignore transient map sizing/setView race.
+      const centerTimer = setTimeout(() => {
+        if (cancelled) return;
+        try {
+          map.invalidateSize();
+          if (activeDistrictId) {
+            const geo = cityDistrictGeometries.find((d) => d.label.id === activeDistrictId);
+            if (geo) {
+              const bounds = L.latLngBounds(geo.ring.map(([lng, lat]) => [lat, lng] as [number, number]));
+              if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 13, animate: false });
+                lastFitCityIdxRef.current = selectedCityIdx;
+                lastFitDistrictRef.current = activeDistrictId;
+                return;
+              }
+            }
           }
-        }, 120);
-        return () => { cancelled = true; clearTimeout(centerTimer); };
-      }
-      return;
+          if (cityDistrictGeometries.length > 0) {
+            const bounds = L.latLngBounds(
+              cityDistrictGeometries.flatMap((g) =>
+                g.ring.map(([lng, lat]) => [lat, lng] as [number, number]),
+              ),
+            );
+            if (bounds.isValid()) {
+              map.fitBounds(bounds, { padding: [24, 24], maxZoom: 11, animate: false });
+              lastFitCityIdxRef.current = selectedCityIdx;
+              lastFitDistrictRef.current = activeDistrictId;
+              return;
+            }
+          }
+          if (currentCity) {
+            map.setView([currentCity.centerLat, currentCity.centerLng], 12, { animate: false });
+            lastFitCityIdxRef.current = selectedCityIdx;
+            lastFitDistrictRef.current = activeDistrictId;
+          }
+        } catch {
+          // Ignore transient map sizing/setView race.
+        }
+      }, 120);
+      return () => { cancelled = true; clearTimeout(centerTimer); };
     }
 
     const maxPlaceVisits = Math.max(...filteredPlaces.map(p => p.visits), 1);
@@ -1466,26 +1627,56 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       cityMarkerMapRef.current.set(place.name, { marker, category: place.category, lat: place.lat, lng: place.lng, renderLat, renderLng });
     });
 
-      // Only fit bounds the FIRST time we render a given city — otherwise every
-      // keystroke in the search box (or category toggle) triggers a fitBounds
-      // and the map visibly jumps around while the user is trying to browse.
-      // Subsequent filter changes just replace markers; the viewport stays put.
-      const shouldFit = lastFitCityIdxRef.current !== selectedCityIdx;
+      // Fit to all boroughs on city entry (so districts are visible), or to a
+      // selected borough. Never fall through to place-tight zoom on the
+      // fallback timer — that previously undid the borough overview.
+      const shouldFit =
+        lastFitCityIdxRef.current !== selectedCityIdx ||
+        lastFitDistrictRef.current !== activeDistrictId;
       const performFit = () => {
         if (cancelled) return;
         try {
           map.invalidateSize();
           if (!shouldFit) return;
+
+          if (activeDistrictId) {
+            const geo = cityDistrictGeometries.find((d) => d.label.id === activeDistrictId);
+            if (geo) {
+              const bounds = L.latLngBounds(geo.ring.map(([lng, lat]) => [lat, lng] as [number, number]));
+              if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 13, animate: false });
+                lastFitCityIdxRef.current = selectedCityIdx;
+                lastFitDistrictRef.current = activeDistrictId;
+                return;
+              }
+            }
+          }
+
+          if (cityDistrictGeometries.length > 0) {
+            const bounds = L.latLngBounds(
+              cityDistrictGeometries.flatMap((g) =>
+                g.ring.map(([lng, lat]) => [lat, lng] as [number, number]),
+              ),
+            );
+            if (bounds.isValid()) {
+              map.fitBounds(bounds, { padding: [20, 20], maxZoom: 11, animate: false });
+              lastFitCityIdxRef.current = selectedCityIdx;
+              lastFitDistrictRef.current = activeDistrictId;
+              return;
+            }
+          }
+
           if (displayPlaces.length === 1) {
             const p = displayPlaces[0];
             map.setView([p.renderLat, p.renderLng], 15, { animate: false });
-          } else {
+          } else if (displayPlaces.length > 1) {
             const bounds = L.latLngBounds(displayPlaces.map(p => [p.renderLat, p.renderLng] as L.LatLngExpression));
             if (bounds.isValid()) {
               map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: false });
             }
           }
           lastFitCityIdxRef.current = selectedCityIdx;
+          lastFitDistrictRef.current = activeDistrictId;
         } catch {
           // swallow if map was removed or view changed
         }
@@ -1499,7 +1690,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         clearTimeout(primary);
         clearTimeout(fallback);
       };
-  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang, selectedCityIdx, openPlaceDetail, t]);
+  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang, selectedCityIdx, activeDistrictId, cityDistrictGeometries, openPlaceDetail, t]);
 
   // Lightweight effect: update only marker styling / pan when selectedPlace changes.
   useEffect(() => {
@@ -1689,13 +1880,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         />
       )}
 
-      {/* Toolbar — category chips form the main strip; search lives at the
-          end of that row as a quiet icon button that expands into an input
-          when tapped. This keeps a wide blank search bar from dominating the
-          city header on desktop while still being one tap away. */}
+      {/* Toolbar — category chips wrap so every label stays fully visible. */}
       {viewMode === 'city' && (
         <div className="px-5 pb-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             {searchExpanded || placeQuery ? (
               <div
                 className={cn(
@@ -1735,53 +1923,51 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 </Button>
               </div>
             ) : (
-              <>
-                <div className="-mx-1 flex flex-1 items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
-                  {categoryKeys
-                    .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
-                    .map(({ id, labelKey, icon: Icon }) => {
-                      const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
-                      const isActive = activeCategory === id;
-                      const accent = chipAccents[id] ?? chipAccents.other;
-                      return (
-                        <Button
-                          key={id}
-                          variant="ghost"
-                          onClick={() => setActiveCategory(id)}
-                          aria-pressed={isActive}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                {categoryKeys
+                  .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
+                  .map(({ id, labelKey, icon: Icon }) => {
+                    const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
+                    const isActive = activeCategory === id;
+                    const accent = chipAccents[id] ?? chipAccents.other;
+                    return (
+                      <Button
+                        key={id}
+                        variant="ghost"
+                        onClick={() => setActiveCategory(id)}
+                        aria-pressed={isActive}
+                        className={cn(
+                          'inline-flex h-auto items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                          !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
+                        )}
+                        style={
+                          isActive
+                            ? {
+                                backgroundColor: `${accent}1f`,
+                                borderColor: `${accent}73`,
+                                color: accent,
+                              }
+                            : undefined
+                        }
+                      >
+                        <Icon
+                          size={12}
+                          className={isActive ? '' : 'text-muted-foreground/70'}
+                          style={isActive ? { color: accent } : undefined}
+                        />
+                        <span>{t(labelKey)}</span>
+                        <span
                           className={cn(
-                            'inline-flex h-auto flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                            !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
+                            'tabular-nums text-[10px]',
+                            !isActive && 'text-muted-foreground/55',
                           )}
-                          style={
-                            isActive
-                              ? {
-                                  backgroundColor: `${accent}1f`,
-                                  borderColor: `${accent}73`,
-                                  color: accent,
-                                }
-                              : undefined
-                          }
+                          style={isActive ? { color: accent, opacity: 0.7 } : undefined}
                         >
-                          <Icon
-                            size={13}
-                            className={isActive ? '' : 'text-muted-foreground/70'}
-                            style={isActive ? { color: accent } : undefined}
-                          />
-                          <span>{t(labelKey)}</span>
-                          <span
-                            className={cn(
-                              'tabular-nums text-[11px]',
-                              !isActive && 'text-muted-foreground/55',
-                            )}
-                            style={isActive ? { color: accent, opacity: 0.7 } : undefined}
-                          >
-                            {count}
-                          </span>
-                        </Button>
-                      );
-                    })}
-                </div>
+                          {count}
+                        </span>
+                      </Button>
+                    );
+                  })}
                 {cityPlaces.length > 4 && (
                   <Button
                     type="button"
@@ -1789,12 +1975,12 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     size="icon"
                     onClick={() => setSearchExpanded(true)}
                     aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
-                    className="h-8 w-8 flex-shrink-0 rounded-full border border-border/55 text-muted-foreground/75 hover:border-primary/40 hover:text-foreground focus-visible:ring-primary/40"
+                    className="h-7 w-7 rounded-full border border-border/55 text-muted-foreground/75 hover:border-primary/40 hover:text-foreground focus-visible:ring-primary/40"
                   >
-                    <Search size={14} strokeWidth={2.1} />
+                    <Search size={13} strokeWidth={2.1} />
                   </Button>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -1838,7 +2024,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           <div
             className={cn(
               "rounded-2xl overflow-hidden shadow-sm transition-[height] duration-200",
-              viewMode === 'world' ? 'h-[320px] lg:h-[400px]' : 'h-[300px] lg:h-96'
+              viewMode === 'world' ? 'h-[320px] lg:h-[400px]' : 'h-[340px] lg:h-[420px]'
             )}
             style={{ border: '1px solid hsl(var(--border) / 0.4)' }}
           >
@@ -1881,10 +2067,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 return (
                   <div
                     key={i}
-                    onClick={() => { setSelectedCityIdx(i); setViewMode('city'); setActiveCategory('all'); setPlaceQuery(''); }}
+                    onClick={() => { setSelectedCityIdx(i); setViewMode('city'); setActiveCategory('all'); setActiveDistrictId(null); setPlaceQuery(''); }}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCityIdx(i); setViewMode('city'); setActiveCategory('all'); setPlaceQuery(''); } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCityIdx(i); setViewMode('city'); setActiveCategory('all'); setActiveDistrictId(null); setPlaceQuery(''); } }}
                     aria-label={`${city.cityName || `Area ${i + 1}`} — ${city.places.length} ${lang === 'zh' ? '个地点' : 'places'}, ${city.totalVisits} ${lang === 'zh' ? '次访问' : 'visits'}`}
                     className="group p-4 rounded-2xl bg-card shadow-sm border border-border/30 hover:shadow-md hover:border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 cursor-pointer transition-all life-map-card-enter"
                     style={{ animationDelay: `${i * 60}ms` }}
@@ -1960,10 +2146,19 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {viewMode === 'city' && (
         <div className="px-5 mt-4 flex-1 overflow-y-auto">
           <h2 className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-2.5">
-            {activeCategory === 'all'
-              ? t('map.allPlaces')
-              : t(categoryKeys.find(k => k.id === activeCategory)?.labelKey ?? 'map.allPlaces')
-            } ({filteredPlaces.length})
+            {(() => {
+              const activeDistrict = activeDistrictId
+                ? cityDistrictGeometries.find((d) => d.label.id === activeDistrictId)?.label
+                : null;
+              if (activeDistrict) {
+                return `${districtDisplayName(activeDistrict, lang)} (${filteredPlaces.length})`;
+              }
+              return `${
+                activeCategory === 'all'
+                  ? t('map.allPlaces')
+                  : t(categoryKeys.find(k => k.id === activeCategory)?.labelKey ?? 'map.allPlaces')
+              } (${filteredPlaces.length})`;
+            })()}
           </h2>
 
           {filteredPlaces.length === 0 ? (
@@ -2021,10 +2216,27 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-[13px] truncate leading-tight">{place.name}</p>
+                      <p className="font-medium text-[13px] break-words whitespace-normal leading-snug">{place.name}</p>
                       <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                        {place.visits} {place.visits === 1 ? t('map.visit') : t('map.visits')}
-                        {place.photos.length > 0 && ` · ${place.photos.length} ${place.photos.length === 1 ? t('map.photo') : t('map.photos')}`}
+                        {(() => {
+                          const district = cityDistrictCatalog.length
+                            ? resolvePlaceDistrict(
+                                currentCity!.cityName,
+                                place.lat,
+                                place.lng,
+                                place.name,
+                                { lat: currentCity!.centerLat, lng: currentCity!.centerLng },
+                              )
+                            : null;
+                          const bits = [
+                            district ? districtDisplayName(district, lang) : null,
+                            `${place.visits} ${place.visits === 1 ? t('map.visit') : t('map.visits')}`,
+                            place.photos.length > 0
+                              ? `${place.photos.length} ${place.photos.length === 1 ? t('map.photo') : t('map.photos')}`
+                              : null,
+                          ].filter(Boolean);
+                          return bits.join(' · ');
+                        })()}
                       </p>
                     </div>
                     <span className="text-lg font-semibold tabular-nums" style={{ color }}>{place.visits}</span>
