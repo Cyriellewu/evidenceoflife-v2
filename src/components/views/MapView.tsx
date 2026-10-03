@@ -16,6 +16,7 @@ import { StorageImage } from "@/components/StorageImage";
 import {
   districtDisplayName,
   districtsForCity,
+  isNewYorkCoords,
   resolvePlaceDistrict,
   type DistrictLabel,
 } from '@/lib/cityDistricts';
@@ -774,7 +775,11 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           if (dist < 30) { resolvedName = dbCity.name; break; }
         }
       }
-      c.cityName = normalizeMunicipalityDistrict(resolvedName, lang.startsWith('zh')) || `Area ${i + 1}`;
+      c.cityName =
+        normalizeMunicipalityDistrict(resolvedName, lang.startsWith('zh')) ||
+        (isNewYorkCoords(c.centerLat, c.centerLng)
+          ? (lang.startsWith('zh') ? '纽约' : 'New York')
+          : `Area ${i + 1}`);
     });
     setCities(initialCities);
 
@@ -979,16 +984,30 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const cityPlaces = useMemo(() => currentCity?.places ?? [], [currentCity]);
 
   const cityDistrictCatalog = useMemo(
-    () => (currentCity?.cityName ? districtsForCity(currentCity.cityName) : []),
-    [currentCity?.cityName],
+    () =>
+      currentCity
+        ? districtsForCity(currentCity.cityName, {
+            lat: currentCity.centerLat,
+            lng: currentCity.centerLng,
+          })
+        : [],
+    [currentCity],
   );
 
   const placeDistrictId = useCallback(
     (place: PlaceInfo): string | null => {
-      if (!currentCity?.cityName || cityDistrictCatalog.length === 0) return null;
-      return resolvePlaceDistrict(currentCity.cityName, place.lat, place.lng, place.name)?.id ?? null;
+      if (!currentCity || cityDistrictCatalog.length === 0) return null;
+      return (
+        resolvePlaceDistrict(
+          currentCity.cityName,
+          place.lat,
+          place.lng,
+          place.name,
+          { lat: currentCity.centerLat, lng: currentCity.centerLng },
+        )?.id ?? null
+      );
     },
-    [currentCity?.cityName, cityDistrictCatalog.length],
+    [currentCity, cityDistrictCatalog.length],
   );
 
   // Districts that actually have places — shown as a second chip row so NYC
@@ -2151,7 +2170,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       <p className="text-[11px] text-muted-foreground/60 mt-0.5">
                         {(() => {
                           const district = cityDistrictCatalog.length
-                            ? resolvePlaceDistrict(currentCity!.cityName, place.lat, place.lng, place.name)
+                            ? resolvePlaceDistrict(
+                                currentCity!.cityName,
+                                place.lat,
+                                place.lng,
+                                place.name,
+                                { lat: currentCity!.centerLat, lng: currentCity!.centerLng },
+                              )
                             : null;
                           const bits = [
                             district ? districtDisplayName(district, lang) : null,

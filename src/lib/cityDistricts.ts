@@ -138,6 +138,11 @@ function isNewYorkCity(cityName: string): boolean {
   );
 }
 
+/** Rough NYC metro box — used when reverse-geocode left the cluster as "Area N". */
+export function isNewYorkCoords(lat: number, lng: number): boolean {
+  return lat >= 40.48 && lat <= 40.92 && lng >= -74.28 && lng <= -73.68;
+}
+
 function cnDistrictsForCity(cityName: string): DistrictLabel[] | null {
   const key = normalizeCityKey(cityName);
   for (const entry of CN_CITY_DISTRICTS) {
@@ -153,9 +158,15 @@ function cnDistrictsForCity(cityName: string): DistrictLabel[] | null {
 }
 
 /** Known district catalog for a city, if we support one. */
-export function districtsForCity(cityName: string): DistrictLabel[] {
+export function districtsForCity(
+  cityName: string,
+  center?: { lat: number; lng: number } | null,
+): DistrictLabel[] {
+  if (cityName && isNewYorkCity(cityName)) return NYC_BOROUGHS.map((b) => b.label);
+  if (center && isNewYorkCoords(center.lat, center.lng)) {
+    return NYC_BOROUGHS.map((b) => b.label);
+  }
   if (!cityName) return [];
-  if (isNewYorkCity(cityName)) return NYC_BOROUGHS.map((b) => b.label);
   return cnDistrictsForCity(cityName) ?? [];
 }
 
@@ -165,16 +176,23 @@ export function resolvePlaceDistrict(
   lat: number,
   lng: number,
   placeName?: string,
+  cityCenter?: { lat: number; lng: number } | null,
 ): DistrictLabel | null {
-  if (!cityName || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-  if (isNewYorkCity(cityName)) {
+  const treatAsNyc =
+    isNewYorkCity(cityName) ||
+    isNewYorkCoords(lat, lng) ||
+    (!!cityCenter && isNewYorkCoords(cityCenter.lat, cityCenter.lng));
+
+  if (treatAsNyc) {
     for (const borough of NYC_BOROUGHS) {
       if (pointInRing(lng, lat, borough.ring)) return borough.label;
     }
     return null;
   }
 
+  if (!cityName) return null;
   const cn = cnDistrictsForCity(cityName);
   if (!cn || !placeName) return null;
   const hay = placeName.toLowerCase();

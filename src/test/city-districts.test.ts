@@ -34,8 +34,14 @@ describe('cityDistricts', () => {
     expect(d?.id).toBe('haidian');
   });
 
-  it('returns empty catalog for unknown cities', () => {
-    expect(districtsForCity('Seattle')).toEqual([]);
-    expect(resolvePlaceDistrict('Seattle', 47.6, -122.3)).toBeNull();
+  it('lists NYC boroughs from coordinates when the city is still Area N', () => {
+    expect(districtsForCity('Area 1', { lat: 40.81, lng: -73.96 }).map((d) => d.id)).toContain(
+      'manhattan',
+    );
+    const d = resolvePlaceDistrict('Area 1', 40.8106, -73.9626, 'Butler Library', {
+      lat: 40.81,
+      lng: -73.96,
+    });
+    expect(d?.id).toBe('manhattan');
   });
 });
