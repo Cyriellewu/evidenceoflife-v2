@@ -1503,20 +1503,19 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           className: 'district-label-icon',
           html: `<div style="
             pointer-events:none;
-            transform:translate(-50%,-50%);
             white-space:nowrap;
             font-size:12px;
             font-weight:700;
             letter-spacing:0.02em;
             color:${isActive ? LIFE_MAP_COLOR : 'rgba(74,46,29,0.82)'};
-            background:rgba(255,255,255,0.78);
-            border:1px solid rgba(74,46,29,0.12);
+            background:rgba(255,255,255,0.82);
+            border:1px solid rgba(74,46,29,0.14);
             border-radius:999px;
             box-shadow:0 1px 2px rgba(74,46,29,0.08);
             padding:3px 8px;
           ">${name}</div>`,
-          iconSize: [0, 0],
-          iconAnchor: [0, 0],
+          iconSize: undefined,
+          iconAnchor: undefined,
         }),
       });
       label.addTo(map);
