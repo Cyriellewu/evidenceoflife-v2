@@ -517,7 +517,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   }, [historyMoments, selectedDate, timeBreakdownRange, getWorkType, todayTimeBreakdownRows]);
 
   const activeTimeBreakdown = timeBreakdownRange === 'today' ? todayTimeBreakdown : rangedMomentTimeBreakdown;
-  const shouldShowTimeBreakdownCard = todayTimeBreakdown.length > 0 || (historyMoments?.length || 0) > 0;
+  // Don't keep a tall empty "Time Breakdown" card on mobile days with no timed
+  // aggregates — it pushes Timeline off-screen for almost no information.
+  const shouldShowTimeBreakdownCard = activeTimeBreakdown.length > 0;
   const priorityAlignment = useMemo(() => {
     const rankedTodos = [...(allTodos ?? [])]
       .filter((todo) => !todo.parent_due_id && todo.date === selectedDateStr)
@@ -1635,7 +1637,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                  completedTodos={completedTodos}
                  allMoments={todayMoments}
                  todayDateStr={selectedDateStr}
-                 defaultCollapsed={false}
+                 defaultCollapsed={isMobile}
                />
                {priorityAlignment && (
                  <div className="mt-3 rounded-2xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-3">
