@@ -3747,14 +3747,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         </div>
       </div>
 
-      {/* Timeline chrome: on phone wrap + short labels so Rest/Auto-plan/mode
-          don't clip into the hour gutter. Desktop stays a single right cluster. */}
-      <div className="pointer-events-none absolute inset-x-2 top-2 z-30 flex flex-col items-end gap-1.5 sm:inset-x-auto sm:right-12 sm:top-3 sm:flex-row sm:items-start sm:gap-1">
-        <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
+      {/* Timeline chrome: phone uses a full-width bar so Rest stays on-screen
+          (left) and Plan/Doing/Both stay right — never one overflowing row.
+          Desktop keeps a single right cluster. */}
+      <div className="pointer-events-none absolute inset-x-1.5 top-1.5 z-30 flex w-[calc(100%-0.75rem)] max-w-full items-start justify-between gap-1 sm:inset-x-auto sm:right-12 sm:top-3 sm:w-auto sm:justify-end sm:gap-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-1 sm:justify-end">
           <button
             type="button"
             onClick={handleRestToggle}
-            className="pointer-events-auto flex items-center gap-1 rounded-full px-2.5 py-[5px] text-[12px] font-medium transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:py-[3px]"
+            className="pointer-events-auto flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:px-2.5 sm:py-[3px] sm:text-[12px]"
             style={{
               background: restStartMin !== null
                 ? `color-mix(in srgb, hsl(var(--surface-contrast)) 80%, ${REST_COLOR} 20%)`
@@ -3766,7 +3767,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             {restStartMin !== null ? (
               <>
                 <span className="animate-pulse">●</span>
-                <span>{lang === 'zh' ? '结束休息' : 'Stop Rest'}</span>
+                <span>{lang === 'zh' ? '结束' : 'Stop'}</span>
               </>
             ) : (
               <>
@@ -3776,28 +3777,28 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             )}
           </button>
           {selectedRange && (
-            <span className="pointer-events-auto rounded-full border border-border/50 bg-[hsl(var(--surface-contrast)/0.9)] px-2.5 py-1 text-[12px] text-muted-foreground shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] backdrop-blur-md">
+            <span className="pointer-events-auto shrink-0 whitespace-nowrap rounded-full border border-border/50 bg-[hsl(var(--surface-contrast)/0.9)] px-2 py-1 text-[11px] text-muted-foreground shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] backdrop-blur-md sm:px-2.5 sm:text-[12px]">
               {t('plan.selected')} <span className="font-semibold text-foreground">
                 {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
               </span> {t('plan.minutes')}
             </span>
           )}
           {isViewingToday && (unscheduledTodos.length > 0 || suggestions) && (
-            <div className="pointer-events-auto flex items-center gap-1">
+            <div className="pointer-events-auto flex min-w-0 items-center gap-1">
               {suggestions ? (
                 <div
-                  className="flex max-w-[min(100%,320px)] flex-wrap items-center justify-end gap-1 rounded-full border p-[3px] backdrop-blur-md shadow-[0_8px_20px_hsl(var(--foreground)/0.08)]"
+                  className="flex max-w-[min(100%,280px)] flex-wrap items-center justify-start gap-1 rounded-full border p-[3px] backdrop-blur-md shadow-[0_8px_20px_hsl(var(--foreground)/0.08)] sm:justify-end"
                   style={{ background: suggestionToolbarBg, borderColor: suggestionToolbarBorder }}
                   onPointerDown={e => e.stopPropagation()}
                   onMouseDown={e => e.stopPropagation()}
                   onClick={e => e.stopPropagation()}
                 >
                   <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-[5px] text-[11px] font-medium leading-none"
+                    className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium leading-none"
                     style={{ background: suggestionToolbarLabelBg, color: suggestionToolbarLabelFg }}
                   >
                     <CalendarDays size={11} />
-                    {lang === 'zh' ? `${suggestions.length} 条建议` : `${suggestions.length} suggestions`}
+                    {lang === 'zh' ? `${suggestions.length} 条` : `${suggestions.length}`}
                   </span>
                   <div
                     className="flex items-center gap-0.5 rounded-full border p-[2px]"
@@ -3808,7 +3809,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       onPointerDown={e => e.stopPropagation()}
                       onMouseDown={e => e.stopPropagation()}
                       onClick={acceptAllSuggestions}
-                      className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium transition-colors"
+                      className="flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-[4px] text-[11px] font-medium transition-colors"
                       style={{
                         background: isDarkMode ? 'hsl(150 30% 40% / 0.22)' : 'hsl(150 40% 42% / 0.16)',
                         border: `1px solid ${isDarkMode ? 'hsl(150 32% 55% / 0.40)' : 'hsl(150 38% 40% / 0.38)'}`,
@@ -3816,21 +3817,20 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       }}
                     >
                       <Check size={12} />
-                      <span>{lang === 'zh' ? '全部接受' : 'Accept all'}</span>
+                      <span>{lang === 'zh' ? '接受' : 'Accept'}</span>
                     </button>
                     <button
                       type="button"
                       onPointerDown={e => e.stopPropagation()}
                       onMouseDown={e => e.stopPropagation()}
                       onClick={dismissSuggestions}
-                      className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground"
+                      className="flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-[4px] text-[11px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground"
                       style={{
                         background: isDarkMode ? 'hsl(0 0% 100% / 0.04)' : 'hsl(0 0% 100% / 0.46)',
                         border: `1px solid ${isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)'}`,
                       }}
                     >
                       <X size={12} />
-                      <span>{lang === 'zh' ? '取消' : 'Cancel'}</span>
                     </button>
                   </div>
                 </div>
@@ -3839,21 +3839,21 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   type="button"
                   onClick={handleAutoPlan}
                   title={lang === 'zh' ? '按偏好把未排任务填进空隙' : 'Fill gaps with unscheduled tasks'}
-                  className="flex items-center gap-1 rounded-full px-2.5 py-[5px] text-[12px] font-medium transition-colors backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:py-[3px]"
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium transition-colors backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] sm:px-2.5 sm:py-[3px] sm:text-[12px]"
                   style={{
                     background: isDarkMode ? 'hsl(24 40% 50% / 0.16)' : 'hsl(24 55% 48% / 0.10)',
                     border: `1px solid ${isDarkMode ? 'hsl(24 45% 60% / 0.38)' : 'hsl(24 50% 46% / 0.34)'}`,
                     color: isDarkMode ? 'hsl(24 55% 70%)' : 'hsl(24 60% 42%)',
                   }}
                 >
-                  <CalendarDays size={13} />
-                  <span>{lang === 'zh' ? '自动填充' : 'Auto'}</span>
+                  <CalendarDays size={12} />
+                  <span>{lang === 'zh' ? '填充' : 'Auto'}</span>
                 </button>
               )}
             </div>
           )}
         </div>
-        <div className="pointer-events-auto flex items-center rounded-full border border-border/45 bg-[hsl(var(--surface-contrast)/0.88)] p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] backdrop-blur-md">
+        <div className="pointer-events-auto flex shrink-0 items-center rounded-full border border-border/45 bg-[hsl(var(--surface-contrast)/0.88)] p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] backdrop-blur-md">
           {([
             { id: 'plan' as const, en: 'Plan', zh: '计划' },
             { id: 'actual' as const, en: 'Doing', zh: '进行' },
@@ -3864,7 +3864,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               type="button"
               onClick={() => setDisplayMode(mode.id)}
               className={cn(
-                'rounded-full px-2.5 py-[5px] text-[12px] font-medium transition-all sm:py-[3px]',
+                'whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium transition-all sm:px-2.5 sm:py-[3px] sm:text-[12px]',
                 displayMode === mode.id
                   ? 'bg-[hsl(var(--surface-soft))] text-foreground shadow-sm'
                   : 'text-muted-foreground/85 hover:text-foreground',
