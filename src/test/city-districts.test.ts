@@ -44,4 +44,9 @@ describe('cityDistricts', () => {
     });
     expect(d?.id).toBe('manhattan');
   });
+
+  it('returns empty catalog for unknown cities', () => {
+    expect(districtsForCity('Seattle')).toEqual([]);
+    expect(resolvePlaceDistrict('Seattle', 47.6, -122.3)).toBeNull();
+  });
 });
