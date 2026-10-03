@@ -3591,10 +3591,21 @@ export function PlanView({
       <input ref={captureFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCaptureFileChange} />
       <Sheet open={captureSheetOpen} onOpenChange={setCaptureSheetOpen}>
         <SheetContent
-          side="right"
-          className="w-full border-border/70 bg-background/95 p-0 sm:max-w-md"
+          // Phone: bottom sheet so Plan chrome (z-130) never peeks through a
+          // half-width right panel. Desktop keeps the right drawer.
+          // z-200 matches AppSideSheet — above Plan chrome / demo banner,
+          // below the nav drawer (z-210+).
+          side={isMobile ? 'bottom' : 'right'}
+          expandable={false}
+          overlayClassName="!z-[190]"
+          className={cn(
+            '!z-[200] border-border/70 bg-background/95 p-0 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl',
+            isMobile
+              ? 'inset-x-0 max-h-[min(92dvh,920px)] overflow-y-auto rounded-t-[28px] pb-[max(1rem,env(safe-area-inset-bottom))]'
+              : 'w-full sm:max-w-md',
+          )}
         >
-          <SheetHeader className="border-b border-border/60 px-5 py-4">
+          <SheetHeader className="border-b border-border/60 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:pt-4">
             <SheetTitle className="text-[15px] font-semibold">
               {lang === 'zh' ? '记录此刻' : 'Log a moment'}
             </SheetTitle>
@@ -3812,20 +3823,22 @@ export function PlanView({
               )}
             </div>
 
-            {/* Affordance hint — quietly teaches the keyboard shortcut */}
-            <p className="px-1 text-center text-[11px] text-muted-foreground/45">
-              {lang === 'zh' ? (
-                <>
-                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> 保存 ·{' '}
-                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Shift</kbd>+<kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> 换行
-                </>
-              ) : (
-                <>
-                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> to save ·{' '}
-                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Shift</kbd>+<kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> for newline
-                </>
-              )}
-            </p>
+            {/* Keyboard shortcut hint — desktop only; phone has the send button. */}
+            {!isMobile && (
+              <p className="px-1 text-center text-[11px] text-muted-foreground/45">
+                {lang === 'zh' ? (
+                  <>
+                    <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> 保存 ·{' '}
+                    <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Shift</kbd>+<kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> 换行
+                  </>
+                ) : (
+                  <>
+                    <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> to save ·{' '}
+                    <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Shift</kbd>+<kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> for newline
+                  </>
+                )}
+              </p>
+            )}
           </div>
         </SheetContent>
       </Sheet>
