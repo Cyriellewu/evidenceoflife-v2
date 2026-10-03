@@ -1786,29 +1786,27 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         />
       )}
 
-      {/* Toolbar — category chips form the main strip; search lives at the
-          end of that row as a quiet icon button that expands into an input
-          when tapped. This keeps a wide blank search bar from dominating the
-          city header on desktop while still being one tap away. */}
+      {/* Toolbar — district + category chips wrap so every label stays fully
+          visible on narrow phones (no clipped "Ou…" / half borough chip). */}
       {viewMode === 'city' && (
         <div className="px-5 pb-2 space-y-2">
           {districtCounts.length > 0 && !(searchExpanded || placeQuery) && (
-            <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveDistrictId(null)}
                 aria-pressed={!activeDistrictId}
                 className={cn(
-                  'inline-flex h-auto flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                  'inline-flex h-auto items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
                   !activeDistrictId
                     ? 'border-primary/45 bg-primary/10 text-primary'
                     : 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
                 )}
               >
-                <MapPinned size={13} />
+                <MapPinned size={12} />
                 <span>{lang === 'zh' ? '全部区' : 'All areas'}</span>
-                <span className="tabular-nums text-[11px] opacity-70">{cityPlaces.length}</span>
+                <span className="tabular-nums text-[10px] opacity-70">{cityPlaces.length}</span>
               </Button>
               {districtCounts.map(({ district, count }) => {
                 const isActive = activeDistrictId === district.id;
@@ -1820,7 +1818,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     onClick={() => setActiveDistrictId(isActive ? null : district.id)}
                     aria-pressed={isActive}
                     className={cn(
-                      'inline-flex h-auto flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                      'inline-flex h-auto items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
                       isActive
                         ? 'border-primary/45 bg-primary/10 text-primary'
                         : count > 0
@@ -1829,13 +1827,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     )}
                   >
                     <span>{districtDisplayName(district, lang)}</span>
-                    <span className="tabular-nums text-[11px] opacity-70">{count}</span>
+                    <span className="tabular-nums text-[10px] opacity-70">{count}</span>
                   </Button>
                 );
               })}
             </div>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             {searchExpanded || placeQuery ? (
               <div
                 className={cn(
@@ -1875,53 +1873,51 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 </Button>
               </div>
             ) : (
-              <>
-                <div className="-mx-1 flex flex-1 items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
-                  {categoryKeys
-                    .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
-                    .map(({ id, labelKey, icon: Icon }) => {
-                      const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
-                      const isActive = activeCategory === id;
-                      const accent = chipAccents[id] ?? chipAccents.other;
-                      return (
-                        <Button
-                          key={id}
-                          variant="ghost"
-                          onClick={() => setActiveCategory(id)}
-                          aria-pressed={isActive}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                {categoryKeys
+                  .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
+                  .map(({ id, labelKey, icon: Icon }) => {
+                    const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
+                    const isActive = activeCategory === id;
+                    const accent = chipAccents[id] ?? chipAccents.other;
+                    return (
+                      <Button
+                        key={id}
+                        variant="ghost"
+                        onClick={() => setActiveCategory(id)}
+                        aria-pressed={isActive}
+                        className={cn(
+                          'inline-flex h-auto items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                          !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
+                        )}
+                        style={
+                          isActive
+                            ? {
+                                backgroundColor: `${accent}1f`,
+                                borderColor: `${accent}73`,
+                                color: accent,
+                              }
+                            : undefined
+                        }
+                      >
+                        <Icon
+                          size={12}
+                          className={isActive ? '' : 'text-muted-foreground/70'}
+                          style={isActive ? { color: accent } : undefined}
+                        />
+                        <span>{t(labelKey)}</span>
+                        <span
                           className={cn(
-                            'inline-flex h-auto flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                            !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
+                            'tabular-nums text-[10px]',
+                            !isActive && 'text-muted-foreground/55',
                           )}
-                          style={
-                            isActive
-                              ? {
-                                  backgroundColor: `${accent}1f`,
-                                  borderColor: `${accent}73`,
-                                  color: accent,
-                                }
-                              : undefined
-                          }
+                          style={isActive ? { color: accent, opacity: 0.7 } : undefined}
                         >
-                          <Icon
-                            size={13}
-                            className={isActive ? '' : 'text-muted-foreground/70'}
-                            style={isActive ? { color: accent } : undefined}
-                          />
-                          <span>{t(labelKey)}</span>
-                          <span
-                            className={cn(
-                              'tabular-nums text-[11px]',
-                              !isActive && 'text-muted-foreground/55',
-                            )}
-                            style={isActive ? { color: accent, opacity: 0.7 } : undefined}
-                          >
-                            {count}
-                          </span>
-                        </Button>
-                      );
-                    })}
-                </div>
+                          {count}
+                        </span>
+                      </Button>
+                    );
+                  })}
                 {cityPlaces.length > 4 && (
                   <Button
                     type="button"
@@ -1929,12 +1925,12 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     size="icon"
                     onClick={() => setSearchExpanded(true)}
                     aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
-                    className="h-8 w-8 flex-shrink-0 rounded-full border border-border/55 text-muted-foreground/75 hover:border-primary/40 hover:text-foreground focus-visible:ring-primary/40"
+                    className="h-7 w-7 rounded-full border border-border/55 text-muted-foreground/75 hover:border-primary/40 hover:text-foreground focus-visible:ring-primary/40"
                   >
-                    <Search size={14} strokeWidth={2.1} />
+                    <Search size={13} strokeWidth={2.1} />
                   </Button>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>

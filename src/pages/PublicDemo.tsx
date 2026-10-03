@@ -72,7 +72,10 @@ export default function PublicDemo() {
         </div>
       )}
 
-      <Index publicDemo />
+      {/* Reserve space under the fixed demo banner so city titles / chips are not clipped. */}
+      <div className={isEmbedded ? undefined : 'pt-[3.75rem]'}>
+        <Index publicDemo />
+      </div>
     </div>
   );
 }
