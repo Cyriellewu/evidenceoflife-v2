@@ -50,6 +50,8 @@ describe('cityDistricts', () => {
     const geos = districtGeometriesForCity('New York');
     expect(geos).toHaveLength(5);
     expect(geos.every((g) => g.ring.length >= 4)).toBe(true);
+    expect(geos.every((g) => /^#[0-9a-f]{6}$/i.test(g.color))).toBe(true);
+    expect(new Set(geos.map((g) => g.color)).size).toBe(5);
     expect(geos[0].centroid.lat).toBeGreaterThan(40);
   });
 

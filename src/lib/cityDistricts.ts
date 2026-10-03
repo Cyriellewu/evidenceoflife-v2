@@ -209,18 +209,29 @@ export type DistrictGeometry = {
   /** Closed or open ring as [lng, lat] pairs. */
   ring: Ring;
   centroid: { lat: number; lng: number };
+  /** Soft fill used to color the district on the map. */
+  color: string;
 };
 
 function ringCentroid(ring: Ring): { lat: number; lng: number } {
   let sumLat = 0;
   let sumLng = 0;
-  const n = ring.length;
   for (const [lng, lat] of ring) {
     sumLng += lng;
     sumLat += lat;
   }
+  const n = ring.length || 1;
   return { lat: sumLat / n, lng: sumLng / n };
 }
+
+/** Distinct soft fills for NYC boroughs — readable on light + dark basemaps. */
+const NYC_BOROUGH_COLORS: Record<string, string> = {
+  manhattan: '#e07a5f',      // warm terracotta
+  brooklyn: '#3d8b7a',       // teal
+  queens: '#d4a017',         // amber
+  bronx: '#6b7fd7',          // periwinkle
+  'staten-island': '#8a6a9a', // muted plum
+};
 
 /** Polygons for on-map district overlays (NYC boroughs today). */
 export function districtGeometriesForCity(
@@ -235,6 +246,7 @@ export function districtGeometriesForCity(
     label: b.label,
     ring: b.ring,
     centroid: ringCentroid(b.ring),
+    color: NYC_BOROUGH_COLORS[b.label.id] || '#c98b63',
   }));
 }
 

@@ -1475,17 +1475,19 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
     const map = mapRef.current;
 
-    // Borough / district outlines + name labels live ON the map (not as tabs).
+    // Color-fill each borough so districts read as regions, not empty outlines.
     cityDistrictGeometries.forEach((geo) => {
       const isActive = activeDistrictId === geo.label.id;
+      const dimOthers = !!activeDistrictId && !isActive;
       const name = escapeHtml(districtDisplayName(geo.label, lang));
       const latLngs = geo.ring.map(([lng, lat]) => [lat, lng] as [number, number]);
+      const fill = geo.color;
       const polygon = L.polygon(latLngs, {
-        color: isActive ? LIFE_MAP_COLOR : 'rgba(74,46,29,0.35)',
-        weight: isActive ? 2.5 : 1.4,
-        dashArray: isActive ? undefined : '4 6',
-        fillColor: LIFE_MAP_COLOR,
-        fillOpacity: isActive ? 0.16 : 0.05,
+        color: fill,
+        weight: isActive ? 2 : 0,
+        opacity: isActive ? 0.95 : 0,
+        fillColor: fill,
+        fillOpacity: dimOthers ? 0.1 : isActive ? 0.48 : 0.32,
         interactive: true,
       });
       polygon.on('click', (e) => {
@@ -1499,6 +1501,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         interactive: false,
         keyboard: false,
         zIndexOffset: -200,
+        opacity: dimOthers ? 0.45 : 1,
         icon: L.divIcon({
           className: 'district-label-icon',
           html: `<div style="
@@ -1507,15 +1510,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             font-size:12px;
             font-weight:700;
             letter-spacing:0.02em;
-            color:${isActive ? LIFE_MAP_COLOR : 'rgba(74,46,29,0.82)'};
-            background:rgba(255,255,255,0.82);
-            border:1px solid rgba(74,46,29,0.14);
+            color:#fff;
+            background:${fill};
             border-radius:999px;
-            box-shadow:0 1px 2px rgba(74,46,29,0.08);
-            padding:3px 8px;
+            box-shadow:0 2px 8px rgba(0,0,0,0.18);
+            padding:4px 10px;
+            opacity:${dimOthers ? 0.55 : 1};
           ">${name}</div>`,
-          iconSize: undefined,
-          iconAnchor: undefined,
         }),
       });
       label.addTo(map);
