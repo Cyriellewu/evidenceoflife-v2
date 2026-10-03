@@ -42,5 +42,5 @@ export function isEnterSubmit(
   if (event.key !== "Enter") return false;
   if (event.shiftKey) return false;
   const native = event.nativeEvent as KeyboardEvent;
-  return !Boolean(native.isComposing);
+  return !native.isComposing;
 }
