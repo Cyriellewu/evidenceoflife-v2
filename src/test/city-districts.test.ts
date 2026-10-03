@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   districtDisplayName,
+  districtGeometriesForCity,
   districtsForCity,
   resolvePlaceDistrict,
 } from '@/lib/cityDistricts';
@@ -45,8 +46,16 @@ describe('cityDistricts', () => {
     expect(d?.id).toBe('manhattan');
   });
 
+  it('exposes NYC borough polygons for map overlays', () => {
+    const geos = districtGeometriesForCity('New York');
+    expect(geos).toHaveLength(5);
+    expect(geos.every((g) => g.ring.length >= 4)).toBe(true);
+    expect(geos[0].centroid.lat).toBeGreaterThan(40);
+  });
+
   it('returns empty catalog for unknown cities', () => {
     expect(districtsForCity('Seattle')).toEqual([]);
     expect(resolvePlaceDistrict('Seattle', 47.6, -122.3)).toBeNull();
+    expect(districtGeometriesForCity('Seattle')).toEqual([]);
   });
 });

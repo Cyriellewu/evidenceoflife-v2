@@ -204,6 +204,40 @@ export function resolvePlaceDistrict(
   return null;
 }
 
+export type DistrictGeometry = {
+  label: DistrictLabel;
+  /** Closed or open ring as [lng, lat] pairs. */
+  ring: Ring;
+  centroid: { lat: number; lng: number };
+};
+
+function ringCentroid(ring: Ring): { lat: number; lng: number } {
+  let sumLat = 0;
+  let sumLng = 0;
+  const n = ring.length;
+  for (const [lng, lat] of ring) {
+    sumLng += lng;
+    sumLat += lat;
+  }
+  return { lat: sumLat / n, lng: sumLng / n };
+}
+
+/** Polygons for on-map district overlays (NYC boroughs today). */
+export function districtGeometriesForCity(
+  cityName: string,
+  center?: { lat: number; lng: number } | null,
+): DistrictGeometry[] {
+  const treatAsNyc =
+    (cityName && isNewYorkCity(cityName)) ||
+    (!!center && isNewYorkCoords(center.lat, center.lng));
+  if (!treatAsNyc) return [];
+  return NYC_BOROUGHS.map((b) => ({
+    label: b.label,
+    ring: b.ring,
+    centroid: ringCentroid(b.ring),
+  }));
+}
+
 export function districtDisplayName(district: DistrictLabel, lang: string): string {
   return lang.startsWith('zh') ? district.zh : district.en;
 }

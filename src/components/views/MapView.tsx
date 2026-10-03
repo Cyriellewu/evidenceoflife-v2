@@ -15,10 +15,10 @@ import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
 import {
   districtDisplayName,
+  districtGeometriesForCity,
   districtsForCity,
   isNewYorkCoords,
   resolvePlaceDistrict,
-  type DistrictLabel,
 } from '@/lib/cityDistricts';
 
 interface MapViewProps {
@@ -611,7 +611,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   // Store city-view markers keyed by place name for lightweight updates on selection
   const cityMarkerMapRef = useRef(new Map<string, { marker: L.Marker; category: string; lat: number; lng: number; renderLat: number; renderLng: number }>());
   const heatLayerRef = useRef<L.Layer | null>(null);
-  const boundaryLayersRef = useRef<L.GeoJSON[]>([]);
+  const boundaryLayersRef = useRef<L.Layer[]>([]);
   const [cityBoundaries, setCityBoundaries] = useState<Map<string, GeoJSON.GeoJsonObject>>(new Map());
   const detailFixTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // Build all places: merge from new places tables + legacy moments
@@ -994,6 +994,17 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     [currentCity],
   );
 
+  const cityDistrictGeometries = useMemo(
+    () =>
+      currentCity
+        ? districtGeometriesForCity(currentCity.cityName, {
+            lat: currentCity.centerLat,
+            lng: currentCity.centerLng,
+          })
+        : [],
+    [currentCity],
+  );
+
   const placeDistrictId = useCallback(
     (place: PlaceInfo): string | null => {
       if (!currentCity || cityDistrictCatalog.length === 0) return null;
@@ -1009,23 +1020,6 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     },
     [currentCity, cityDistrictCatalog.length],
   );
-
-  // Always list the city's known districts (NYC boroughs / CN 区) so the
-  // answer to "which areas are here?" is visible even before every borough
-  // has a visit. Counts still drive empty-state filtering.
-  const districtCounts = useMemo(() => {
-    if (cityDistrictCatalog.length === 0) return [] as { district: DistrictLabel; count: number }[];
-    const counts = new Map<string, number>();
-    cityPlaces.forEach((p) => {
-      const id = placeDistrictId(p);
-      if (!id) return;
-      counts.set(id, (counts.get(id) || 0) + 1);
-    });
-    return cityDistrictCatalog.map((district) => ({
-      district,
-      count: counts.get(district.id) || 0,
-    }));
-  }, [cityDistrictCatalog, cityPlaces, placeDistrictId]);
 
   // How many places sit in each category for the current city — drives the
   // filter pills so users can see what's available ("Coffee 3") and we can hide
@@ -1450,7 +1444,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
   }, [cities, viewMode, maxCityVisits, lang, worldZoom, mapPreviewFailed]);
 
-  // Render city view: individual place markers with glow
+  // Render city view: district overlays + place markers
   useEffect(() => {
     if (MAP_SAFE_MODE || mapPreviewFailed) return;
     if (!mapRef.current || viewMode !== 'city') return;
@@ -1479,26 +1473,94 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     }
     boundaryLayersRef.current = [];
 
-    // Invalidate size and fit bounds to places (detail map behavior)
     const map = mapRef.current;
 
-    // If there are no places, fall back to centering on the city center
+    // Borough / district outlines + name labels live ON the map (not as tabs).
+    cityDistrictGeometries.forEach((geo) => {
+      const isActive = activeDistrictId === geo.label.id;
+      const name = escapeHtml(districtDisplayName(geo.label, lang));
+      const latLngs = geo.ring.map(([lng, lat]) => [lat, lng] as [number, number]);
+      const polygon = L.polygon(latLngs, {
+        color: isActive ? LIFE_MAP_COLOR : 'rgba(74,46,29,0.35)',
+        weight: isActive ? 2.5 : 1.4,
+        dashArray: isActive ? undefined : '4 6',
+        fillColor: LIFE_MAP_COLOR,
+        fillOpacity: isActive ? 0.16 : 0.05,
+        interactive: true,
+      });
+      polygon.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        setActiveDistrictId((prev) => (prev === geo.label.id ? null : geo.label.id));
+      });
+      polygon.addTo(map);
+      boundaryLayersRef.current.push(polygon);
+
+      const label = L.marker([geo.centroid.lat, geo.centroid.lng], {
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: -200,
+        icon: L.divIcon({
+          className: 'district-label-icon',
+          html: `<div style="
+            pointer-events:none;
+            transform:translate(-50%,-50%);
+            white-space:nowrap;
+            font-size:11px;
+            font-weight:700;
+            letter-spacing:0.04em;
+            color:${isActive ? LIFE_MAP_COLOR : 'rgba(74,46,29,0.72)'};
+            text-shadow:0 1px 0 rgba(255,255,255,0.9), 0 0 6px rgba(255,255,255,0.85);
+            padding:2px 6px;
+          ">${name}</div>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        }),
+      });
+      label.addTo(map);
+      markersRef.current.push(label);
+    });
+
+    // If there are no places, still show districts and fit to them / city center.
     if (filteredPlaces.length === 0) {
-      if (currentCity) {
-        // ensure map knows its size then center
-        const centerTimer = setTimeout(() => {
-          if (cancelled) return;
-          try {
-            map.invalidateSize();
-            map.setView([currentCity.centerLat, currentCity.centerLng], 13, { animate: false });
-            lastFitCityIdxRef.current = selectedCityIdx;
-          } catch {
-            // Ignore transient map sizing/setView race.
+      const centerTimer = setTimeout(() => {
+        if (cancelled) return;
+        try {
+          map.invalidateSize();
+          if (activeDistrictId) {
+            const geo = cityDistrictGeometries.find((d) => d.label.id === activeDistrictId);
+            if (geo) {
+              const bounds = L.latLngBounds(geo.ring.map(([lng, lat]) => [lat, lng] as [number, number]));
+              if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 13, animate: false });
+                lastFitCityIdxRef.current = selectedCityIdx;
+                lastFitDistrictRef.current = activeDistrictId;
+                return;
+              }
+            }
           }
-        }, 120);
-        return () => { cancelled = true; clearTimeout(centerTimer); };
-      }
-      return;
+          if (cityDistrictGeometries.length > 0) {
+            const bounds = L.latLngBounds(
+              cityDistrictGeometries.flatMap((g) =>
+                g.ring.map(([lng, lat]) => [lat, lng] as [number, number]),
+              ),
+            );
+            if (bounds.isValid()) {
+              map.fitBounds(bounds, { padding: [24, 24], maxZoom: 11, animate: false });
+              lastFitCityIdxRef.current = selectedCityIdx;
+              lastFitDistrictRef.current = activeDistrictId;
+              return;
+            }
+          }
+          if (currentCity) {
+            map.setView([currentCity.centerLat, currentCity.centerLng], 12, { animate: false });
+            lastFitCityIdxRef.current = selectedCityIdx;
+            lastFitDistrictRef.current = activeDistrictId;
+          }
+        } catch {
+          // Ignore transient map sizing/setView race.
+        }
+      }, 120);
+      return () => { cancelled = true; clearTimeout(centerTimer); };
     }
 
     const maxPlaceVisits = Math.max(...filteredPlaces.map(p => p.visits), 1);
@@ -1562,8 +1624,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       cityMarkerMapRef.current.set(place.name, { marker, category: place.category, lat: place.lat, lng: place.lng, renderLat, renderLng });
     });
 
-      // Fit on first city entry, or when the district chip changes — not on
-      // every category/search keystroke (that would jump the map while browsing).
+      // Fit to all boroughs on first city entry (so districts are visible),
+      // or to the selected district / places when the district filter changes.
       const shouldFit =
         lastFitCityIdxRef.current !== selectedCityIdx ||
         lastFitDistrictRef.current !== activeDistrictId;
@@ -1572,6 +1634,34 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         try {
           map.invalidateSize();
           if (!shouldFit) return;
+
+          if (activeDistrictId) {
+            const geo = cityDistrictGeometries.find((d) => d.label.id === activeDistrictId);
+            if (geo) {
+              const bounds = L.latLngBounds(geo.ring.map(([lng, lat]) => [lat, lng] as [number, number]));
+              if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 13, animate: false });
+                lastFitCityIdxRef.current = selectedCityIdx;
+                lastFitDistrictRef.current = activeDistrictId;
+                return;
+              }
+            }
+          }
+
+          if (cityDistrictGeometries.length > 0 && lastFitCityIdxRef.current !== selectedCityIdx) {
+            const bounds = L.latLngBounds(
+              cityDistrictGeometries.flatMap((g) =>
+                g.ring.map(([lng, lat]) => [lat, lng] as [number, number]),
+              ),
+            );
+            if (bounds.isValid()) {
+              map.fitBounds(bounds, { padding: [24, 24], maxZoom: 11, animate: false });
+              lastFitCityIdxRef.current = selectedCityIdx;
+              lastFitDistrictRef.current = activeDistrictId;
+              return;
+            }
+          }
+
           if (displayPlaces.length === 1) {
             const p = displayPlaces[0];
             map.setView([p.renderLat, p.renderLng], 15, { animate: false });
@@ -1596,7 +1686,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         clearTimeout(primary);
         clearTimeout(fallback);
       };
-  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang, selectedCityIdx, activeDistrictId, openPlaceDetail, t]);
+  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang, selectedCityIdx, activeDistrictId, cityDistrictGeometries, openPlaceDetail, t]);
 
   // Lightweight effect: update only marker styling / pan when selectedPlace changes.
   useEffect(() => {
@@ -1786,53 +1876,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         />
       )}
 
-      {/* Toolbar — district + category chips wrap so every label stays fully
-          visible on narrow phones (no clipped "Ou…" / half borough chip). */}
+      {/* Toolbar — category chips wrap so every label stays fully visible. */}
       {viewMode === 'city' && (
-        <div className="px-5 pb-2 space-y-2">
-          {districtCounts.length > 0 && !(searchExpanded || placeQuery) && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setActiveDistrictId(null)}
-                aria-pressed={!activeDistrictId}
-                className={cn(
-                  'inline-flex h-auto items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
-                  !activeDistrictId
-                    ? 'border-primary/45 bg-primary/10 text-primary'
-                    : 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <MapPinned size={12} />
-                <span>{lang === 'zh' ? '全部区' : 'All areas'}</span>
-                <span className="tabular-nums text-[10px] opacity-70">{cityPlaces.length}</span>
-              </Button>
-              {districtCounts.map(({ district, count }) => {
-                const isActive = activeDistrictId === district.id;
-                return (
-                  <Button
-                    key={district.id}
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setActiveDistrictId(isActive ? null : district.id)}
-                    aria-pressed={isActive}
-                    className={cn(
-                      'inline-flex h-auto items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
-                      isActive
-                        ? 'border-primary/45 bg-primary/10 text-primary'
-                        : count > 0
-                          ? 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground'
-                          : 'border-border/40 bg-transparent text-muted-foreground/55 hover:text-muted-foreground',
-                    )}
-                  >
-                    <span>{districtDisplayName(district, lang)}</span>
-                    <span className="tabular-nums text-[10px] opacity-70">{count}</span>
-                  </Button>
-                );
-              })}
-            </div>
-          )}
+        <div className="px-5 pb-2">
           <div className="flex items-start gap-2">
             {searchExpanded || placeQuery ? (
               <div
@@ -1974,7 +2020,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           <div
             className={cn(
               "rounded-2xl overflow-hidden shadow-sm transition-[height] duration-200",
-              viewMode === 'world' ? 'h-[320px] lg:h-[400px]' : 'h-[300px] lg:h-96'
+              viewMode === 'world' ? 'h-[320px] lg:h-[400px]' : 'h-[340px] lg:h-[420px]'
             )}
             style={{ border: '1px solid hsl(var(--border) / 0.4)' }}
           >
@@ -2098,7 +2144,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           <h2 className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-2.5">
             {(() => {
               const activeDistrict = activeDistrictId
-                ? districtCounts.find((d) => d.district.id === activeDistrictId)?.district
+                ? cityDistrictGeometries.find((d) => d.label.id === activeDistrictId)?.label
                 : null;
               if (activeDistrict) {
                 return `${districtDisplayName(activeDistrict, lang)} (${filteredPlaces.length})`;
