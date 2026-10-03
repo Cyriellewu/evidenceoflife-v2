@@ -23,9 +23,8 @@ import {
   parseISO,
   isSameDay,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Search, X, Upload, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, X, Upload, Trash2, CalendarDays } from 'lucide-react';
 import { DayDetailSheet } from '@/components/DayDetail/DayDetailSheet';
-import { Button } from '@/components/ui/button';
 import { DayRecord, Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
 import { cn } from '@/lib/utils';
@@ -41,6 +40,15 @@ import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { getActivityAccentColor } from '@/lib/activityColors';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+type DayEventChip = {
+  id: string;
+  label: string;
+  color: string;
+  type: 'moment' | 'todo' | 'imported';
+  timeLabel?: string;
+};
 
 interface CalendarViewProps {
   dayRecords: Map<string, DayRecord>;
@@ -74,9 +82,12 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
   const { formatDate } = useDateLocale();
   const { lang } = useLanguage();
   const isDarkMode = useIsDarkMode();
+  const isMobile = useIsMobile();
   const { getWorkType } = useWorkTypes();
   const { user, isDemo, authReady } = useAuth();
   const [currentDate, setCurrentDate] = useState(initialDate ?? new Date());
+  /** Month-view focus day (Apple List): grid stays compact; agenda lists this day. */
+  const [monthFocusDate, setMonthFocusDate] = useState<Date>(() => initialDate ?? new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDayDetail, setShowDayDetail] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -91,9 +102,21 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
   const { events: importedEvents, batches, loading: icsLoading, importICS, addManualEvent, updateEvent, deleteBatch, deleteSelected, searchEvents } = useImportedEvents();
 
   useEffect(() => {
-    if (initialDate) setCurrentDate(initialDate);
+    if (initialDate) {
+      setCurrentDate(initialDate);
+      setMonthFocusDate(initialDate);
+    }
     if (forcedViewMode) setViewMode(forcedViewMode);
   }, [initialDate, forcedViewMode]);
+
+  // Keep month focus inside the visible month (Apple List).
+  useEffect(() => {
+    if (viewMode !== 'month') return;
+    if (!isSameMonth(monthFocusDate, currentDate)) {
+      const today = new Date();
+      setMonthFocusDate(isSameMonth(today, currentDate) ? today : startOfMonth(currentDate));
+    }
+  }, [viewMode, currentDate, monthFocusDate]);
 
   const todoRange = useMemo(() => {
     if (viewMode === 'day') {
@@ -205,10 +228,14 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     return set;
   }, [dayRecords]);
 
-  // Per-day events for month view
+  // Per-day events for month view (chips + agenda)
   const dayEvents = useMemo(() => {
-    const map = new Map<string, { label: string; color: string }[]>();
-    
+    const map = new Map<string, DayEventChip[]>();
+    const timeOf = (iso?: string | null) => {
+      if (!iso) return undefined;
+      try { return format(parseISO(iso), 'HH:mm'); } catch { return undefined; }
+    };
+
     effectiveTodos.forEach((t) => {
       if (t.date.startsWith('_due_')) return;
       // Only surface scheduled or tracked tasks on the calendar; unscheduled
@@ -219,22 +246,33 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       const color = getActivityAccentColor({ title: t.title, tags: t.tags, isDarkMode })
         || WORK_TYPE_META[workType]?.color
         || 'hsl(var(--primary))';
-      existing.push({ label: t.title, color });
+      existing.push({
+        id: t.id,
+        label: t.title,
+        color,
+        type: 'todo',
+        timeLabel: timeOf(t.plan_started_at) || timeOf(t.timer_started_at),
+      });
       map.set(t.date, existing);
     });
 
     dayRecords.forEach((record, dateStr) => {
       const existing = map.get(dateStr) || [];
-      record.moments.forEach((m, i) => {
-        const label = m.emoji || (m.text ? m.text.slice(0, 20) : '');
-        if (label) {
-          const title = m.text || m.emoji || '';
-          const workType = getWorkType({ entity: 'moment', id: m.id, text: title, tags: m.tags });
-          const color = getActivityAccentColor({ title, tags: m.tags, isDarkMode })
-            || WORK_TYPE_META[workType]?.color
-            || '#D5AE4C';
-          existing.push({ label, color });
-        }
+      record.moments.forEach((m) => {
+        const label = m.emoji || (m.text ? m.text.slice(0, 48) : '');
+        if (!label) return;
+        const title = m.text || m.emoji || '';
+        const workType = getWorkType({ entity: 'moment', id: m.id, text: title, tags: m.tags });
+        const color = getActivityAccentColor({ title, tags: m.tags, isDarkMode })
+          || WORK_TYPE_META[workType]?.color
+          || '#D5AE4C';
+        existing.push({
+          id: m.id,
+          label: m.text || m.emoji || label,
+          color,
+          type: 'moment',
+          timeLabel: timeOf(m.timer_started_at) || timeOf(m.createdAt),
+        });
       });
       if (existing.length > 0) map.set(dateStr, existing);
     });
@@ -242,12 +280,21 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     importedEvents.forEach((ev) => {
       const dateStr = format(parseISO(ev.start_time), 'yyyy-MM-dd');
       const existing = map.get(dateStr) || [];
-      existing.push({ label: ev.title, color: getActivityAccentColor({ title: ev.title, fallback: 'hsl(var(--accent))', isDarkMode }) || 'hsl(var(--accent))' });
+      existing.push({
+        id: ev.id,
+        label: ev.title,
+        color: getActivityAccentColor({ title: ev.title, fallback: 'hsl(var(--accent))', isDarkMode }) || 'hsl(var(--accent))',
+        type: 'imported',
+        timeLabel: timeOf(ev.start_time),
+      });
       map.set(dateStr, existing);
     });
-    
+
     return map;
   }, [effectiveTodos, dayRecords, importedEvents, isDarkMode, getWorkType]);
+
+  const monthFocusKey = format(monthFocusDate, 'yyyy-MM-dd');
+  const monthFocusEvents = dayEvents.get(monthFocusKey) || [];
 
   // Search — smart, multi-term, fuzzy-ish ranking across text, tags, location, type
   const searchResults = useMemo(() => {
@@ -562,81 +609,160 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       )}
 
       {viewMode === 'month' && (
-        <>
-          {/* Week day headers */}
-          <div className="grid grid-cols-7 px-3 mb-1">
-            {(lang === 'zh' ? WEEKDAYS_CN : weekDays).map((day, i) => (
-              <div key={i} className="text-center text-[11px] font-medium text-muted-foreground/50 py-2">
-                {day}
-              </div>
-            ))}
-          </div>
+        <div className="flex min-h-0 flex-1 flex-col pb-[max(5.5rem,calc(4.25rem+env(safe-area-inset-bottom)))]">
+          {/* Compact month grid — Apple-style: dates + dots always fit on screen */}
+          <div className="shrink-0 px-2 sm:px-3">
+            <div className="grid grid-cols-7 mb-0.5">
+              {(lang === 'zh' ? WEEKDAYS_CN : weekDays).map((day, i) => (
+                <div key={i} className="py-1.5 text-center text-[11px] font-medium text-muted-foreground/55">
+                  {day}
+                </div>
+              ))}
+            </div>
 
-          {/* Month grid */}
-          <div className="grid grid-cols-7 px-3 pb-8 flex-1 gap-x-1" style={{ gridAutoRows: 'minmax(60px, 1fr)' }}>
-            {days.map(day => {
-              const dateStr = format(day, 'yyyy-MM-dd');
-              const isCurrentMonth = isSameMonth(day, currentDate);
-              const dayIsToday = isToday(day);
-              const events = dayEvents.get(dateStr) || [];
-              const hasRecord = isCurrentMonth && events.length > 0;
-              const chips = events.slice(0, 3);
-              const overflow = events.length - chips.length;
+            <div className="grid grid-cols-7">
+              {days.map(day => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                const dayIsToday = isToday(day);
+                const isFocused = isSameDay(day, monthFocusDate);
+                const events = dayEvents.get(dateStr) || [];
+                const dots = events.slice(0, 3);
 
-              return (
-                <button
-                  key={dateStr}
-                  onClick={() => {
-                    if (isCurrentMonth) {
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    onClick={() => {
+                      if (!isCurrentMonth) return;
+                      setMonthFocusDate(day);
+                      onSelectDate?.(day);
+                    }}
+                    onDoubleClick={() => {
+                      if (!isCurrentMonth) return;
                       setCurrentDate(day);
                       setViewMode('day');
-                    }
-                  }}
-                  disabled={!isCurrentMonth}
-                  className={cn(
-                    'group flex flex-col items-stretch pt-1.5 gap-1 transition-opacity min-w-0',
-                    !isCurrentMonth && 'opacity-0 pointer-events-none',
-                  )}
-                >
-                  {/* Date number */}
-                  <span className={cn(
-                    'text-[15px] w-7 h-7 mx-auto flex items-center justify-center rounded-full transition-colors flex-shrink-0',
-                    dayIsToday && 'bg-primary text-primary-foreground font-semibold',
-                    !dayIsToday && 'text-foreground/90 group-hover:bg-secondary/60',
-                    !dayIsToday && day.getDay() === 0 && isCurrentMonth && 'text-destructive/80',
-                  )}>
-                    {format(day, 'd')}
-                  </span>
-
-                  {/* Event chips — brief labels per day, filling the cell height */}
-                  <div className="flex flex-col gap-0.5 min-w-0 w-full px-0.5 overflow-hidden">
-                    {hasRecord && chips.map((ev, i) => (
-                      <span
-                        key={i}
-                        className="flex items-center gap-1 min-w-0 rounded-[5px] px-1 py-0.5 text-[9px] leading-tight font-medium text-left"
-                        style={{
-                          backgroundColor: `color-mix(in srgb, ${ev.color} 16%, transparent)`,
-                          color: ev.color,
-                        }}
-                      >
+                    }}
+                    disabled={!isCurrentMonth}
+                    className={cn(
+                      'flex min-h-[3.15rem] flex-col items-center gap-1 py-1 transition-colors sm:min-h-[3.5rem]',
+                      !isCurrentMonth && 'pointer-events-none opacity-0',
+                      isFocused && !dayIsToday && 'bg-secondary/45',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-full text-[15px] transition-colors',
+                        dayIsToday && 'bg-primary font-semibold text-primary-foreground',
+                        !dayIsToday && isFocused && 'ring-2 ring-primary/55 ring-offset-1 ring-offset-background',
+                        !dayIsToday && !isFocused && 'text-foreground/90',
+                        !dayIsToday && day.getDay() === 0 && isCurrentMonth && 'text-destructive/80',
+                      )}
+                    >
+                      {format(day, 'd')}
+                    </span>
+                    <span className="flex h-1.5 items-center justify-center gap-[3px]">
+                      {dots.map((ev, i) => (
                         <span
-                          className="w-1 h-1 rounded-full flex-shrink-0"
+                          key={`${ev.id}-${i}`}
+                          className="h-1.5 w-1.5 rounded-full"
                           style={{ backgroundColor: ev.color }}
                         />
-                        <span className="truncate">{ev.label}</span>
-                      </span>
-                    ))}
-                    {hasRecord && overflow > 0 && (
-                      <span className="text-[9px] leading-tight text-muted-foreground/60 text-left px-1">
-                        +{overflow}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                      ))}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </>
+
+          {/* Selected-day agenda (Apple List) — full titles, no cell truncation */}
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-border/35 px-3 pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold tracking-tight text-foreground">
+                  {lang === 'zh'
+                    ? format(monthFocusDate, 'M月d日')
+                    : format(monthFocusDate, 'EEEE, MMM d')}
+                </p>
+                <p className="text-[11px] text-muted-foreground/70">
+                  {monthFocusEvents.length === 0
+                    ? (lang === 'zh' ? '这一天还没有记录' : 'No events')
+                    : lang === 'zh'
+                      ? `${monthFocusEvents.length} 条`
+                      : `${monthFocusEvents.length} event${monthFocusEvents.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentDate(monthFocusDate);
+                  setViewMode('day');
+                }}
+                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+              >
+                {lang === 'zh' ? '日视图' : 'Day'}
+                <ChevronRight size={12} />
+              </button>
+            </div>
+
+            {monthFocusEvents.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => handleDateSelect(monthFocusDate)}
+                className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border/45 bg-secondary/20 px-4 py-8 text-center text-muted-foreground/70 transition-colors hover:bg-secondary/35"
+              >
+                <CalendarDays size={18} className="opacity-60" />
+                <span className="text-[12px]">
+                  {lang === 'zh' ? '点这里添加一条记录' : 'Tap to add something'}
+                </span>
+              </button>
+            ) : (
+              <ul className="space-y-1.5 pb-4">
+                {monthFocusEvents.map((ev) => (
+                  <li key={`${ev.type}-${ev.id}`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentDate(monthFocusDate);
+                        setViewMode('day');
+                      }}
+                      className="flex w-full items-start gap-2.5 rounded-xl border border-border/30 bg-card/60 px-3 py-2.5 text-left transition-colors hover:bg-secondary/40"
+                    >
+                      <span
+                        className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: ev.color }}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-medium leading-snug text-foreground">
+                          {ev.label}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-muted-foreground/65">
+                          {[
+                            ev.timeLabel,
+                            ev.type === 'todo'
+                              ? (lang === 'zh' ? '任务' : 'Task')
+                              : ev.type === 'imported'
+                                ? (lang === 'zh' ? '日程' : 'Event')
+                                : (lang === 'zh' ? '瞬间' : 'Moment'),
+                          ].filter(Boolean).join(' · ')}
+                        </span>
+                      </span>
+                      <ChevronRight size={14} className="mt-1 shrink-0 text-muted-foreground/45" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Desktop-only denser chip preview for multi-day skim */}
+            {!isMobile && (
+              <p className="pb-2 pt-1 text-center text-[10px] text-muted-foreground/45">
+                {lang === 'zh' ? '双击日期打开日视图' : 'Double-click a date to open Day view'}
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       {viewMode === 'year' && (
@@ -672,8 +798,9 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       <button
         onClick={() => setShowICSManager(prev => !prev)}
         className={cn(
-          "fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105",
-          showICSManager && "scale-95 brightness-95"
+          'fixed z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105',
+          'right-5 bottom-[max(1.25rem,calc(0.75rem+env(safe-area-inset-bottom)))] sm:right-6 sm:bottom-6',
+          showICSManager && 'scale-95 brightness-95',
         )}
         title="Import calendar"
         aria-label="Import calendar"
@@ -688,7 +815,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
 interface YearMiniMonthProps {
   month: Date;
   recordedDates: Set<string>;
-  dayEvents: Map<string, { label: string; color: string }[]>;
+  dayEvents: Map<string, DayEventChip[]>;
   lang: string;
   onMonthClick: () => void;
   onDayClick: (date: Date) => void;
