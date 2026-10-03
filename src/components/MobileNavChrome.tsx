@@ -78,15 +78,7 @@ export function MobileNavChrome({
             {lang === 'zh' ? '导航' : 'Navigation'}
           </SheetTitle>
           <div className="flex h-full flex-col">
-<<<<<<< HEAD
-            <div className="flex items-center gap-2 border-b border-black/[0.06] px-3 pb-2.5 pt-[max(0.875rem,env(safe-area-inset-top))] dark:border-white/[0.08]">
-              <BrandLogo alt="Evidence of life" className="h-8 w-8 flex-shrink-0" />
-              <span className="font-brand min-w-0 flex-1 truncate text-[14px] font-medium tracking-tight text-foreground/90">
-                Evidence of life
-              </span>
-=======
             <div className="relative border-b border-black/[0.06] px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] dark:border-white/[0.08]">
->>>>>>> origin/main
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
