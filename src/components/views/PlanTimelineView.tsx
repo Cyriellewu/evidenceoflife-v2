@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { parseISO, format, isToday as isTodayFn } from 'date-fns';
 import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer } from 'lucide-react';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isEnterSubmit } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { Moment } from '@/types';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
@@ -1015,6 +1015,39 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     });
     setSelectedSlots(nextSlots);
   }, [selectedRange, startInput, endInput, allSlots]);
+
+  /** Commit the free-range creation card (Enter / ✓). IME-safe via isEnterSubmit. */
+  const confirmSlotCreate = useCallback(() => {
+    if (!selectedRange) return false;
+    const title = slotAddTitle.trim();
+    if (!title) return false;
+    const range = selectedRange;
+    const targetDay = date || format(new Date(), 'yyyy-MM-dd');
+    const startISO = localMinuteToISOString(targetDay, range.startMin);
+    const endISO = localMinuteToISOString(targetDay, range.endMin);
+    const diffSec = Math.max(0, (range.endMin - range.startMin) * 60);
+    const isPastRange = range.endMin <= nowMin;
+    setSlotAddTitle('');
+    setSelectedSlots(new Set());
+    setCustomRange(null);
+    void (async () => {
+      if (isPastRange) {
+        await onAddTodo(title, 'anytime', {
+          timer_started_at: startISO,
+          timer_ended_at: endISO,
+          timer_seconds: diffSec,
+          is_completed: true,
+          progress: 100,
+        });
+      } else {
+        await onAddTodo(title, 'anytime', {
+          plan_started_at: startISO,
+          plan_ended_at: endISO,
+        });
+      }
+    })();
+    return true;
+  }, [selectedRange, slotAddTitle, date, nowMin, onAddTodo]);
 
   const handleSaveBlockTime = useCallback((blockId: string) => {
     const parsedStart = parseHHMM(editingTimeStart);
@@ -2531,13 +2564,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       value={editingBlockTitle}
                       onChange={e => setEditingBlockTitle(e.target.value)}
                       onKeyDown={e => {
-                        const nev = e.nativeEvent as KeyboardEvent;
-                        if (e.key === 'Enter' && !isImeComposing(nev) && editingBlockTitle.trim()) {
+                        if (isEnterSubmit(e) && editingBlockTitle.trim()) {
+                          e.preventDefault();
                           renameBlock(block, editingBlockTitle);
                           handleSaveBlockTime(block.id);
                           setEditingBlockId(null);
                         }
-                        if (e.key === 'Escape') setEditingBlockId(null);
+                        if (e.key === 'Escape') {
+                          setEditingBlockId(null);
+                        }
                       }}
                       className="flex-1 min-w-0 bg-transparent font-medium focus:outline-none"
                       style={{ fontSize: titleFontSize, borderBottom: `1px solid ${colorWithAlpha(0.25)}` }}
@@ -3215,7 +3250,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   )}
                   style={compactRange ? undefined : { top: 8 }}
                 >
-                  <div
+                  <form
                     className={cn(
                       "relative rounded-[14px] border shadow-[0_16px_32px_hsl(var(--foreground)/0.18)] backdrop-blur-md",
                       compactRange ? "h-full px-3 py-2" : "px-3 py-2"
@@ -3225,6 +3260,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       borderColor: `color-mix(in srgb, ${borderColor} 38%, hsl(var(--border)) 62%)`,
                       background: composerBg,
                     }}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      confirmSlotCreate();
+                    }}
+                    onPointerDown={e => e.stopPropagation()}
                   >
                   {(
                     <div className={cn('flex h-full min-w-0 flex-col justify-center gap-1.5', compactRange ? 'pr-6' : 'pr-7')}>
@@ -3247,33 +3288,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           onChange={e => setSlotAddTitle(e.target.value)}
                           onPointerDown={e => e.stopPropagation()}
                           onKeyDown={e => {
-                            const native = e.nativeEvent as KeyboardEvent;
-                            if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
-                              const range = selectedRange;
-                              const targetDay = date || format(new Date(), 'yyyy-MM-dd');
-                              const startISO = localMinuteToISOString(targetDay, range.startMin);
-                              const endISO = localMinuteToISOString(targetDay, range.endMin);
-                              const diffSec = (range.endMin - range.startMin) * 60;
-                              const title = slotAddTitle.trim();
-                              dismiss();
-                              void (async () => {
-                                if (isPastRange) {
-                                  await onAddTodo(title, 'anytime', {
-                                    timer_started_at: startISO,
-                                    timer_ended_at: endISO,
-                                    timer_seconds: diffSec,
-                                    is_completed: true,
-                                    progress: 100,
-                                  });
-                                } else {
-                                  await onAddTodo(title, 'anytime', {
-                                    plan_started_at: startISO,
-                                    plan_ended_at: endISO,
-                                  });
-                                }
-                              })();
+                            if (isEnterSubmit(e)) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              confirmSlotCreate();
+                              return;
                             }
-                            if (e.key === 'Escape') dismiss();
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              dismiss();
+                            }
                           }}
                           placeholder={
                             isPastRange
@@ -3283,7 +3307,23 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           className="min-w-0 flex-1 bg-transparent text-[15px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/45 text-foreground sm:text-[14px]"
                           style={{ color: creationTagColor || undefined }}
                           autoFocus
+                          enterKeyHint="done"
                         />
+                        <button
+                          type="submit"
+                          disabled={!slotAddTitle.trim()}
+                          className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-35"
+                          style={{
+                            background: slotAddTitle.trim()
+                              ? `color-mix(in srgb, ${borderColor} 22%, hsl(var(--surface-soft)))`
+                              : 'hsl(var(--muted) / 0.35)',
+                            color: creationTagColor || 'hsl(var(--foreground))',
+                          }}
+                          aria-label={lang === 'zh' ? '添加' : 'Add'}
+                          title={lang === 'zh' ? '回车添加' : 'Press Enter to add'}
+                        >
+                          <Check size={14} strokeWidth={2.2} />
+                        </button>
                       </div>
                       <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 font-mono tabular-nums text-muted-foreground/72" style={{ fontSize: '10px' }}>
                         <div className="inline-flex items-center gap-1 rounded-full bg-background/55 px-1.5 py-1 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.34)]">
@@ -3317,12 +3357,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     </div>
                   )}
                   <button
+                    type="button"
                     onClick={dismiss}
                     className="absolute top-2.5 right-2.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground/34 hover:bg-background/55 hover:text-foreground transition-colors"
                   >
                     <X size={11} />
                   </button>
-                </div>
+                </form>
                 </div>
               </div>
             );
