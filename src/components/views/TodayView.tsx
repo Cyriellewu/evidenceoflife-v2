@@ -3,7 +3,7 @@ import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
-import { MapPin, Image, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { MapPin, Image, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { InputPlusMenu, detectAutoTags } from '@/components/InputPlusMenu';
 import { useReminders } from '@/hooks/useReminders';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,10 @@ import { PlanDrift } from '@/components/today/PlanDrift';
 import { StorageImage } from "@/components/StorageImage";
 
 type TimeBreakdownRange = 'today' | 'week' | 'month';
+
+/** Timeline time rail — keep HH:mm readable without stealing body width on phones. */
+const STREAM_TIME_RAIL = 'w-11 flex-shrink-0 sm:w-14';
+const STREAM_TIME_RAIL_PAD = 'pt-[3px] text-right pr-1.5 sm:pr-3';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -938,23 +942,78 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         </div>
       )}
 
-      {/* Photo lightbox */}
+      {/* Photo lightbox — swipe / arrows; counter instead of N dots for large sets */}
       {lightboxPhotos && (
-        <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm flex items-center justify-center animate-fade-in" onClick={() => setLightboxPhotos(null)}>
-          <button onClick={() => setLightboxPhotos(null)} className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground z-10">
-            <X size={24} />
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in"
+          onClick={() => setLightboxPhotos(null)}
+          onKeyDown={(e) => {
+            if (!lightboxPhotos) return;
+            if (e.key === 'Escape') setLightboxPhotos(null);
+            if (e.key === 'ArrowRight' && lightboxPhotos.index < lightboxPhotos.photos.length - 1) {
+              setLightboxPhotos({ ...lightboxPhotos, index: lightboxPhotos.index + 1 });
+            }
+            if (e.key === 'ArrowLeft' && lightboxPhotos.index > 0) {
+              setLightboxPhotos({ ...lightboxPhotos, index: lightboxPhotos.index - 1 });
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxPhotos(null)}
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-10 rounded-full bg-background/70 p-2 text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            <X size={22} />
           </button>
-          <div className="relative max-w-[90vw] max-h-[85vh]" onClick={e => e.stopPropagation()}>
-            <StorageImage src={lightboxPhotos.photos[lightboxPhotos.index]} alt="" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
+          <div
+            className="relative flex w-full max-w-[96vw] flex-col items-center gap-3 px-2"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              (e.currentTarget as HTMLElement).dataset.touchX = String(e.touches[0]?.clientX ?? 0);
+            }}
+            onTouchEnd={(e) => {
+              const start = Number((e.currentTarget as HTMLElement).dataset.touchX || 0);
+              const end = e.changedTouches[0]?.clientX ?? start;
+              const dx = end - start;
+              if (Math.abs(dx) < 48) return;
+              if (dx < 0 && lightboxPhotos.index < lightboxPhotos.photos.length - 1) {
+                setLightboxPhotos({ ...lightboxPhotos, index: lightboxPhotos.index + 1 });
+              } else if (dx > 0 && lightboxPhotos.index > 0) {
+                setLightboxPhotos({ ...lightboxPhotos, index: lightboxPhotos.index - 1 });
+              }
+            }}
+          >
+            <StorageImage
+              src={lightboxPhotos.photos[lightboxPhotos.index]}
+              alt=""
+              className="max-h-[78vh] max-w-full rounded-xl object-contain"
+            />
             {lightboxPhotos.photos.length > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-3">
-                {lightboxPhotos.photos.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setLightboxPhotos({ ...lightboxPhotos, index: i })}
-                    className={cn("w-2 h-2 rounded-full transition-colors", i === lightboxPhotos.index ? "bg-primary" : "bg-muted-foreground/30")}
-                  />
-                ))}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={lightboxPhotos.index === 0}
+                  onClick={() => setLightboxPhotos({ ...lightboxPhotos, index: lightboxPhotos.index - 1 })}
+                  className="rounded-full border border-border/50 bg-background/80 p-2 text-foreground disabled:opacity-30"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="min-w-[4.5rem] text-center font-mono text-[12px] tabular-nums text-muted-foreground">
+                  {lightboxPhotos.index + 1} / {lightboxPhotos.photos.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={lightboxPhotos.index >= lightboxPhotos.photos.length - 1}
+                  onClick={() => setLightboxPhotos({ ...lightboxPhotos, index: lightboxPhotos.index + 1 })}
+                  className="rounded-full border border-border/50 bg-background/80 p-2 text-foreground disabled:opacity-30"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight size={18} />
+                </button>
               </div>
             )}
           </div>
@@ -2286,23 +2345,21 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   </div>
                                 </div>
                               ) : (
-                                <div className="group/card relative flex items-start justify-between gap-3">
-                                  <div className="flex-1 min-w-0">
-                                    {/* Title row — wrap on mobile; hover actions overlay so they don't steal width */}
+                                <div className="group/card relative flex flex-col gap-2.5">
+                                  <div className="min-w-0">
+                                    {/* Title — full content width; ~16px is normal mobile “medium-large” */}
                                     <div className="relative flex items-start gap-2 min-w-0 pr-0 sm:pr-16">
-                                      {!item.tagIcon && moment.emoji && <span className="text-[15px] flex-shrink-0 leading-[1.2]">{moment.emoji}</span>}
-                                      {item.tagIcon && <span className="text-[14px] flex-shrink-0 leading-[1.2]">{item.tagIcon}</span>}
+                                      {!item.tagIcon && moment.emoji && <span className="text-[15px] flex-shrink-0 leading-[1.35]">{moment.emoji}</span>}
+                                      {item.tagIcon && <span className="text-[14px] flex-shrink-0 leading-[1.35]">{item.tagIcon}</span>}
                                       <span
-                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-foreground hover:text-primary/80 transition-colors"
-                                        style={{ fontSize: '17px', fontWeight: 600, lineHeight: 1.35 }}
+                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[16px] font-semibold leading-[1.4] tracking-[-0.01em] text-foreground hover:text-primary/80 transition-colors sm:text-[17px]"
                                         onClick={() => startEdit(moment)}
                                       >
                                         {subtitle || moment.emoji || 'Moment'}
                                       </span>
                                       {moment.isSpecial && (
-                                        <span className="flex-shrink-0 text-[13px] leading-[1.2]" title={lang === 'zh' ? '已留住' : 'Kept'}>💛</span>
+                                        <span className="flex-shrink-0 text-[13px] leading-[1.35]" title={lang === 'zh' ? '已留住' : 'Kept'}>💛</span>
                                       )}
-                                      {/* Desktop hover actions — absolute so invisible icons never truncate the title */}
                                       <div className="pointer-events-none absolute right-0 top-0 hidden items-center gap-0.5 opacity-0 transition-opacity group-hover/card:pointer-events-auto group-hover/card:opacity-100 sm:flex">
                                         <button type="button" onClick={() => startMomentTimer(moment)} className="p-1 text-muted-foreground/30 hover:text-primary transition-colors"><Timer size={12} /></button>
                                         <button type="button" onClick={() => startEdit(moment)} className="p-1 text-muted-foreground/30 hover:text-foreground transition-colors"><Pencil size={12} /></button>
@@ -2315,7 +2372,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     {/* Meta row */}
                                     <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                       {hasTimer && durationMin > 0 && (
-                                        <span className="font-mono tabular-nums text-muted-foreground/75" style={{ fontSize: '14px' }}>
+                                        <span className="font-mono tabular-nums text-muted-foreground/75 text-[13px]">
                                           ⏱ {momentDurLabel}
                                         </span>
                                       )}
@@ -2324,22 +2381,21 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                           <button
                                             type="button"
                                             onClick={() => onFocusLocationOnMap({ name: moment.location!.name, lat: moment.location!.lat, lng: moment.location!.lng })}
-                                            className="flex items-center gap-1 text-muted-foreground/75 hover:text-primary transition-colors truncate"
-                                            style={{ fontSize: '14px' }}
+                                            className="flex min-w-0 max-w-full items-center gap-1 text-[13px] text-muted-foreground/75 hover:text-primary transition-colors"
                                             title={lang === 'zh' ? `在地图上查看·${moment.location.name}` : `View on map · ${moment.location.name}`}
                                           >
-                                            <MapPin size={14} className="flex-shrink-0" />
-                                            <span className="truncate max-w-[180px] underline-offset-2 hover:underline">{moment.location.name}</span>
+                                            <MapPin size={13} className="flex-shrink-0" />
+                                            <span className="min-w-0 truncate underline-offset-2 hover:underline">{moment.location.name}</span>
                                           </button>
                                         ) : (
-                                          <span className="flex items-center gap-1 text-muted-foreground/75 truncate" style={{ fontSize: '14px' }} title={moment.location.name}>
-                                            <MapPin size={14} className="flex-shrink-0" />
-                                            <span className="truncate max-w-[180px]">{moment.location.name}</span>
+                                          <span className="flex min-w-0 max-w-full items-center gap-1 text-[13px] text-muted-foreground/75" title={moment.location.name}>
+                                            <MapPin size={13} className="flex-shrink-0" />
+                                            <span className="min-w-0 truncate">{moment.location.name}</span>
                                           </span>
                                         )
                                       )}
                                       {hasTimer && durationMin > 0 && (
-                                        <span className="font-mono tabular-nums text-muted-foreground/45" style={{ fontSize: '14px' }}>
+                                        <span className="font-mono tabular-nums text-muted-foreground/45 text-[13px]">
                                           {format(parseISO(moment.timer_started_at!), 'HH:mm')} → {format(parseISO(moment.timer_ended_at!), 'HH:mm')}
                                         </span>
                                       )}
@@ -2404,37 +2460,38 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     )}
                                   </div>
 
-                                  {/* Right: photos (up to 4) */}
+                                  {/* Photos under text (full width) — snap-scroll strip, not a side thumbnail that steals title width */}
                                   {moment.photos.length > 0 && (
-                                    <div className="flex-shrink-0 flex items-center gap-1.5">
-                                      {moment.photos.slice(0, 4).map((photo, i) => {
+                                    <div
+                                      className={cn(
+                                        '-mx-0.5 flex gap-2 overflow-x-auto px-0.5 pb-0.5 snap-x snap-mandatory scroll-smooth',
+                                        'no-scrollbar touch-pan-x',
+                                      )}
+                                    >
+                                      {moment.photos.map((photo, i) => {
                                         const singlePhoto = moment.photos.length === 1;
-                                        const manyPhotos = moment.photos.length >= 3;
                                         return (
-                                          <img
+                                          <button
                                             key={i}
-                                            src={photo}
-                                            alt=""
-                                            className={cn(
-                                              "object-cover cursor-pointer border-[3px] border-white shadow-[0_12px_28px_hsl(var(--foreground)/0.12)] ring-1 ring-border/30 transition-transform hover:-translate-y-0.5 dark:border-foreground/[0.08]",
-                                              singlePhoto
-                                                ? "w-[96px] h-[124px] sm:w-[112px] sm:h-[144px] rounded-xl"
-                                                : manyPhotos
-                                                  ? "w-[60px] h-[76px] sm:w-[68px] sm:h-[88px] rounded-lg"
-                                                  : "w-[72px] h-[92px] sm:w-[84px] sm:h-[108px] rounded-lg"
-                                            )}
+                                            type="button"
+                                            className="flex-shrink-0 snap-start overflow-hidden rounded-xl border border-border/25 bg-muted/20 shadow-[0_8px_20px_hsl(var(--foreground)/0.08)] transition-transform active:scale-[0.98]"
                                             onClick={() => setLightboxPhotos({ photos: moment.photos, index: i })}
-                                          />
+                                          >
+                                            <img
+                                              src={photo}
+                                              alt=""
+                                              loading="lazy"
+                                              decoding="async"
+                                              className={cn(
+                                                'object-cover',
+                                                singlePhoto
+                                                  ? 'h-[168px] w-[min(100%,280px)] sm:h-[200px] sm:w-[320px]'
+                                                  : 'h-[132px] w-[108px] sm:h-[148px] sm:w-[120px]',
+                                              )}
+                                            />
+                                          </button>
                                         );
                                       })}
-                                      {moment.photos.length > 4 && (
-                                        <button
-                                          className="text-[12px] text-muted-foreground/60 pl-0.5"
-                                          onClick={() => setLightboxPhotos({ photos: moment.photos, index: 0 })}
-                                        >
-                                          +{moment.photos.length - 4}
-                                        </button>
-                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -2542,18 +2599,18 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
 }) {
   return (
     <div className="group flex items-stretch gap-0">
-      {/* Time column */}
-      <div className="w-14 flex-shrink-0 pt-[3px] text-right pr-3">
+      {/* Time column — narrow on mobile so Chinese body copy gets the width */}
+      <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
         {timeStr && (
-          <span className="font-mono tabular-nums text-muted-foreground" style={{ fontSize: '14px' }}>
+          <span className="font-mono tabular-nums text-muted-foreground text-[12px] sm:text-[14px]">
             {timeStr}
           </span>
         )}
       </div>
       {/* Dot + line column */}
-      <div className="w-5 flex-shrink-0 flex flex-col items-center relative">
+      <div className="w-4 flex-shrink-0 flex flex-col items-center relative sm:w-5">
         <div
-          className="w-[10px] h-[10px] rounded-full flex-shrink-0 mt-[6px] z-10 ring-2 ring-background"
+          className="w-[9px] h-[9px] sm:w-[10px] sm:h-[10px] rounded-full flex-shrink-0 mt-[5px] sm:mt-[6px] z-10 ring-2 ring-background"
           style={{
             backgroundColor: isPlanOutline ? 'transparent' : color,
             border: isPlanOutline ? `2px dashed ${color}` : 'none',
@@ -2562,7 +2619,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
         {!isLast && <div className="flex-1 w-[1.5px] bg-border" />}
       </div>
       {/* Content column */}
-      <div className="flex-1 min-w-0 pb-2 pl-2 pr-1">
+      <div className="flex-1 min-w-0 pb-2 pl-1.5 pr-1 sm:pl-2">
         {(() => {
           const outlineStyle: React.CSSProperties | undefined = isPlanOutline
             ? { borderStyle: 'dashed', borderWidth: '1.8px', borderColor: color }
@@ -2570,7 +2627,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
           return (
             <div
               className={cn(
-                "rounded-xl transition-colors px-3 py-1.5 -ml-1",
+                "rounded-xl transition-colors px-2 py-1.5 -ml-0.5 sm:px-3 sm:-ml-1",
                 isPlanOutline ? "" : "hover:bg-muted/35"
               )}
               style={outlineStyle}
