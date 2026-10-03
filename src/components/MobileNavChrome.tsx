@@ -68,7 +68,7 @@ export function MobileNavChrome({
           expandable={false}
           overlayClassName="!z-[210]"
           className={cn(
-            '!z-[220] w-[min(68vw,232px)] gap-0 border-r border-black/10 p-0 shadow-[8px_0_32px_-12px_rgba(0,0,0,0.32)] sm:max-w-[232px] sm:rounded-none',
+            '!z-[220] w-[min(70vw,228px)] gap-0 border-r border-black/10 p-0 shadow-[8px_0_32px_-12px_rgba(0,0,0,0.32)] sm:max-w-[228px] sm:rounded-none',
             // Deeper warm gray — less blank white than surface-contrast / #eceae6.
             'bg-[#cfcbc4] dark:border-white/10 dark:bg-[hsl(220_9%_11%)]',
             '[&>div.absolute]:hidden',
@@ -78,19 +78,33 @@ export function MobileNavChrome({
             {lang === 'zh' ? '导航' : 'Navigation'}
           </SheetTitle>
           <div className="flex h-full flex-col">
+<<<<<<< HEAD
             <div className="flex items-center gap-2 border-b border-black/[0.06] px-3 pb-2.5 pt-[max(0.875rem,env(safe-area-inset-top))] dark:border-white/[0.08]">
               <BrandLogo alt="Evidence of life" className="h-8 w-8 flex-shrink-0" />
               <span className="font-brand min-w-0 flex-1 truncate text-[14px] font-medium tracking-tight text-foreground/90">
                 Evidence of life
               </span>
+=======
+            <div className="relative border-b border-black/[0.06] px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] dark:border-white/[0.08]">
+>>>>>>> origin/main
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.06]"
+                className="absolute right-2 top-[max(0.55rem,env(safe-area-inset-top))] flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.06]"
                 aria-label={lang === 'zh' ? '关闭' : 'Close'}
               >
                 <X size={16} />
               </button>
+              <div className="flex min-w-0 items-center gap-2 pr-8">
+                <BrandLogo
+                  variant="mark"
+                  alt="Evidence of life"
+                  className="h-12 w-12 flex-shrink-0"
+                />
+                <span className="font-brand min-w-0 flex-1 text-[24px] font-medium leading-[1.05] tracking-tight text-foreground">
+                  Evidence of life
+                </span>
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <SideNav
