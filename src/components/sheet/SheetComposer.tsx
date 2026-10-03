@@ -58,7 +58,7 @@ export const SheetComposer = forwardRef<HTMLInputElement, SheetComposerProps>(fu
   return (
     <div
       className={cn(
-        'sticky bottom-2 z-40 mx-auto w-full max-w-[720px] rounded-3xl bg-background/80 p-1.5 backdrop-blur-xl shadow-[0_14px_34px_hsl(var(--foreground)/0.09)]',
+        'sticky bottom-2 z-40 mx-auto w-full max-w-[720px] rounded-3xl bg-background/80 p-1.5 backdrop-blur-xl shadow-[0_14px_34px_hsl(var(--foreground)/0.09)] mb-[env(safe-area-inset-bottom)]',
         className,
       )}
     >
