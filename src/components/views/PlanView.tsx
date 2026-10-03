@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isEnterSubmit, isImeComposing } from '@/lib/utils';
 import { mergeCarriedTodos, presentCarryOnTimeline } from '@/lib/carryTodos';
 import { isElapsedSlot } from '@/lib/elapsedSlot';
 import { isDailyRepeatTodo } from '@/lib/recurringTodos';
@@ -1131,10 +1131,11 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                 value={editingStepTitle}
                 onChange={e => setEditingStepTitle(e.target.value)}
                 onKeyDown={e => {
-                  // Guard against IME composition: while composing a Chinese /
-                  // Japanese candidate, Enter confirms the candidate — it must
-                  // NOT commit the rename. Only a "real" Enter saves.
-                  if (e.key === 'Enter' && !isImeComposing(e.nativeEvent as KeyboardEvent)) {
+                  // IME-safe Enter: composition confirm must not save; real Enter does.
+                  // Use isEnterSubmit (isComposing only) so CJK mobile keyboards that
+                  // still report keyCode 229 after composition can save.
+                  if (isEnterSubmit(e)) {
+                    e.preventDefault();
                     if (editingStepTitle.trim()) onUpdateStepTitle(step.id, editingStepTitle);
                     setEditingStepId(null);
                   } else if (e.key === 'Escape') {
@@ -1233,7 +1234,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               value={newStepTitle}
               onChange={e => setNewStepTitle(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !isImeComposing(e.nativeEvent as KeyboardEvent) && newStepTitle.trim()) {
+                if (isEnterSubmit(e) && newStepTitle.trim()) {
                   const typed = newStepTitle.trim();
                   if (isUrlLike(typed)) {
                     e.preventDefault();
@@ -1583,11 +1584,6 @@ export function PlanView({
     if (!isDemo) onTodosChanged?.();
     toast(next ? tLang('plan.repeatDailyOn') : tLang('plan.repeatDailyOff'));
   }, [toggleRecurringProp, toggleRecurring, onTodosChanged, isDemo, tLang]);
-
-  const isEnterSubmit = (e: React.KeyboardEvent) => {
-    const native = e.nativeEvent as KeyboardEvent;
-    return e.key === 'Enter' && !e.shiftKey && !isImeComposing(native);
-  };
 
   const [newTitle, setNewTitle] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
