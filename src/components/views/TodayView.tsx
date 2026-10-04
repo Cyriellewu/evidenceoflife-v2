@@ -1090,18 +1090,20 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             />
           </div>
 
-          {/* Right: date — stacked, medium-large iOS scale, fills remaining width */}
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 sm:w-[38%] sm:flex-none lg:w-[32%]">
+          {/* Right: day leads; month/year follow as one compact metadata block. */}
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:w-[38%] sm:flex-none sm:gap-3 lg:w-[32%]">
             <span className="text-[28px] font-light tabular-nums leading-none tracking-[-0.03em] text-foreground sm:text-[30px] lg:text-[36px]">
               {format(today, 'd')}
             </span>
-            <span className="text-[12px] font-semibold uppercase leading-tight tracking-[0.08em] text-primary sm:text-[18px] sm:tracking-[0.14em] lg:text-[22px]">
-              {formatDate(today, 'MMMM')}
-            </span>
-            <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] leading-none text-muted-foreground/80 sm:mt-1 sm:gap-1.5 sm:text-[15px] lg:text-[18px]">
-              <span className="shrink-0 tabular-nums">{formatDate(today, 'yyyy')}</span>
-              <span className="text-muted-foreground/55">·</span>
-              <span className="min-w-0 truncate">{formatDate(today, 'EEE')}</span>
+            <div className="min-w-0 border-l border-border/55 pl-2.5 sm:pl-3">
+              <span className="block truncate text-[12px] font-semibold uppercase leading-tight tracking-[0.08em] text-primary sm:text-[18px] sm:tracking-[0.14em] lg:text-[22px]">
+                {formatDate(today, 'MMMM')}
+              </span>
+              <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-none text-muted-foreground/80 sm:gap-1.5 sm:text-[15px] lg:text-[18px]">
+                <span className="shrink-0 tabular-nums">{formatDate(today, 'yyyy')}</span>
+                <span className="text-muted-foreground/55">·</span>
+                <span className="min-w-0 truncate">{formatDate(today, 'EEE')}</span>
+              </div>
             </div>
           </div>
         </div>
