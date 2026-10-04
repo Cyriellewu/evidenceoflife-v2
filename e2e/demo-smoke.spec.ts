@@ -51,5 +51,23 @@ test.describe('synthetic demo', () => {
     expect(layout.height).toBeGreaterThan(20);
     expect(layout.right).toBeLessThanOrEqual(layout.viewportWidth);
     expect(layout.pageWidth).toBe(layout.viewportWidth);
+
+    const stream = page.getByTestId('recap-stream');
+    const axisX = await stream.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.left + Number.parseFloat(window.getComputedStyle(element, '::before').left);
+    });
+    const dotCenters = await page.getByTestId('recap-stream-dot').evaluateAll((dots) =>
+      dots.slice(0, 3).map((dot) => {
+        const rect = dot.getBoundingClientRect();
+        return rect.left + rect.width / 2;
+      }),
+    );
+    for (const center of dotCenters) expect(Math.abs(center - axisX)).toBeLessThan(0.5);
+
+    await expect(page.getByTestId('recap-phase').first()).toHaveText('Morning');
+    await expect(page.getByText('☀', { exact: true })).toHaveCount(0);
+    expect(await titleNode.evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('15px');
+    expect(await page.getByTestId('recap-phase').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('11px');
   });
 });

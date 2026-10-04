@@ -428,31 +428,6 @@
     @apply p-5 rounded-2xl bg-card border border-border text-center;
   }
 
-  .recap-readable-ui {
-    --recap-meta-size: 14px;
-    --recap-control-size: 14px;
-  }
-
-  .recap-readable-ui .text-\[10px\],
-  .recap-readable-ui .text-\[11px\],
-  .recap-readable-ui .text-\[12px\],
-  .recap-readable-ui .text-xs {
-    font-size: var(--recap-meta-size) !important;
-  }
-
-  .recap-readable-ui button {
-    min-height: 32px;
-    font-size: var(--recap-control-size) !important;
-  }
-
-  .recap-readable-ui button svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .recap-readable-ui .font-mono {
-    font-size: max(var(--recap-meta-size), 0.8125rem) !important;
-  }
 }
 
 @layer utilities {
