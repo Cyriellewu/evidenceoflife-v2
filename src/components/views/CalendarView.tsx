@@ -430,6 +430,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setShowSearch(prev => !prev)}
+              aria-label="Search"
               className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
             >
               <Search size={17} />
@@ -502,7 +503,11 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                 className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
                 autoFocus
               />
-              <button onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                aria-label="Close search"
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X size={14} />
               </button>
             </div>
@@ -533,6 +538,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteEvent(r.id, r.type); }}
+                        aria-label={r.type === 'todo' ? 'Delete task' : 'Delete moment'}
                         className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all flex-shrink-0"
                         title="Delete"
                       >
