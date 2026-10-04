@@ -72,8 +72,10 @@ const CACHED_OPTS: PositionOptions = {
 
 const FRESH_OPTS: PositionOptions = {
   enableHighAccuracy: false,
-  maximumAge: 30_000,
-  timeout: 15_000,
+  // A user-initiated retry must not reuse the failed reading that iOS Safari
+  // can retain after the website permission changes in Settings.
+  maximumAge: 0,
+  timeout: 18_000,
 };
 
 function requestPosition(options: PositionOptions): Promise<GeolocationPosition> {
@@ -95,7 +97,8 @@ function requestPosition(options: PositionOptions): Promise<GeolocationPosition>
  * iOS-friendly getCurrentPosition:
  * 1) return session cache when allowed
  * 2) try a cache-friendly GPS read
- * 3) one fresh retry on timeout / unavailable
+ * 3) one fresh retry on transient failures, including a stale iOS permission
+ *    callback after the user has just changed Safari Settings
  *
  * Never conflates timeout with permission denial.
  */
@@ -118,8 +121,16 @@ export async function getGeoPosition(opts?: {
     return next;
   } catch (err) {
     const kind = classifyGeoError(err);
-    // Soft retry once for flaky iOS Wi‑Fi / GPS handoff — not for hard denies.
-    if (kind === 'timeout' || kind === 'unavailable' || kind === 'unknown') {
+    // A permission callback is normally final. On an explicit user retry,
+    // however, iOS Safari can deliver one stale PERMISSION_DENIED result after
+    // the site was changed to Allow in Settings. Ask the browser once more;
+    // never loop or retry silent/background requests.
+    const shouldRetry =
+      kind === 'timeout'
+      || kind === 'unavailable'
+      || kind === 'unknown'
+      || (force && kind === 'permission');
+    if (shouldRetry) {
       try {
         const pos = await requestPosition(FRESH_OPTS);
         const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };

@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import {
   readCachedGeoCoords,
   writeCachedGeoCoords,
@@ -92,6 +92,13 @@ describe('geoPlaceName', () => {
 });
 
 describe('geolocation error classification', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'isSecureContext', {
+      configurable: true,
+      value: true,
+    });
+  });
+
   it('does not treat timeout as permission denial', async () => {
     const { classifyGeoError, geoErrorMessage, GeoPositionError } = await import('@/lib/geolocation');
     expect(classifyGeoError({ code: 1 })).toBe('permission');
@@ -101,6 +108,43 @@ describe('geolocation error classification', () => {
     expect(geoErrorMessage('timeout', 'zh')).toMatch(/超时/);
     expect(geoErrorMessage('permission', 'zh')).toMatch(/权限/);
     expect(geoErrorMessage('timeout', 'en')).not.toMatch(/permission/i);
+  });
+
+  it('retries one stale iOS permission error after an explicit user request', async () => {
+    const getCurrentPosition = vi
+      .fn()
+      .mockImplementationOnce((_: PositionCallback, reject: PositionErrorCallback) => {
+        reject({ code: 1 } as GeolocationPositionError);
+      })
+      .mockImplementationOnce((resolve: PositionCallback) => {
+        resolve({ coords: { latitude: 40.7128, longitude: -74.006 } } as GeolocationPosition);
+      });
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    });
+
+    const { getGeoPosition } = await import('@/lib/geolocation');
+    await expect(getGeoPosition({ force: true, allowCache: false })).resolves.toEqual({
+      lat: 40.7128,
+      lng: -74.006,
+    });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(getCurrentPosition.mock.calls[0][2]).toMatchObject({ maximumAge: 0 });
+  });
+
+  it('does not repeat a denied request that was started silently', async () => {
+    const getCurrentPosition = vi.fn((_: PositionCallback, reject: PositionErrorCallback) => {
+      reject({ code: 1 } as GeolocationPositionError);
+    });
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    });
+
+    const { getGeoPosition, GeoPositionError } = await import('@/lib/geolocation');
+    await expect(getGeoPosition({ force: false, allowCache: false })).rejects.toBeInstanceOf(GeoPositionError);
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
   });
 });
 
