@@ -1388,8 +1388,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
       {/* Moments list */}
       {/* Unified iOS-style timeline: merge completed todos + moments */}
-      <div ref={recapContentRef} className="recap-readable-ui px-4 sm:px-5 lg:px-6 flex-1 overflow-y-auto mt-1 pb-40">
-        <div className="lg:grid lg:grid-cols-[minmax(260px,3fr)_minmax(0,7fr)] lg:gap-6 lg:items-start">
+      <div ref={recapContentRef} className="recap-readable-ui mt-1 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-40 sm:px-5 lg:px-6">
+        <div className="min-w-0 w-full lg:grid lg:grid-cols-[minmax(260px,3fr)_minmax(0,7fr)] lg:gap-6 lg:items-start">
           {!isMobile && (
             <div className="mb-5 lg:mb-0 flex flex-col gap-3">
               <DailyHabitTracker
@@ -1425,7 +1425,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               )}
             </div>
           )}
-          <div className="min-w-0" ref={recapRightColRef}>
+          <div className="min-w-0 w-full max-w-full" ref={recapRightColRef}>
 
         {/* Unified timeline */}
         {(() => {
@@ -1555,7 +1555,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             <>
                {/* ─── Today Summary (compact) ─── */}
                <div className="mb-2 pb-2 border-b border-border/30">
-                 <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
+                 <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 text-[13px]">
                    <span className="font-semibold text-foreground">{realItemCount}</span>
                    <span className="text-muted-foreground/60">{realItemCount === 1 ? t('recap.moment') : t('recap.moments')}</span>
                    {totalActiveMin > 0 && (
@@ -1584,7 +1584,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                            const h = Math.floor(info.min / 60);
                            const m = info.min % 60;
                            return (
-                             <span key={tag} className="flex items-center gap-0.5">
+                             <span key={tag} className="inline-flex flex-shrink-0 items-center gap-0.5 whitespace-nowrap">
                                <span className="text-muted-foreground/30">·</span>
                                <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: info.color }} />
                                <span className="text-muted-foreground/50 ml-0.5">{tag}</span>
@@ -1595,7 +1595,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                            );
                          })}
                          {extraCount > 0 && (
-                           <span className="flex items-center gap-0.5">
+                           <span className="inline-flex flex-shrink-0 items-center gap-0.5 whitespace-nowrap">
                              <span className="text-muted-foreground/30">·</span>
                              <span className="text-muted-foreground/45 text-[11px]">+{extraCount} more</span>
                            </span>
@@ -1878,7 +1878,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               let lastPhase = '';
 
               return (
-                <div className="px-2">
+                <div className="min-w-0 w-full max-w-full overflow-hidden px-2">
                   {threads.map((thread, gi) => {
                     const isThread = thread.tag && thread.items.length > 1;
                     const firstHour = thread.startTime.getHours();
@@ -2037,7 +2037,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                 isLast={isLastItem}
                               >
                                 <div className="group/card relative">
-                                  <div className={cn("flex items-center gap-2 min-w-0", isPlanOutline && "opacity-50")}>
+                                  <div className={cn("flex min-w-0 items-start gap-2", isPlanOutline && "opacity-50")}>
                                     {item.tagIcon && <span className="text-[14px] flex-shrink-0">{item.tagIcon}</span>}
                                     {editingTodoId === todo.id && !isPlanOutline ? (
                                       <input
@@ -2063,7 +2063,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     ) : (
                                       <span
                                         className={cn(
-                                          "truncate cursor-pointer transition-colors",
+                                          "min-w-0 flex-1 break-words whitespace-normal cursor-pointer transition-colors",
                                           isPlanOutline ? "text-muted-foreground" : "text-foreground hover:text-primary/80",
                                           !isPlanOutline && todo.is_completed && "text-foreground/80"
                                         )}
@@ -2083,7 +2083,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     )}
                                     {isSavedSession && (
                                       <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded-full flex-shrink-0 ml-auto">
-                                        <Timer size={8} strokeWidth={2.2} /> saved
+                                        <Timer size={8} strokeWidth={2.2} /> <span className="hidden sm:inline">saved</span>
                                       </span>
                                     )}
                                   </div>
@@ -2150,7 +2150,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                 isLast={isLastItem}
                               >
                                 <div className="group/card relative">
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex min-w-0 items-start gap-2">
                                     <span className="text-[14px] flex-shrink-0">📅</span>
                                     {editingImportedEventId === event.id ? (
                                       <input
@@ -2175,7 +2175,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       />
                                     ) : (
                                       <span
-                                        className="truncate cursor-pointer text-foreground hover:text-primary/80 transition-colors"
+                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-foreground hover:text-primary/80 transition-colors"
                                         style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.2 }}
                                         onClick={() => {
                                           setEditingImportedEventId(event.id);
@@ -2618,7 +2618,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
   timeStr?: string; color: string; isPlanOutline?: boolean; isLast?: boolean; children: React.ReactNode;
 }) {
   return (
-    <div className="group flex items-stretch gap-0">
+    <div className="group flex min-w-0 w-full max-w-full items-stretch gap-0">
       {/* Time column — narrow on mobile so Chinese body copy gets the width */}
       <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
         {timeStr && (
@@ -2639,7 +2639,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
         {!isLast && <div className="flex-1 w-[1.5px] bg-border" />}
       </div>
       {/* Content column */}
-      <div className="flex-1 min-w-0 pb-2 pl-1.5 pr-1 sm:pl-2">
+      <div className="w-0 min-w-0 flex-1 pb-2 pl-1.5 pr-1 sm:pl-2">
         {(() => {
           const outlineStyle: React.CSSProperties | undefined = isPlanOutline
             ? { borderStyle: 'dashed', borderWidth: '1.8px', borderColor: color }
@@ -2647,7 +2647,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
           return (
             <div
               className={cn(
-                "rounded-xl transition-colors px-2 py-1.5 -ml-0.5 sm:px-3 sm:-ml-1",
+                "min-w-0 max-w-full overflow-hidden rounded-xl transition-colors px-2 py-1.5 -ml-0.5 sm:px-3 sm:-ml-1",
                 isPlanOutline ? "" : "hover:bg-muted/35"
               )}
               style={outlineStyle}
