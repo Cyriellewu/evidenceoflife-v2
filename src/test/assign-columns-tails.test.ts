@@ -9,6 +9,18 @@ const block = (over: Partial<TimeBlock> & Pick<TimeBlock, 'id' | 'startMin' | 'e
 });
 
 describe('assignColumns — carryover tails render side-by-side (并排), not stacked', () => {
+  it('reserves a readable lane for very short back-to-back blocks', () => {
+    const blocks: TimeBlock[] = [
+      block({ id: 'short-a', startMin: 600, endMin: 601 }),
+      block({ id: 'short-b', startMin: 607, endMin: 608 }),
+    ];
+
+    const positioned = assignColumns(blocks);
+
+    expect(positioned.every(p => p.totalCols === 2)).toBe(true);
+    expect(new Set(positioned.map(p => p.col)).size).toBe(2);
+  });
+
   it('splits overlapping prev-day tails into parallel columns', () => {
     // Three carryover tails that all overlap at the top of the day (00:00-ish).
     const blocks: TimeBlock[] = [

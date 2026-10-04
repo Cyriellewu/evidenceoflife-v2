@@ -273,9 +273,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   );
 
   const timelineCanvasBg = isDarkMode ? 'hsl(240 5% 6%)' : TIMELINE_CANVAS_LIGHT;
-  const timelineHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.12)' : 'rgba(55, 55, 62, 0.10)';
-  const timelineHalfHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.06)' : 'rgba(55, 55, 62, 0.055)';
-  const timelineRailLabelColor = isDarkMode ? 'hsl(240 5% 86% / 0.46)' : 'rgba(75, 75, 80, 0.48)';
+  const timelineHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.10)' : 'rgba(55, 55, 62, 0.065)';
+  const timelineHalfHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.045)' : 'rgba(55, 55, 62, 0.028)';
+  const timelineRailLabelColor = isDarkMode ? 'hsl(240 5% 86% / 0.42)' : 'rgba(75, 75, 80, 0.38)';
   const timelinePastTint = isDarkMode ? 'hsl(240 4% 100% / 0.018)' : 'rgba(15, 23, 42, 0.014)';
   // Ghost auto-plan preview — half-real placements. Warm primary tint, dashed so it
   // reads as "proposed, not committed". Focus = solid dash; background = softer dots.
@@ -2995,7 +2995,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 <span
                   className="font-sans tabular-nums leading-none tracking-tight"
                   style={{
-                    fontSize: isMidnight ? '10px' : '12px',
+                    fontSize: isMidnight ? '10px' : '11px',
                     fontWeight: isMidnight ? 600 : 500,
                     color: isMidnight
                       ? isDarkMode ? 'hsl(214 60% 68% / 0.55)' : 'hsl(214 50% 48% / 0.55)'
@@ -3175,9 +3175,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {/* Inline creation card at selected range — looks like a dashed plan block */}
           {selectedRange && (() => {
             const rangeTop = minToY(selectedRange.startMin);
-            // Stacked name + time row needs ~76px; short drags used to clip the
-            // title input so phone create looked like "times only / can't name".
-            const rangeHeight = Math.max(minToY(selectedRange.endMin) - rangeTop, 76);
+            const rangeHeight = Math.max(minToY(selectedRange.endMin) - rangeTop, 52);
             const isPastRange = isElapsedSlot({
               viewingDate: viewingDateKey,
               today: format(new Date(), 'yyyy-MM-dd'),
@@ -3187,7 +3185,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const creationTagColor = slotAddTitle.trim() ? getThemedTagColor(undefined, slotAddTitle.trim()) : undefined;
             const pastAccent = '#4B9478';
             const borderColor = creationTagColor || (isPastRange ? pastAccent : 'hsl(var(--muted-foreground) / 0.45)');
-            const shellStroke = creationTagColor || (isPastRange ? 'hsl(152 32% 44% / 0.56)' : 'hsl(var(--muted-foreground) / 0.26)');
             const shellFill = creationTagColor
               ? `linear-gradient(180deg, color-mix(in srgb, hsl(var(--card)) 90%, ${creationTagColor} 10%) 0%, color-mix(in srgb, hsl(var(--card)) 96%, ${creationTagColor} 4%) 100%)`
               : isPastRange
@@ -3206,8 +3203,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const durH = Math.floor(durationMin / 60);
             const durM = durationMin % 60;
             const durStr = durH > 0 ? `${durH}h${durM > 0 ? ` ${durM}m` : ''}` : `${durM}m`;
-            const compactRange = rangeHeight < 96;
-
             const applyTimeEdit = (field: 'start' | 'end', value: string) => {
               const match = value.match(/^(\d{1,2}):(\d{2})$/);
               if (!match) return;
@@ -3230,31 +3225,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 style={{ top: rangeTop, height: rangeHeight }}
                 onMouseDown={e => e.stopPropagation()}
               >
-                <div
-                  className="absolute inset-0 rounded-[14px] border border-dashed shadow-[inset_0_0_0_1px_hsl(var(--border)/0.18)]"
-                  style={{
-                    borderColor: shellStroke,
-                    background: shellFill,
-                  }}
-                />
+                <div className="absolute inset-0 rounded-[10px]" style={{ background: shellFill }} />
                 {isPastRange && (
                   <div
-                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[14px]"
+                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[10px]"
                     style={{ backgroundColor: pastAccent }}
                   />
                 )}
                 <div
-                  className={cn(
-                    "absolute z-10",
-                    compactRange ? "inset-[4px]" : "left-2 right-2"
-                  )}
-                  style={compactRange ? undefined : { top: 8 }}
+                  className="absolute inset-[3px] z-10"
                 >
                   <form
-                    className={cn(
-                      "relative rounded-[14px] border shadow-[0_16px_32px_hsl(var(--foreground)/0.18)] backdrop-blur-md",
-                      compactRange ? "h-full px-3 py-2" : "px-3 py-2"
-                    )}
+                    className="relative h-full rounded-[10px] border px-3 shadow-[0_8px_22px_hsl(var(--foreground)/0.10)] backdrop-blur-md"
                     style={{
                       maxWidth: 'none',
                       borderColor: `color-mix(in srgb, ${borderColor} 38%, hsl(var(--border)) 62%)`,
@@ -3268,20 +3250,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     onPointerDown={e => e.stopPropagation()}
                   >
                   {(
-                    <div className={cn('flex h-full min-w-0 flex-col justify-center gap-1.5', compactRange ? 'pr-6' : 'pr-7')}>
-                      <div className="flex min-w-0 items-center gap-2">
-                        {isPastRange && (
-                          <span
-                            className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-medium"
-                            style={{
-                              color: pastAccent,
-                              background: 'hsl(152 32% 24% / 0.22)',
-                              boxShadow: 'inset 0 0 0 1px hsl(152 30% 42% / 0.22)',
-                            }}
-                          >
-                            ✓
-                          </span>
-                        )}
+                    <div className="flex h-full min-w-0 items-center gap-2">
                         <input
                           ref={slotInputRef}
                           value={slotAddTitle}
@@ -3304,29 +3273,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                               ? (lang === 'zh' ? '刚才做了什么？' : 'What did you do?')
                               : (lang === 'zh' ? '任务名称…' : 'Task name…')
                           }
-                          className="min-w-0 flex-1 bg-transparent text-[15px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/45 text-foreground sm:text-[14px]"
+                          className="min-w-[96px] flex-1 bg-transparent text-[14px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/45 text-foreground"
                           style={{ color: creationTagColor || undefined }}
                           autoFocus
                           enterKeyHint="done"
                         />
-                        <button
-                          type="submit"
-                          disabled={!slotAddTitle.trim()}
-                          className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-35"
-                          style={{
-                            background: slotAddTitle.trim()
-                              ? `color-mix(in srgb, ${borderColor} 22%, hsl(var(--surface-soft)))`
-                              : 'hsl(var(--muted) / 0.35)',
-                            color: creationTagColor || 'hsl(var(--foreground))',
-                          }}
-                          aria-label={lang === 'zh' ? '添加' : 'Add'}
-                          title={lang === 'zh' ? '回车添加' : 'Press Enter to add'}
-                        >
-                          <Check size={14} strokeWidth={2.2} />
-                        </button>
-                      </div>
-                      <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 font-mono tabular-nums text-muted-foreground/72" style={{ fontSize: '10px' }}>
-                        <div className="inline-flex items-center gap-1 rounded-full bg-background/55 px-1.5 py-1 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.34)]">
+                      <div className="flex flex-shrink-0 items-center gap-1 font-mono tabular-nums text-muted-foreground/68" style={{ fontSize: '10px' }}>
+                        <div className="hidden items-center gap-0.5 rounded-full bg-background/48 px-1.5 py-1 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.24)] xl:inline-flex">
                           <input
                             className="w-[36px] bg-transparent text-center focus:outline-none"
                             defaultValue={`${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`}
@@ -3345,24 +3298,27 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             onPointerDown={e => e.stopPropagation()}
                           />
                         </div>
-                        <span className="inline-flex items-center rounded-full bg-background/45 px-1.5 py-1 text-[9.5px] font-semibold tracking-[0.02em] text-muted-foreground/78 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.28)]">
+                        <span className="inline-flex items-center rounded-full bg-background/38 px-1.5 py-1 text-[9.5px] font-semibold tracking-[0.02em] text-muted-foreground/72">
                           {durStr}
                         </span>
-                        {isPastRange && (
-                          <span className="inline-flex items-center rounded-full px-1.5 py-1 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] shadow-[inset_0_0_0_1px_hsl(152_30%_42%_/_0.25)]" style={{ color: pastAccent, background: 'hsl(152 30% 20% / 0.18)' }}>
-                            {lang === 'zh' ? '完成' : 'done'}
-                          </span>
-                        )}
                       </div>
+                      <button
+                        type="submit"
+                        disabled={!slotAddTitle.trim()}
+                        className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-30"
+                        style={{
+                          background: slotAddTitle.trim()
+                            ? `color-mix(in srgb, ${borderColor} 20%, hsl(var(--surface-soft)))`
+                            : 'transparent',
+                          color: creationTagColor || 'hsl(var(--foreground))',
+                        }}
+                        aria-label={lang === 'zh' ? '添加' : 'Add'}
+                        title={lang === 'zh' ? '回车添加' : 'Press Enter to add'}
+                      >
+                        <Check size={15} strokeWidth={2} />
+                      </button>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={dismiss}
-                    className="absolute top-2.5 right-2.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground/34 hover:bg-background/55 hover:text-foreground transition-colors"
-                  >
-                    <X size={11} />
-                  </button>
                 </form>
                 </div>
               </div>
@@ -3817,13 +3773,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               </>
             )}
           </button>
-          {selectedRange && (
-            <span className="pointer-events-auto shrink-0 whitespace-nowrap rounded-full border border-border/50 bg-[hsl(var(--surface-contrast)/0.9)] px-2 py-1 text-[11px] text-muted-foreground shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] backdrop-blur-md sm:px-2.5 sm:text-[12px]">
-              {t('plan.selected')} <span className="font-semibold text-foreground">
-                {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
-              </span> {t('plan.minutes')}
-            </span>
-          )}
           {isViewingToday && (unscheduledTodos.length > 0 || suggestions) && (
             <div className="pointer-events-auto flex min-w-0 items-center gap-1">
               {suggestions ? (

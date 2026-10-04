@@ -10,15 +10,15 @@ export const MIN_BLOCK_MIN = 5;
 export const REST_COLOR = 'hsl(195, 50%, 55%)';
 export const SHOW_FREE_TIME_LABELS = true;
 /** Left time column — matches timeline grid proportions in light mode */
-export const TIME_RAIL_WIDTH_PX = 56;
-/** Calm planner canvas (light only — cool neutral, avoid heavy gray cast) */
-export const TIMELINE_CANVAS_LIGHT = '#f9fafc';
+export const TIME_RAIL_WIDTH_PX = 48;
+/** Calm planner canvas (light only — warm paper, not a blue-gray dashboard) */
+export const TIMELINE_CANVAS_LIGHT = '#fbfbfa';
 /** X-offset of the spine inside the timeline content column, in px.
  *  Sits just inside the content column's left edge so blocks (which start
  *  at left: calc(0% + gap/2)) still have room to read. */
 export const SPINE_X_PX = 14;
 /** Rounded "card" silhouette for timed blocks */
-export const BLOCK_CORNER_PX = 14;
+export const BLOCK_CORNER_PX = 10;
 /** In Both mode short blocks: plan dashed top+bottom seams crush title — soften chrome */
 export const SLIM_BOTH_OUTER_PX = 34;
 /** Very short inflated shells: shave resize-hit strips + widen title lane */
@@ -587,20 +587,25 @@ export function getTagIcon(tags?: string[], title?: string): string | undefined 
 /* Column assignment for overlapping blocks */
 export function assignColumns(blocks: TimeBlock[]) {
   const COLLISION_BUFFER_MIN = 2;
+  // Blocks shorter than roughly one visual row are still rendered with a
+  // readable minimum height. Reserve the same footprint in the column packer
+  // so back-to-back 1–10 minute entries sit side-by-side instead of painting
+  // their labels on top of each other.
+  const MIN_READABLE_SPAN_MIN = 20;
   type Segment = { start: number; end: number };
   const getSegments = (block: TimeBlock): Segment[] => {
     const segments: Segment[] = [];
 
     if (block.planStartMin != null && block.planEndMin != null) {
-      segments.push({ start: block.planStartMin, end: Math.max(block.planEndMin, block.planStartMin + 1) });
+      segments.push({ start: block.planStartMin, end: Math.max(block.planEndMin, block.planStartMin + MIN_READABLE_SPAN_MIN) });
     }
 
     if (block.actualStartMin != null && block.actualEndMin != null) {
-      segments.push({ start: block.actualStartMin, end: Math.max(block.actualEndMin, block.actualStartMin + 1) });
+      segments.push({ start: block.actualStartMin, end: Math.max(block.actualEndMin, block.actualStartMin + MIN_READABLE_SPAN_MIN) });
     }
 
     if (segments.length === 0) {
-      segments.push({ start: block.startMin, end: Math.max(block.endMin, block.startMin + 1) });
+      segments.push({ start: block.startMin, end: Math.max(block.endMin, block.startMin + MIN_READABLE_SPAN_MIN) });
     }
 
     segments.sort((a, b) => a.start - b.start || a.end - b.end);
