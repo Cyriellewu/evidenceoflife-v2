@@ -1388,7 +1388,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
       {/* Moments list */}
       {/* Unified iOS-style timeline: merge completed todos + moments */}
-      <div ref={recapContentRef} className="recap-readable-ui mt-1 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-40 sm:px-5 lg:px-6">
+      <div ref={recapContentRef} className="mt-1 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-40 sm:px-5 lg:px-6">
         <div className="min-w-0 w-full lg:grid lg:grid-cols-[minmax(260px,3fr)_minmax(0,7fr)] lg:gap-6 lg:items-start">
           {!isMobile && (
             <div className="mb-5 lg:mb-0 flex flex-col gap-3">
@@ -1869,21 +1869,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 if (hour < 20) return t('recap.evening');
                 return t('recap.night');
               };
-              const getPhaseIcon = (hour: number): string => {
-                if (hour < 12) return '☀';
-                if (hour < 17) return '🌤';
-                return '🌙';
-              };
-
               let lastPhase = '';
 
               return (
-                <div className="min-w-0 w-full max-w-full overflow-hidden px-2">
+                <div data-testid="recap-stream" className="relative min-w-0 w-full max-w-full overflow-hidden px-2 before:pointer-events-none before:absolute before:bottom-1 before:left-[calc(0.5rem+2.75rem+0.5rem)] before:top-11 before:w-px before:bg-border/70 before:content-[''] sm:before:left-[calc(0.5rem+3.5rem+0.625rem)]">
                   {threads.map((thread, gi) => {
                     const isThread = thread.tag && thread.items.length > 1;
                     const firstHour = thread.startTime.getHours();
                     const phase = getPhaseLabel(firstHour);
-                    const phaseIcon = getPhaseIcon(firstHour);
                     const showPhase = phase !== lastPhase;
                     if (showPhase) lastPhase = phase;
 
@@ -1910,12 +1903,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                         {midpointStr && gapMinutes > 10 && (
                           inlineInsertTime === midpointStr ? (
                             <div className="flex items-stretch gap-0">
-                              <div className="w-14 flex-shrink-0 pt-[3px] text-right pr-3">
-                              <span className="font-mono tabular-nums text-primary/60" style={{ fontSize: '14px' }}>{midpointStr}</span>
+                              <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
+                              <span className="font-mono text-[13px] tabular-nums text-primary/60">{midpointStr}</span>
                               </div>
-                              <div className="w-5 flex-shrink-0 flex flex-col items-center">
+                              <div className="z-10 flex w-4 flex-shrink-0 flex-col items-center sm:w-5">
                                 <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
-                                <div className="flex-1 w-[1.5px] bg-border" />
                               </div>
                               <div className="flex-1 pl-2 pr-1 py-2">
                                 <div className="flex items-center gap-2">
@@ -1951,10 +1943,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                             </div>
                           ) : (
                             <div className="group/insert flex items-stretch gap-0">
-                              <div className="w-14 flex-shrink-0" />
-                              <div className="w-5 flex-shrink-0 flex flex-col items-center">
-                                <div className="flex-1 w-[1.5px] bg-border" />
-                              </div>
+                              <div className={STREAM_TIME_RAIL} />
+                              <div className="w-4 flex-shrink-0 sm:w-5" />
                               <div className="flex-1 pl-2 pr-1">
                                 <button
                                   onClick={() => { setInlineInsertTime(midpointStr); setInlineInsertText(''); }}
@@ -1976,9 +1966,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
                         {/* Phase label — TimelineView section header style */}
                         {showPhase && (
-                          <div className="flex items-center gap-2 px-3 pt-4 pb-2">
-                            <span className="text-xs" style={{ opacity: 0.5 }}>{phaseIcon}</span>
-                            <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground/50">
+                          <div className="relative z-10 flex items-center gap-2 bg-background pb-2 pl-[4.5rem] pr-3 pt-4 sm:pl-[5.375rem]">
+                            <span data-testid="recap-phase" className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/55">
                               {phase}
                             </span>
                             <div className="flex-1 h-px bg-border/50" />
@@ -1988,17 +1977,16 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                         {/* Thread header */}
                         {isThread && (
                           <div className="flex items-stretch gap-0">
-                            <div className="w-14 flex-shrink-0 pt-[3px] text-right pr-3">
-                              <span className="font-mono tabular-nums text-muted-foreground" style={{ fontSize: '14px' }}>
+                            <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
+                              <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
                                 {format(thread.startTime, 'HH:mm')}
                               </span>
                             </div>
-                            <div className="w-5 flex-shrink-0 flex flex-col items-center">
+                            <div className="z-10 flex w-4 flex-shrink-0 flex-col items-center sm:w-5">
                               <div
                                 className="w-[10px] h-[10px] rounded-full flex-shrink-0 mt-[6px] z-10 ring-2 ring-background border-2"
                                 style={{ borderColor: thread.color, backgroundColor: 'hsl(var(--background))' }}
                               />
-                              <div className="flex-1 w-[1.5px] bg-border" />
                             </div>
                             <div className="flex-1 pl-2 pr-1 py-1.5">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -2063,11 +2051,10 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     ) : (
                                       <span
                                         className={cn(
-                                          "min-w-0 flex-1 break-words whitespace-normal cursor-pointer transition-colors",
+                                          "min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-semibold leading-[1.35] tracking-[-0.01em] transition-colors sm:text-[16px]",
                                           isPlanOutline ? "text-muted-foreground" : "text-foreground hover:text-primary/80",
                                           !isPlanOutline && todo.is_completed && "text-foreground/80"
                                         )}
-                                        style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.2 }}
                                         onClick={() => { if (!isPlanOutline) { setEditingTodoId(todo.id); setEditingTodoTitle(todo.title); } }}
                                       >{todo.title}</span>
                                     )}
@@ -2098,12 +2085,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   {/* Meta row */}
                                   <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                     {!isPlanOutline && hasTime && durationMin > 0 && (
-                                      <span className="font-mono tabular-nums text-muted-foreground/75" style={{ fontSize: '14px' }}>
+                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/75 sm:text-[13px]">
                                         ⏱ {todoDurLabel}
                                       </span>
                                     )}
                                     {hasTime && durationMin > 0 && (
-                                      <span className="font-mono tabular-nums text-muted-foreground/45" style={{ fontSize: '14px' }}>
+                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/45 sm:text-[13px]">
                                         {format(parseISO(todo.timer_started_at!), 'HH:mm')} → {format(parseISO(todo.timer_ended_at!), 'HH:mm')}
                                       </span>
                                     )}
@@ -2175,8 +2162,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       />
                                     ) : (
                                       <span
-                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-foreground hover:text-primary/80 transition-colors"
-                                        style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.2 }}
+                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground transition-colors hover:text-primary/80 sm:text-[16px]"
                                         onClick={() => {
                                           setEditingImportedEventId(event.id);
                                           setEditingImportedEventTitle(event.title);
@@ -2193,7 +2179,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   </div>
                                   <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                     {hasTimer && durationMin > 0 && (
-                                      <span className="font-mono tabular-nums text-muted-foreground/75" style={{ fontSize: '14px' }}>
+                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/75 sm:text-[13px]">
                                         ⏱ {durationLabel}
                                       </span>
                                     )}
@@ -2372,7 +2358,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       {!item.tagIcon && moment.emoji && <span className="text-[15px] flex-shrink-0 leading-[1.35]">{moment.emoji}</span>}
                                       {item.tagIcon && <span className="text-[14px] flex-shrink-0 leading-[1.35]">{item.tagIcon}</span>}
                                       <span
-                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[16px] font-semibold leading-[1.4] tracking-[-0.01em] text-foreground hover:text-primary/80 transition-colors sm:text-[17px]"
+                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-semibold leading-[1.4] tracking-[-0.01em] text-foreground transition-colors hover:text-primary/80 sm:text-[16px]"
                                         onClick={() => startEdit(moment)}
                                       >
                                         {subtitle || moment.emoji || 'Moment'}
@@ -2392,7 +2378,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     {/* Meta row */}
                                     <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                       {hasTimer && durationMin > 0 && (
-                                        <span className="font-mono tabular-nums text-muted-foreground/75 text-[13px]">
+                                        <span className="font-mono text-[12px] tabular-nums text-muted-foreground/75 sm:text-[13px]">
                                           ⏱ {momentDurLabel}
                                         </span>
                                       )}
@@ -2415,7 +2401,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         )
                                       )}
                                       {hasTimer && durationMin > 0 && (
-                                        <span className="font-mono tabular-nums text-muted-foreground/45 text-[13px]">
+                                        <span className="font-mono text-[12px] tabular-nums text-muted-foreground/45 sm:text-[13px]">
                                           {format(parseISO(moment.timer_started_at!), 'HH:mm')} → {format(parseISO(moment.timer_ended_at!), 'HH:mm')}
                                         </span>
                                       )}
@@ -2530,10 +2516,10 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                     return (
                       inlineInsertTime === endInsertKey ? (
                         <div className="flex items-stretch gap-0">
-                          <div className="w-14 flex-shrink-0 pt-[3px] text-right pr-3">
-                            <span className="font-mono tabular-nums text-primary/60" style={{ fontSize: '12px' }}>{nowTime}</span>
+                          <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
+                            <span className="font-mono text-[13px] tabular-nums text-primary/60">{nowTime}</span>
                           </div>
-                          <div className="w-5 flex-shrink-0 flex flex-col items-center">
+                          <div className="z-10 flex w-4 flex-shrink-0 flex-col items-center sm:w-5">
                             <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
                           </div>
                           <div className="flex-1 pl-2 pr-1 py-2">
@@ -2569,10 +2555,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                         </div>
                       ) : (
                         <div className="group/insert flex items-stretch gap-0">
-                          <div className="w-14 flex-shrink-0" />
-                          <div className="w-5 flex-shrink-0 flex flex-col items-center">
-                            <div className="flex-1 w-[1.5px] bg-border" />
-                          </div>
+                          <div className={STREAM_TIME_RAIL} />
+                          <div className="w-4 flex-shrink-0 sm:w-5" />
                           <div className="flex-1 pl-2 pr-1">
                             <button
                               onClick={() => { setInlineInsertTime(endInsertKey); setInlineInsertText(''); }}
@@ -2592,9 +2576,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
                   {/* End cap */}
                   <div className="flex items-stretch gap-0">
-                    <div className="w-14 flex-shrink-0" />
-                    <div className="w-5 flex-shrink-0 flex justify-center">
-                      <div className="w-[7px] h-[7px] rounded-full bg-border/60" />
+                    <div className={STREAM_TIME_RAIL} />
+                    <div className="z-10 flex w-4 flex-shrink-0 justify-center sm:w-5">
+                      <div className="h-[7px] w-[7px] rounded-full bg-border ring-2 ring-background" />
                     </div>
                   </div>
                 </div>
@@ -2622,7 +2606,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
       {/* Time column — narrow on mobile so Chinese body copy gets the width */}
       <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
         {timeStr && (
-          <span className="font-mono tabular-nums text-muted-foreground text-[12px] sm:text-[14px]">
+          <span className="font-mono text-[13px] tabular-nums text-muted-foreground sm:text-[14px]">
             {timeStr}
           </span>
         )}
@@ -2630,13 +2614,13 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
       {/* Dot + line column */}
       <div className="w-4 flex-shrink-0 flex flex-col items-center relative sm:w-5">
         <div
+          data-testid="recap-stream-dot"
           className="w-[9px] h-[9px] sm:w-[10px] sm:h-[10px] rounded-full flex-shrink-0 mt-[5px] sm:mt-[6px] z-10 ring-2 ring-background"
           style={{
             backgroundColor: isPlanOutline ? 'transparent' : color,
             border: isPlanOutline ? `2px dashed ${color}` : 'none',
           }}
         />
-        {!isLast && <div className="flex-1 w-[1.5px] bg-border" />}
       </div>
       {/* Content column */}
       <div className="w-0 min-w-0 flex-1 pb-2 pl-1.5 pr-1 sm:pl-2">
