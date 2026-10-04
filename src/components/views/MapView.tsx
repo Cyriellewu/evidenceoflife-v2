@@ -1779,19 +1779,27 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           }
         />
       ) : (
-        <PageHeader
-          leading={
-            <div
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl"
-              style={{ backgroundColor: `${LIFE_MAP_COLOR}1F`, color: LIFE_MAP_COLOR }}
-            >
-              <Globe size={24} strokeWidth={2.25} />
+        <header className="flex-shrink-0 px-5 pb-3 pt-3 sm:pb-4 sm:pt-4">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/[0.07] text-primary shadow-[0_5px_18px_-12px_hsl(var(--primary)/0.8)]">
+              <MapPinned size={17} strokeWidth={1.9} />
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-background bg-primary" />
             </div>
-          }
-          eyebrow={lang === 'zh' ? '足迹' : 'Places'}
-          title={lang === 'zh' ? '生活足迹' : 'Life Map'}
-          subtitle={`${cities.length} ${lang === 'zh' ? '个城市' : (cities.length === 1 ? 'city' : 'cities')} · ${totalPlaces} ${t('map.places')}`}
-        />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3">
+                <h1 className="truncate font-display text-[22px] font-semibold leading-none tracking-[-0.035em] text-foreground sm:text-[24px]">
+                  {lang === 'zh' ? '生活足迹' : 'Life Map'}
+                </h1>
+                <span className="h-px min-w-6 flex-1 bg-gradient-to-r from-border/65 to-transparent" />
+              </div>
+              <p className="mt-1.5 flex items-center gap-2 text-[11px] font-medium text-muted-foreground/60 sm:text-[12px]">
+                <span><strong className="font-semibold tabular-nums text-foreground/72">{cities.length}</strong> {lang === 'zh' ? '座城市' : (cities.length === 1 ? 'city' : 'cities')}</span>
+                <span className="h-1 w-1 rounded-full bg-primary/45" />
+                <span><strong className="font-semibold tabular-nums text-foreground/72">{totalPlaces}</strong> {lang === 'zh' ? '个地点' : t('map.places').toLowerCase()}</span>
+              </p>
+            </div>
+          </div>
+        </header>
       )}
 
       {/* Toolbar — category chips form the main strip; search lives at the
