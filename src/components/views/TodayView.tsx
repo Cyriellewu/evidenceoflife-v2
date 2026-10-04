@@ -76,8 +76,8 @@ import { StorageImage } from "@/components/StorageImage";
 type TimeBreakdownRange = 'today' | 'week' | 'month';
 
 /** Timeline time rail — keep HH:mm readable without stealing body width on phones. */
-const STREAM_TIME_RAIL = 'w-11 flex-shrink-0 sm:w-14';
-const STREAM_TIME_RAIL_PAD = 'pt-[3px] text-right pr-1.5 sm:pr-3';
+const STREAM_TIME_RAIL = 'w-10 flex-shrink-0 sm:w-14';
+const STREAM_TIME_RAIL_PAD = 'pt-[3px] text-right pr-1 sm:pr-3';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -1388,7 +1388,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
       {/* Moments list */}
       {/* Unified iOS-style timeline: merge completed todos + moments */}
-      <div ref={recapContentRef} className="mt-1 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-40 sm:px-5 lg:px-6">
+      <div ref={recapContentRef} className="mt-1 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-40 sm:px-5 lg:px-6">
         <div className="min-w-0 w-full lg:grid lg:grid-cols-[minmax(260px,3fr)_minmax(0,7fr)] lg:gap-6 lg:items-start">
           {!isMobile && (
             <div className="mb-5 lg:mb-0 flex flex-col gap-3">
@@ -1872,7 +1872,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               let lastPhase = '';
 
               return (
-                <div data-testid="recap-stream" className="relative min-w-0 w-full max-w-full overflow-hidden px-2 before:pointer-events-none before:absolute before:bottom-1 before:left-[calc(0.5rem+2.75rem+0.5rem)] before:top-11 before:w-px before:bg-border/70 before:content-[''] sm:before:left-[calc(0.5rem+3.5rem+0.625rem)]">
+                <div data-testid="recap-stream" className="relative min-w-0 w-full max-w-full overflow-hidden px-1 before:pointer-events-none before:absolute before:bottom-1 before:left-[calc(0.25rem+2.5rem+0.4375rem)] before:top-11 before:w-px before:bg-border/70 before:content-[''] sm:px-2 sm:before:left-[calc(0.5rem+3.5rem+0.625rem)]">
                   {threads.map((thread, gi) => {
                     const isThread = thread.tag && thread.items.length > 1;
                     const firstHour = thread.startTime.getHours();
@@ -1906,7 +1906,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                               <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
                               <span className="font-mono text-[13px] tabular-nums text-primary/60">{midpointStr}</span>
                               </div>
-                              <div className="z-10 flex w-4 flex-shrink-0 flex-col items-center sm:w-5">
+                              <div className="z-10 flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
                                 <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
                               </div>
                               <div className="flex-1 pl-2 pr-1 py-2">
@@ -1944,7 +1944,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                           ) : (
                             <div className="group/insert flex items-stretch gap-0">
                               <div className={STREAM_TIME_RAIL} />
-                              <div className="w-4 flex-shrink-0 sm:w-5" />
+                              <div className="w-3.5 flex-shrink-0 sm:w-5" />
                               <div className="flex-1 pl-2 pr-1">
                                 <button
                                   onClick={() => { setInlineInsertTime(midpointStr); setInlineInsertText(''); }}
@@ -1966,7 +1966,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
                         {/* Phase label — TimelineView section header style */}
                         {showPhase && (
-                          <div className="relative z-10 flex items-center gap-2 bg-background pb-2 pl-[4.5rem] pr-3 pt-4 sm:pl-[5.375rem]">
+                          <div className="relative z-10 flex items-center gap-2 bg-background pb-2 pl-[3.9375rem] pr-3 pt-4 sm:pl-[5.375rem]">
                             <span data-testid="recap-phase" className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/55">
                               {phase}
                             </span>
@@ -1982,7 +1982,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                 {format(thread.startTime, 'HH:mm')}
                               </span>
                             </div>
-                            <div className="z-10 flex w-4 flex-shrink-0 flex-col items-center sm:w-5">
+                            <div className="z-10 flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
                               <div
                                 className="w-[10px] h-[10px] rounded-full flex-shrink-0 mt-[6px] z-10 ring-2 ring-background border-2"
                                 style={{ borderColor: thread.color, backgroundColor: 'hsl(var(--background))' }}
@@ -2519,7 +2519,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                           <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
                             <span className="font-mono text-[13px] tabular-nums text-primary/60">{nowTime}</span>
                           </div>
-                          <div className="z-10 flex w-4 flex-shrink-0 flex-col items-center sm:w-5">
+                          <div className="z-10 flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
                             <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
                           </div>
                           <div className="flex-1 pl-2 pr-1 py-2">
@@ -2556,7 +2556,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                       ) : (
                         <div className="group/insert flex items-stretch gap-0">
                           <div className={STREAM_TIME_RAIL} />
-                          <div className="w-4 flex-shrink-0 sm:w-5" />
+                          <div className="w-3.5 flex-shrink-0 sm:w-5" />
                           <div className="flex-1 pl-2 pr-1">
                             <button
                               onClick={() => { setInlineInsertTime(endInsertKey); setInlineInsertText(''); }}
@@ -2577,7 +2577,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                   {/* End cap */}
                   <div className="flex items-stretch gap-0">
                     <div className={STREAM_TIME_RAIL} />
-                    <div className="z-10 flex w-4 flex-shrink-0 justify-center sm:w-5">
+                    <div className="z-10 flex w-3.5 flex-shrink-0 justify-center sm:w-5">
                       <div className="h-[7px] w-[7px] rounded-full bg-border ring-2 ring-background" />
                     </div>
                   </div>
@@ -2612,7 +2612,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
         )}
       </div>
       {/* Dot + line column */}
-      <div className="w-4 flex-shrink-0 flex flex-col items-center relative sm:w-5">
+      <div className="relative flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
         <div
           data-testid="recap-stream-dot"
           className="w-[9px] h-[9px] sm:w-[10px] sm:h-[10px] rounded-full flex-shrink-0 mt-[5px] sm:mt-[6px] z-10 ring-2 ring-background"
@@ -2623,7 +2623,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
         />
       </div>
       {/* Content column */}
-      <div className="w-0 min-w-0 flex-1 pb-2 pl-1.5 pr-1 sm:pl-2">
+      <div className="w-0 min-w-0 flex-1 pb-2 pl-1 pr-0.5 sm:pl-2 sm:pr-1">
         {(() => {
           const outlineStyle: React.CSSProperties | undefined = isPlanOutline
             ? { borderStyle: 'dashed', borderWidth: '1.8px', borderColor: color }
@@ -2631,7 +2631,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
           return (
             <div
               className={cn(
-                "min-w-0 max-w-full overflow-hidden rounded-xl transition-colors px-2 py-1.5 -ml-0.5 sm:px-3 sm:-ml-1",
+                "-ml-0.5 min-w-0 max-w-full overflow-hidden rounded-xl px-1.5 py-1.5 transition-colors sm:-ml-1 sm:px-3",
                 isPlanOutline ? "" : "hover:bg-muted/35"
               )}
               style={outlineStyle}
