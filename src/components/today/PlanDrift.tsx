@@ -407,30 +407,6 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
   }, [todayDateStr]);
   const chartHasData = chartPlanned.length > 0 || chartActual.length > 0;
 
-  // Sparse days (one short moment) used to paint a full wake→bed chart with a
-  // tiny speck on the far right and a sea of empty white. Crop the window to
-  // the activity ± padding so the bars actually read.
-  const chartRange = useMemo(() => {
-    const full = { start: PLAN_TIMELINE_WAKE_TOTAL_MIN, end: PLAN_TIMELINE_BED_TOTAL_MIN };
-    const slots = [...chartPlanned, ...chartActual];
-    if (!slots.length) return full;
-    const minS = Math.min(...slots.map((s) => s.startMin));
-    const maxE = Math.max(...slots.map((s) => s.endMin));
-    const span = Math.max(1, maxE - minS);
-    const fullSpan = full.end - full.start;
-    if (span / fullSpan > 0.35) return full;
-    const pad = Math.max(45, Math.round(span * 0.5));
-    let start = Math.max(full.start, minS - pad);
-    let end = Math.min(full.end, maxE + pad);
-    if (end - start < 150) {
-      const mid = (minS + maxE) / 2;
-      start = Math.max(full.start, Math.floor(mid - 75));
-      end = Math.min(full.end, start + 150);
-      start = Math.max(full.start, end - 150);
-    }
-    return { start, end };
-  }, [chartPlanned, chartActual]);
-
   /** After user picks a timeline palette, reveal the chart — collapsed view had no TimeTexture mounted. */
   useEffect(() => {
     if (rhythmPresetId === undefined) return;
@@ -586,10 +562,10 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
                   title={lang === 'zh' ? '计时进行中' : 'Timer running'}
                 />
               )}
-              <span className="font-mono text-[16px] font-semibold leading-none tabular-nums tracking-[-0.04em] text-foreground/88">
+              <span className="text-[13px] font-medium leading-none tabular-nums tracking-[-0.01em] text-foreground/85">
                 {focusedDur ?? '0m'}
               </span>
-              <span className={cn('text-[10.5px] font-semibold leading-none text-muted-foreground/50', lang !== 'zh' && 'lowercase')}>
+              <span className={cn('text-[9.5px] leading-none tracking-[0.02em] text-muted-foreground/48', lang !== 'zh' && 'lowercase')}>
                 {focusWord}
               </span>
             </div>
@@ -621,8 +597,8 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
             key={rhythmPresetId ?? 'rhythm'}
             plannedSlots={chartPlanned}
             actualSlots={chartActual}
-            rangeStartMin={chartRange.start}
-            rangeEndMin={chartRange.end}
+            rangeStartMin={PLAN_TIMELINE_WAKE_TOTAL_MIN}
+            rangeEndMin={PLAN_TIMELINE_BED_TOTAL_MIN}
             nowMin={chartNowMin}
             isDarkMode={isDarkMode}
             legendHint={lang === 'zh' ? '计划 · 专注' : 'planned · focused'}
