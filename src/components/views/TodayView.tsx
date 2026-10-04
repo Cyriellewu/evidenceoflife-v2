@@ -78,6 +78,8 @@ type TimeBreakdownRange = 'today' | 'week' | 'month';
 /** Mobile Recap type grid: 34px time + 12px axis, then the content column. */
 const STREAM_TIME_RAIL = 'w-[34px] flex-shrink-0 sm:w-14';
 const STREAM_TIME_RAIL_PAD = 'pt-1 text-right pr-0.5 sm:pt-[3px] sm:pr-3';
+/** Interactive Recap copy never drops below the 12px mobile readability floor. */
+const RECAP_AUX_ACTION_CLASS = 'ml-auto flex items-center gap-1 text-[12px] font-normal leading-5 text-muted-foreground/50 transition-colors hover:text-muted-foreground/80';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -2107,10 +2109,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     )}
                                     {!isPlanOutline && (
                                       <button
-                                        className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground/35 hover:text-muted-foreground/70 transition-colors"
+                                        data-testid="recap-notes-toggle"
+                                        className={RECAP_AUX_ACTION_CLASS}
                                         onClick={() => toggleStreamExpand(todo.id)}
                                       >
-                                        {expandedStreamIds.has(todo.id) ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                                        {expandedStreamIds.has(todo.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                                         <span>{todo.note ? 'notes' : 'notes'}</span>
                                         {todo.note && <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />}
                                       </button>
@@ -2412,10 +2415,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         )
                                       )}
                                       <button
-                                        className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground/35 hover:text-muted-foreground/70 transition-colors"
+                                        data-testid="recap-notes-toggle"
+                                        className={RECAP_AUX_ACTION_CLASS}
                                         onClick={() => toggleStreamExpand(moment.id)}
                                       >
-                                        {expandedStreamIds.has(moment.id) ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                                        {expandedStreamIds.has(moment.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                                         <span>notes</span>
                                         {detail && <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />}
                                       </button>
