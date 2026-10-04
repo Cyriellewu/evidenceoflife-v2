@@ -42,7 +42,16 @@ async function getFunctionErrorMessage(error: unknown, fallback: string) {
   return error.message || fallback;
 }
 
-export function useGoogleCalendar() {
+interface UseGoogleCalendarOptions {
+  /**
+   * Calendar metadata is only needed while the calendar menu is open.
+   * Keeping this opt-in prevents an unrelated settings panel mount from
+   * refreshing Google OAuth credentials and surfacing connection errors.
+   */
+  loadCalendars?: boolean;
+}
+
+export function useGoogleCalendar({ loadCalendars = false }: UseGoogleCalendarOptions = {}) {
   const { user, session } = useAuth();
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -80,11 +89,12 @@ export function useGoogleCalendar() {
     }
   }, []);
 
-  // Load available calendars when connected
+  // Load available calendars only when the user opens the calendar control.
+  // Appearance and other local settings must not trigger an OAuth refresh.
   useEffect(() => {
-    if (!connected || !session?.access_token) return;
+    if (!loadCalendars || !connected || !session?.access_token) return;
 
-    const loadCalendars = async () => {
+    const loadCalendarOptions = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('google-calendar-sync', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -115,8 +125,8 @@ export function useGoogleCalendar() {
       }
     };
 
-    loadCalendars();
-  }, [connected, session]);
+    loadCalendarOptions();
+  }, [connected, loadCalendars, session]);
 
   const connect = useCallback(async () => {
     if (!session?.access_token) {

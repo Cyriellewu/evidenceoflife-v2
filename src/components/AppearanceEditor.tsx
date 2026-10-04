@@ -21,6 +21,7 @@ const THEME_MODES: { id: ThemeMode; labelZh: string; labelEn: string; Icon: type
 export function AppearanceEditor({ lang, homepageImageUrl, uploading, onUploadImage, onResetImage }: AppearanceEditorProps) {
   const { mode, setMode } = useTheme();
   const { accentId, setAccentId, options: accentOptions } = useAccentColor();
+  const activeAccent = accentOptions.find(option => option.id === accentId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-save feedback. Theme/accent persist instantly (localStorage write
@@ -120,11 +121,18 @@ export function AppearanceEditor({ lang, homepageImageUrl, uploading, onUploadIm
               );
             })}
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground/55">
-            {lang === 'zh'
-              ? '主题色会立即应用到链接、按钮高亮和提醒标记上。'
-              : 'The accent color updates links, button highlights, and reminder dots instantly.'}
-          </p>
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/55">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]" />
+            <span>
+              <span className="font-semibold text-primary">
+                {lang === 'zh' ? activeAccent?.labelZh : activeAccent?.labelEn}
+              </span>
+              {' · '}
+              {lang === 'zh'
+                ? '已应用到链接、按钮高亮和提醒标记。'
+                : 'Applied to links, button highlights, and reminder dots.'}
+            </span>
+          </div>
         </div>
 
         <div>

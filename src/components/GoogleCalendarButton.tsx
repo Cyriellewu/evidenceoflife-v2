@@ -4,10 +4,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 /** Compact Google Calendar connect/status button for the top nav */
 export function GoogleCalendarButton() {
-  const gcal = useGoogleCalendar();
+  const [open, setOpen] = useState(false);
+  const gcal = useGoogleCalendar({ loadCalendars: open });
 
   if (gcal.loading) return null;
 
@@ -27,7 +29,7 @@ export function GoogleCalendarButton() {
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
