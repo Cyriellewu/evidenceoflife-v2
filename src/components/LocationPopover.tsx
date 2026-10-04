@@ -156,9 +156,9 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       return () => window.clearTimeout(handle);
     }, [search, coordsEpoch, runSearch]);
 
-    const loadNearby = useCallback(async (opts?: { forceGps?: boolean; showToast?: boolean }) => {
+    const loadNearby = useCallback(async (opts?: { forceGps?: boolean }) => {
       const forceGps = opts?.forceGps === true;
-      const showToast = opts?.showToast === true;
+      if (forceGps) setGeoHint(null);
       setIsGettingLocation(true);
       setIsSearching(true);
       try {
@@ -166,7 +166,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         // even when Settings says allowed). Explicit button tap forces a fresh fix.
         const { coords, errorMsg } = await ensureCoords(forceGps);
         if (!coords) {
-          if (showToast) toast.error(errorMsg || geoErrorMessage('unknown', lang));
+          if (!errorMsg) setGeoHint(geoErrorMessage('unknown', lang));
           return;
         }
         const nearby = await nearbyRecommendations(coords, lang);
@@ -178,8 +178,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         setGeoHint(null);
       } catch {
         const msg = lang === 'zh' ? '附近地点加载失败，请稍后重试' : 'Could not load nearby places';
-        if (showToast) toast.error(msg);
-        else setGeoHint(msg);
+        setGeoHint(msg);
       } finally {
         setIsGettingLocation(false);
         setIsSearching(false);
@@ -202,14 +201,17 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         }
         return;
       }
-      await loadNearby({ forceGps: true, showToast: true });
+      // The sheet already owns the inline error state. Avoid a second toast
+      // repeating the same permission message over the controls.
+      await loadNearby({ forceGps: true });
     }, [ensureCoords, runSearch, loadNearby, lang]);
-    // Phone sheet: quietly load nearby from cache / soft GPS. Never toast on open —
-    // "permission denied" toasts on open were the main iOS false alarm.
+    // Phone sheet: reuse an existing fix, but never start geolocation from an
+    // effect. iOS Safari may reject a background request even when the site is
+    // allowed; the visible button keeps the first request tied to a user tap.
     useEffect(() => {
       if (!asSheet || didAutoNearby.current) return;
       didAutoNearby.current = true;
-      void loadNearby({ forceGps: false, showToast: false });
+      if (coordsRef.current) void loadNearby({ forceGps: false });
     }, [asSheet, loadNearby]);
 
     useEffect(() => {
@@ -342,7 +344,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
             {geoHint && (
               <button
                 type="button"
-                onClick={() => { void loadNearby({ forceGps: true, showToast: true }); }}
+                onClick={() => { void loadNearby({ forceGps: true }); }}
                 className="text-[13px] font-medium text-primary"
               >
                 {lang === 'zh' ? '再试一次' : 'Try again'}
