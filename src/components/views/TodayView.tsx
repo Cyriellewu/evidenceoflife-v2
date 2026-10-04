@@ -1869,6 +1869,13 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 if (hour < 20) return t('recap.evening');
                 return t('recap.night');
               };
+              const getPhaseIcon = (hour: number): string => {
+                if (hour < 12) return '☀';
+                if (hour < 14) return '☀';
+                if (hour < 17) return '🌤';
+                if (hour < 20) return '🌙';
+                return '✦';
+              };
               let lastPhase = '';
 
               return (
@@ -1877,6 +1884,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                     const isThread = thread.tag && thread.items.length > 1;
                     const firstHour = thread.startTime.getHours();
                     const phase = getPhaseLabel(firstHour);
+                    const phaseIcon = getPhaseIcon(firstHour);
                     const showPhase = phase !== lastPhase;
                     if (showPhase) lastPhase = phase;
 
@@ -1966,7 +1974,10 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
                         {/* Phase label — TimelineView section header style */}
                         {showPhase && (
-                          <div className="relative z-10 flex items-center gap-2 bg-background pb-2 pl-[60px] pr-2 pt-4 sm:pl-[5.375rem] sm:pr-3">
+                          <div className="relative z-10 flex items-center gap-2 bg-background pb-2 pl-1 pr-2 pt-4 sm:pl-[5.375rem] sm:pr-3">
+                            <span aria-hidden="true" className="w-[18px] flex-shrink-0 text-center text-[13px] leading-none">
+                              {phaseIcon}
+                            </span>
                             <span data-testid="recap-phase" className="text-[12px] font-medium uppercase tracking-[0.1em] text-muted-foreground/60">
                               {phase}
                             </span>
