@@ -747,6 +747,25 @@
     border-top-color: hsl(var(--card)) !important;
   }
 
+  .neighborhood-label {
+    background: hsl(var(--background) / 0.76) !important;
+    border: 1px solid hsl(var(--primary) / 0.18) !important;
+    border-radius: 999px !important;
+    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.08) !important;
+    color: hsl(var(--foreground) / 0.72) !important;
+    font-family: inherit !important;
+    font-size: 10px !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.01em;
+    padding: 2px 6px !important;
+    pointer-events: none !important;
+    white-space: nowrap;
+  }
+
+  .neighborhood-label::before {
+    display: none !important;
+  }
+
   /* Fade-in animation for city cards */
   @keyframes lifeMapFadeIn {
     from { opacity: 0; transform: translateY(8px); }

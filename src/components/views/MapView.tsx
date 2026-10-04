@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
+import { isNewYorkCity, loadNewYorkNeighborhoods, type NeighborhoodCollection } from '@/lib/neighborhoods';
 
 interface MapViewProps {
   moments: Moment[];
@@ -575,7 +576,12 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const cityMarkerMapRef = useRef(new Map<string, { marker: L.Marker; category: string; lat: number; lng: number; renderLat: number; renderLng: number }>());
   const heatLayerRef = useRef<L.Layer | null>(null);
   const boundaryLayersRef = useRef<L.GeoJSON[]>([]);
+  const neighborhoodLayerRef = useRef<L.GeoJSON | null>(null);
   const [cityBoundaries, setCityBoundaries] = useState<Map<string, GeoJSON.GeoJsonObject>>(new Map());
+  const [neighborhoodsVisible, setNeighborhoodsVisible] = useState(true);
+  const [neighborhoods, setNeighborhoods] = useState<NeighborhoodCollection | null>(null);
+  const [neighborhoodsLoading, setNeighborhoodsLoading] = useState(false);
+  const [neighborhoodsFailed, setNeighborhoodsFailed] = useState(false);
   const detailFixTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // Build all places: merge from new places tables + legacy moments
   const allPlaces = useMemo(() => {
@@ -938,6 +944,28 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
   const currentCity = selectedCityIdx >= 0 ? cities[selectedCityIdx] : null;
   const cityPlaces = useMemo(() => currentCity?.places ?? [], [currentCity]);
+  const supportsNeighborhoods = isNewYorkCity(currentCity);
+
+  useEffect(() => {
+    if (viewMode !== 'city' || !supportsNeighborhoods || neighborhoods) return;
+
+    let cancelled = false;
+    setNeighborhoodsLoading(true);
+    setNeighborhoodsFailed(false);
+    loadNewYorkNeighborhoods()
+      .then((collection) => {
+        if (!cancelled) setNeighborhoods(collection);
+      })
+      .catch((error) => {
+        console.error('Failed to load NYC neighborhoods:', error);
+        if (!cancelled) setNeighborhoodsFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setNeighborhoodsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [neighborhoods, supportsNeighborhoods, viewMode]);
 
   // How many places sit in each category for the current city — drives the
   // filter pills so users can see what's available ("Coffee 3") and we can hide
@@ -1353,6 +1381,83 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       markersRef.current.push(marker);
     });
   }, [cities, viewMode, maxCityVisits, lang, worldZoom, mapPreviewFailed]);
+
+  // NYC learning layer: official DCP Neighborhood Tabulation Areas sit below
+  // visit pins, with labels appearing from zoom 12 onward to avoid clutter.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (MAP_SAFE_MODE || mapPreviewFailed || !map || viewMode !== 'city') return;
+
+    if (neighborhoodLayerRef.current) {
+      neighborhoodLayerRef.current.remove();
+      neighborhoodLayerRef.current = null;
+    }
+    if (!supportsNeighborhoods || !neighborhoodsVisible || !neighborhoods) return;
+
+    if (!map.getPane('neighborhoods')) {
+      const pane = map.createPane('neighborhoods');
+      pane.style.zIndex = '350';
+    }
+
+    const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+    const lineColor = primary ? `hsl(${primary})` : LIFE_MAP_COLOR;
+    const layer = L.geoJSON(neighborhoods, {
+      style: {
+        pane: 'neighborhoods',
+        color: lineColor,
+        weight: 1.1,
+        opacity: 0.5,
+        fillColor: lineColor,
+        fillOpacity: 0.025,
+      },
+      onEachFeature: (feature, featureLayer) => {
+        const name = feature.properties?.ntaname;
+        const borough = feature.properties?.boroname;
+        if (!name) return;
+
+        featureLayer.bindTooltip(escapeHtml(name), {
+          permanent: true,
+          direction: 'center',
+          className: 'neighborhood-label',
+          opacity: 1,
+        });
+        featureLayer.bindPopup(
+          `<div style="font-family:inherit;padding:2px 1px;">` +
+          `<p style="font-weight:650;font-size:13px;margin:0;">${escapeHtml(name)}</p>` +
+          `<p style="color:#888;font-size:11px;margin:2px 0 0;">${escapeHtml(borough || 'New York City')} · NYC NTA</p>` +
+          `</div>`,
+          { className: 'map-popup-minimal' },
+        );
+        featureLayer.on('mouseover', () => {
+          (featureLayer as L.Path).setStyle({ weight: 1.8, opacity: 0.85, fillOpacity: 0.08 });
+        });
+        featureLayer.on('mouseout', () => {
+          (featureLayer as L.Path).setStyle({ weight: 1.1, opacity: 0.5, fillOpacity: 0.025 });
+        });
+      },
+    }).addTo(map);
+
+    const syncLabels = () => {
+      const showLabels = map.getZoom() >= 12;
+      layer.eachLayer((featureLayer) => {
+        if (!featureLayer.getTooltip()) return;
+        if (showLabels) featureLayer.openTooltip();
+        else featureLayer.closeTooltip();
+      });
+    };
+
+    neighborhoodLayerRef.current = layer;
+    map.attributionControl.addAttribution('<a href="https://data.cityofnewyork.us/d/9nt8-h7nd">NYC Planning NTA 2020</a>');
+    map.on('zoomend', syncLabels);
+    syncLabels();
+
+    return () => {
+      map.off('zoomend', syncLabels);
+      map.attributionControl.removeAttribution('<a href="https://data.cityofnewyork.us/d/9nt8-h7nd">NYC Planning NTA 2020</a>');
+      layer.remove();
+      if (neighborhoodLayerRef.current === layer) neighborhoodLayerRef.current = null;
+    };
+  }, [mapPreviewFailed, neighborhoods, neighborhoodsVisible, supportsNeighborhoods, viewMode]);
 
   // Render city view: individual place markers with glow
   useEffect(() => {
@@ -1792,6 +1897,26 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     className="h-8 w-8 flex-shrink-0 rounded-full border border-border/55 text-muted-foreground/75 hover:border-primary/40 hover:text-foreground focus-visible:ring-primary/40"
                   >
                     <Search size={14} strokeWidth={2.1} />
+                  </Button>
+                )}
+                {supportsNeighborhoods && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setNeighborhoodsVisible(visible => !visible)}
+                    aria-pressed={neighborhoodsVisible}
+                    className={cn(
+                      'h-8 flex-shrink-0 gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold',
+                      neighborhoodsVisible
+                        ? 'border-primary/35 bg-primary/10 text-primary'
+                        : 'border-border/55 text-muted-foreground/75',
+                    )}
+                    title={lang === 'zh' ? '显示纽约街区边界和名称' : 'Show NYC neighborhood boundaries and names'}
+                  >
+                    <MapPinned size={13} />
+                    <span className="hidden sm:inline">{lang === 'zh' ? '街区' : 'Neighborhoods'}</span>
+                    {neighborhoodsLoading && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
+                    {neighborhoodsFailed && <span aria-label={lang === 'zh' ? '街区数据不可用' : 'Neighborhood data unavailable'}>!</span>}
                   </Button>
                 )}
               </>
