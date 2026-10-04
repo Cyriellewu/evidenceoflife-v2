@@ -653,7 +653,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
           <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
             onBlur={handleSaveTitle}
             onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setEditTitle(todo.title); setIsEditing(false); } }}
-            className="min-w-0 w-full flex-1 text-[12px] font-medium bg-transparent border-b border-primary/30 focus:outline-none focus:border-primary py-0.5" autoFocus />
+            className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent p-0 text-[15px] font-semibold leading-snug text-foreground caret-primary outline-none focus:border-0 focus:outline-none focus:ring-0 md:text-[16px] md:leading-tight" autoFocus />
         ) : (
           <div className="min-w-0 w-full md:flex-1">
             <p
