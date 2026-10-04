@@ -4,6 +4,7 @@ import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, S
 import { Button } from '@/components/ui/button';
 import { cn, isEnterSubmit, isImeComposing } from '@/lib/utils';
 import { mergeCarriedTodos, presentCarryOnTimeline } from '@/lib/carryTodos';
+import { buildTodoOrderUpdates, compareTodoListOrder } from '@/lib/todoOrdering';
 import { isElapsedSlot } from '@/lib/elapsedSlot';
 import { isDailyRepeatTodo } from '@/lib/recurringTodos';
 import { extractLeadingEmoji } from '@/lib/emoji';
@@ -2399,19 +2400,38 @@ export function PlanView({
   }, [showTimelinePane]);
 
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+  const applyOrderUpdates = (updates: ReturnType<typeof buildTodoOrderUpdates>) => {
+    void (async () => {
+      // Keep writes ordered so every optimistic patch sees the result of the
+      // previous one. Each patch contains ordering fields only.
+      for (const update of updates) await updateTodo(update.id, update.updates);
+    })();
+  };
   const handleDrop = (segmentId: string, dropIndex?: number) => (e: React.DragEvent) => {
     e.preventDefault();
-    if (!dragTodoId) return;
-    const draggedTodo = todos.find(t => t.id === dragTodoId);
+    const droppedTodoId = e.dataTransfer.getData('text/plain') || dragTodoId;
+    if (!droppedTodoId) return;
+    const draggedTodo = mainListTodos.find(t => t.id === droppedTodoId);
     if (!draggedTodo) { setDragTodoId(null); return; }
-    const segTodos = todos.filter(t => t.time_segment === segmentId && t.id !== dragTodoId);
-    const insertAt = dropIndex != null ? Math.min(dropIndex, segTodos.length) : segTodos.length;
-    segTodos.splice(insertAt, 0, draggedTodo);
-    const updates: Promise<void>[] = [];
-    if (draggedTodo.time_segment !== segmentId) updates.push(updateTodo(dragTodoId, { time_segment: segmentId as Todo['time_segment'], sort_order: insertAt }));
-    else updates.push(updateTodo(dragTodoId, { sort_order: insertAt }));
-    segTodos.forEach((t, i) => { if (t.id !== dragTodoId && t.sort_order !== i) updates.push(updateTodo(t.id, { sort_order: i })); });
-    Promise.all(updates);
+    const segmentTodos = mainListTodos.filter(todo => !todo.is_completed && todo.time_segment === segmentId);
+    applyOrderUpdates(buildTodoOrderUpdates(
+      mainListTodos,
+      droppedTodoId,
+      dropIndex ?? segmentTodos.length,
+      segmentId as Todo['time_segment'],
+    ));
+    setDragTodoId(null);
+  };
+
+  const handleFlatDrop = (dropIndex: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const droppedTodoId = e.dataTransfer.getData('text/plain') || dragTodoId;
+    if (!droppedTodoId || !mainListTodos.some(todo => todo.id === droppedTodoId)) {
+      setDragTodoId(null);
+      return;
+    }
+    applyOrderUpdates(buildTodoOrderUpdates(mainListTodos, droppedTodoId, dropIndex));
     setDragTodoId(null);
   };
 
@@ -2475,12 +2495,7 @@ export function PlanView({
 
   const grouped = TIME_SEGMENTS.map(seg => {
     const segTodos = mainListTodos.filter(t => t.time_segment === seg.id && !t.is_completed);
-    segTodos.sort((a, b) => {
-      const aDoing = isActivelyRunningTodo(a) ? 1 : 0;
-      const bDoing = isActivelyRunningTodo(b) ? 1 : 0;
-      if (aDoing !== bDoing) return bDoing - aDoing;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    segTodos.sort(compareTodoListOrder);
     return { ...seg, todos: segTodos };
   });
 
@@ -3075,18 +3090,18 @@ export function PlanView({
               )}
               {/* Flat list mode */}
               {listMode === 'flat' ? (
-                <div className="space-y-0.5">
-                  {[...mainListTodos].filter(t => !t.is_completed).sort((a, b) => {
-                    const aDoing = isActivelyRunningTodo(a) ? 1 : 0;
-                    const bDoing = isActivelyRunningTodo(b) ? 1 : 0;
-                    if (aDoing !== bDoing) return bDoing - aDoing;
-                    const aPlanned = a.plan_started_at ? 1 : 0;
-                    const bPlanned = b.plan_started_at ? 1 : 0;
-                    if (aPlanned !== bPlanned) return aPlanned - bPlanned;
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                  }).map((todo) => (
-                    <TodoItem
+                <div
+                  className="space-y-0.5"
+                  onDragOver={handleDragOver}
+                  onDrop={handleFlatDrop(mainListTodos.filter(todo => !todo.is_completed).length)}
+                >
+                  {[...mainListTodos].filter(t => !t.is_completed).sort(compareTodoListOrder).map((todo, todoIdx) => (
+                    <div
                       key={todo.id}
+                      onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); }}
+                      onDrop={handleFlatDrop(todoIdx)}
+                    >
+                    <TodoItem
                       todo={todo}
                       onToggle={() => toggleComplete(todo.id)}
                       onToggleRecurring={(next) => handleToggleRecurring(todo.id, next)}
@@ -3137,6 +3152,7 @@ export function PlanView({
                       onUpdateStepLink={rawUpdateStepLink}
                       carriedFromDate={todo.date !== todayStr ? todo.date : undefined}
                     />
+                    </div>
                   ))}
                 </div>
               ) : (
