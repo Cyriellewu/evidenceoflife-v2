@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
-import { Check, X } from 'lucide-react';
+import { Check, Clock3, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Moment, TodayMode } from '@/types';
@@ -438,12 +438,12 @@ export function ImportedEventTimeEditor({ event, onUpdate }: { event: ImportedEv
 
   return (
     <button
-      className="font-mono tabular-nums text-muted-foreground/45 hover:text-muted-foreground transition-colors"
-      style={{ fontSize: '12px' }}
+      aria-label="Edit event time"
+      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted/50 hover:text-muted-foreground"
       onClick={handleStartEdit}
       title="Edit event time"
     >
-      {format(start, 'HH:mm')}{end ? ` → ${format(end, 'HH:mm')}` : ''}
+      <Clock3 size={12} />
     </button>
   );
 }
