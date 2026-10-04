@@ -69,7 +69,8 @@ test.describe('synthetic demo', () => {
     for (const center of dotCenters) expect(Math.abs(center - axisX)).toBeLessThan(0.5);
 
     await expect(page.getByTestId('recap-phase').first()).toHaveText('Morning');
-    await expect(page.getByText('☀', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('☀', { exact: true }).first()).toBeVisible();
+    expect(await page.getByTestId('recap-phase').first().evaluate((element) => element.getBoundingClientRect().left)).toBeLessThan(55);
     expect(await titleNode.evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('15px');
     expect(await titleNode.evaluate((element) => window.getComputedStyle(element).fontWeight)).toBe('500');
     expect(await page.getByTestId('recap-phase').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('12px');
