@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import monetPainting from '@/assets/monet-impression-sunrise.jpg';
 import dailyPainting from '@/assets/daily-painting.jpg';
+import { getDailyArtwork } from '@/lib/dailyArtwork';
 import { WeekDateBar } from '@/components/WeekDateBar';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -305,7 +306,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const recapContentRef = useRef<HTMLDivElement>(null);
   const recapRightColRef = useRef<HTMLDivElement>(null);
   const [recapInputDock, setRecapInputDock] = useState<{ left: number; width: number } | null>(null);
-  const [headerImageSrc, setHeaderImageSrc] = useState(homepageImageUrl || monetPainting);
+  const dailyArtwork = useMemo(() => getDailyArtwork(selectedDate), [selectedDate]);
+  const [headerImageSrc, setHeaderImageSrc] = useState(homepageImageUrl || dailyArtwork.imageUrl);
   const [timeBreakdownRange, setTimeBreakdownRange] = useState<TimeBreakdownRange>('today');
   
   
@@ -318,8 +320,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   );
 
   useEffect(() => {
-    setHeaderImageSrc(homepageImageUrl || monetPainting);
-  }, [homepageImageUrl]);
+    setHeaderImageSrc(homepageImageUrl || dailyArtwork.imageUrl);
+  }, [dailyArtwork.imageUrl, homepageImageUrl]);
 
   // Sort moments by effective start time (timer_started_at or createdAt), chronologically
   const sortedMoments = useMemo(() => {
@@ -1062,15 +1064,16 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         <div className="flex items-stretch gap-3 sm:gap-5">
           {/* Left: homepage image */}
           <div
-            className="w-[46%] flex-shrink-0 overflow-hidden rounded-2xl select-none sm:w-[58%] lg:w-[66%]"
+            className="relative w-[46%] flex-shrink-0 overflow-hidden rounded-2xl select-none sm:w-[58%] lg:w-[66%]"
             style={{ minHeight: 88, height: 'clamp(88px, 24vw, 112px)' }}
             onDragStart={(e) => e.preventDefault()}
             onMouseDown={(e) => e.preventDefault()}
           >
             <img
               src={headerImageSrc}
-              alt="Daily painting"
+              alt={homepageImageUrl ? 'Home image' : `${dailyArtwork.title} by ${dailyArtwork.artist}`}
               draggable={false}
+              referrerPolicy="no-referrer"
               style={{
                 width: '100%',
                 height: '100%',
@@ -1088,6 +1091,17 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 });
               }}
             />
+            {!homepageImageUrl && headerImageSrc === dailyArtwork.imageUrl && (
+              <a
+                href={dailyArtwork.artworkUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="absolute bottom-1.5 left-1.5 max-w-[calc(100%-12px)] truncate rounded-full bg-background/78 px-2 py-1 text-[9px] font-medium text-foreground/75 backdrop-blur-md transition-colors hover:text-foreground sm:bottom-2 sm:left-2 sm:text-[10px]"
+                title={`${dailyArtwork.title} — ${dailyArtwork.artist}, ${dailyArtwork.year}`}
+              >
+                {dailyArtwork.title} · {dailyArtwork.artist}
+              </a>
+            )}
           </div>
 
           {/* Right: day leads; month/year follow as one compact metadata block. */}

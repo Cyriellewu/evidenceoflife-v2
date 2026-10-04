@@ -2,6 +2,7 @@ import { useState, useRef, ChangeEvent, useEffect, useMemo } from 'react';
 import { LifeHeatmap } from '@/components/today/LifeHeatmap';
 import { LifeCalendar } from '@/components/views/LifeCalendar';
 import monetPainting from '@/assets/monet-impression-sunrise.jpg';
+import { getDailyArtwork } from '@/lib/dailyArtwork';
 import { CircularTimeRing } from '@/components/CircularTimeRing';
 import { AppearanceEditor } from '@/components/AppearanceEditor';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -76,6 +77,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const { dues } = useDues();
   const [showLifeCalendar, setShowLifeCalendar] = useState(false);
   const { lang, setLang, t } = useLanguage();
+  const dailyArtwork = useMemo(() => getDailyArtwork(new Date()), []);
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -373,25 +375,41 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
               </div>
             </div>
 
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="group relative min-h-[170px] overflow-hidden border-t border-border/55 lg:border-l lg:border-t-0"
-            >
+            <div className="group relative min-h-[170px] overflow-hidden border-t border-border/55 lg:border-l lg:border-t-0">
               <img
-                src={profile?.homepage_image_url || monetPainting}
-                alt=""
+                src={profile?.homepage_image_url || dailyArtwork.imageUrl}
+                alt={profile?.homepage_image_url ? '' : `${dailyArtwork.title} by ${dailyArtwork.artist}`}
+                referrerPolicy="no-referrer"
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.025]"
+                onError={(event) => { event.currentTarget.src = monetPainting; }}
               />
               <div className="absolute inset-0 bg-gradient-to-br from-background/20 via-background/0 to-background/38" />
               <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-3">
-                <span className="rounded-full bg-background/76 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground backdrop-blur-md">
-                  {lang === 'zh' ? '主页氛围图' : 'Home image'}
-                </span>
-                <span className="rounded-full bg-background/76 p-2 text-muted-foreground backdrop-blur-md">
+                {profile?.homepage_image_url ? (
+                  <span className="rounded-full bg-background/76 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground backdrop-blur-md">
+                    {lang === 'zh' ? '主页氛围图' : 'Home image'}
+                  </span>
+                ) : (
+                  <a
+                    href={dailyArtwork.artworkUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="min-w-0 truncate rounded-full bg-background/76 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground backdrop-blur-md transition-colors hover:text-foreground"
+                    title={`${dailyArtwork.title} — ${dailyArtwork.artist}, ${dailyArtwork.year}`}
+                  >
+                    {dailyArtwork.title} · {dailyArtwork.artist}
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label={lang === 'zh' ? '更换主页图片' : 'Change home image'}
+                  className="rounded-full bg-background/76 p-2 text-muted-foreground backdrop-blur-md transition-colors hover:text-foreground"
+                >
                   <Camera size={14} />
-                </span>
+                </button>
               </div>
-            </button>
+            </div>
           </div>
         </section>
 
