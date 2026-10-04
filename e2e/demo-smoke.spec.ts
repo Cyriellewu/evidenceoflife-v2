@@ -27,7 +27,9 @@ test.describe('synthetic demo', () => {
     await expect(page.getByText('Public demo')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: /Recap/ }).last().click();
+    await expect(page.getByText('07:48 → 08:18', { exact: true })).toHaveCount(0);
     await page.getByText('Draft project notes', { exact: true }).last().click();
+    await expect(page.getByText('07:48 → 08:18', { exact: true })).toBeVisible();
 
     const title = 'Check for career fair and cancel handshake registration before the deadline';
     const titleInput = page.getByRole('textbox').last();

@@ -2004,8 +2004,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                 <span className="text-[13px] font-medium" style={{ color: thread.color }}>
                                   {thread.icon || ''} {thread.threadName || `${thread.tag} block`}
                                 </span>
-                                <span className="text-[11px] text-muted-foreground/40 font-mono tabular-nums">
-                                  {format(thread.startTime, 'HH:mm')}–{format(thread.endTime, 'HH:mm')} · {durLabel}
+                                <span className="text-[11px] font-normal tabular-nums text-muted-foreground/45">
+                                  {durLabel}
                                 </span>
                               </div>
                             </div>
@@ -2096,11 +2096,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   {/* Meta row */}
                                   <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                     {!isPlanOutline && hasTime && durationMin > 0 && (
-                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/70 sm:text-[13px]">
+                                      <span className="text-[12px] font-normal tabular-nums text-muted-foreground/65 sm:text-[13px]">
                                         ⏱ {todoDurLabel}
                                       </span>
                                     )}
-                                    {hasTime && durationMin > 0 && (
+                                    {editingTodoId === todo.id && hasTime && durationMin > 0 && (
                                       <span className="font-mono text-[12px] tabular-nums text-muted-foreground/45 sm:text-[13px]">
                                         {format(parseISO(todo.timer_started_at!), 'HH:mm')} → {format(parseISO(todo.timer_ended_at!), 'HH:mm')}
                                       </span>
@@ -2190,7 +2190,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   </div>
                                   <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                     {hasTimer && durationMin > 0 && (
-                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/75 sm:text-[13px]">
+                                      <span className="text-[12px] font-normal tabular-nums text-muted-foreground/65 sm:text-[13px]">
                                         ⏱ {durationLabel}
                                       </span>
                                     )}
@@ -2389,7 +2389,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     {/* Meta row */}
                                     <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                       {hasTimer && durationMin > 0 && (
-                                        <span className="font-mono text-[12px] tabular-nums text-muted-foreground/75 sm:text-[13px]">
+                                        <span className="text-[12px] font-normal tabular-nums text-muted-foreground/65 sm:text-[13px]">
                                           ⏱ {momentDurLabel}
                                         </span>
                                       )}
@@ -2410,11 +2410,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                             <span className="min-w-0 truncate">{moment.location.name}</span>
                                           </span>
                                         )
-                                      )}
-                                      {hasTimer && durationMin > 0 && (
-                                        <span className="font-mono text-[12px] tabular-nums text-muted-foreground/45 sm:text-[13px]">
-                                          {format(parseISO(moment.timer_started_at!), 'HH:mm')} → {format(parseISO(moment.timer_ended_at!), 'HH:mm')}
-                                        </span>
                                       )}
                                       <button
                                         className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground/35 hover:text-muted-foreground/70 transition-colors"
