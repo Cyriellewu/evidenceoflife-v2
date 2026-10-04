@@ -1374,39 +1374,41 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       {/* Unified iOS-style timeline: merge completed todos + moments */}
       <div ref={recapContentRef} className="recap-readable-ui px-4 sm:px-5 lg:px-6 flex-1 overflow-y-auto mt-1 pb-40">
         <div className="lg:grid lg:grid-cols-[minmax(260px,3fr)_minmax(0,7fr)] lg:gap-6 lg:items-start">
-          <div className="mb-5 lg:mb-0 flex flex-col gap-3">
-            <DailyHabitTracker
-              habits={recapHabits}
-              selectedDateStr={selectedDateStr}
-              onIncrement={(habitId, dateStr) => { void incrementHabitCount(habitId, dateStr); }}
-              onSetCount={(habitId, nextCount, dateStr) => { void setHabitCount(habitId, nextCount, dateStr); }}
-              onUpdateHabit={(habitId, updates) => { void updateDue(habitId, updates); }}
-              onAddHabit={(title) => { void addDue(title, undefined, 'Uncategorized', true); }}
-            />
-            <LifeReplay items={timelineItems} lang={lang} dateKey={format(selectedDate, 'yyyy-MM-dd')} />
-            <OnThisDayCard
-              moments={historyMoments ?? []}
-              selectedDate={selectedDate}
-              onRevisit={(dateStr) => onSelectedDateChange(new Date(`${dateStr}T00:00:00`))}
-            />
-            <MemoryHorizonsCard moments={historyMoments ?? []} selectedDate={selectedDate} />
-            {onTodayModeChange && (
-              <div className="flex items-center justify-between pt-3 border-t border-border/20 mt-2">
-                <span className="text-[11px] text-muted-foreground/50">
-                  {[todosDone != null && todosTotal != null && todosTotal > 0 && `${todosDone}/${todosTotal} done`, sortedMoments.length > 0 && `${sortedMoments.length} moments`].filter(Boolean).join(' · ')}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onTodayModeChange('plan')}
-                  className="rounded-full gap-1.5 text-[12px] font-semibold"
-                >
-                  Plan my day
-                  <ChevronRight size={14} />
-                </Button>
-              </div>
-            )}
-          </div>
+          {!isMobile && (
+            <div className="mb-5 lg:mb-0 flex flex-col gap-3">
+              <DailyHabitTracker
+                habits={recapHabits}
+                selectedDateStr={selectedDateStr}
+                onIncrement={(habitId, dateStr) => { void incrementHabitCount(habitId, dateStr); }}
+                onSetCount={(habitId, nextCount, dateStr) => { void setHabitCount(habitId, nextCount, dateStr); }}
+                onUpdateHabit={(habitId, updates) => { void updateDue(habitId, updates); }}
+                onAddHabit={(title) => { void addDue(title, undefined, 'Uncategorized', true); }}
+              />
+              <LifeReplay items={timelineItems} lang={lang} dateKey={format(selectedDate, 'yyyy-MM-dd')} />
+              <OnThisDayCard
+                moments={historyMoments ?? []}
+                selectedDate={selectedDate}
+                onRevisit={(dateStr) => onSelectedDateChange(new Date(`${dateStr}T00:00:00`))}
+              />
+              <MemoryHorizonsCard moments={historyMoments ?? []} selectedDate={selectedDate} />
+              {onTodayModeChange && (
+                <div className="flex items-center justify-between pt-3 border-t border-border/20 mt-2">
+                  <span className="text-[11px] text-muted-foreground/50">
+                    {[todosDone != null && todosTotal != null && todosTotal > 0 && `${todosDone}/${todosTotal} done`, sortedMoments.length > 0 && `${sortedMoments.length} moments`].filter(Boolean).join(' · ')}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onTodayModeChange('plan')}
+                    className="rounded-full gap-1.5 text-[12px] font-semibold"
+                  >
+                    Plan my day
+                    <ChevronRight size={14} />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="min-w-0" ref={recapRightColRef}>
 
         {/* Unified timeline */}
@@ -1615,7 +1617,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                    );
                  })()}
                </div>
-              {shouldShowTimeBreakdownCard && (
+              {!isMobile && shouldShowTimeBreakdownCard && (
                  <div className="mt-3 rounded-2xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-3">
                    <div className="flex items-center justify-between gap-2">
                      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
@@ -1691,14 +1693,16 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                    )}
                  </div>
                )}
-               <PlanDrift
-                 allTodos={allTodos}
-                 completedTodos={completedTodos}
-                 allMoments={todayMoments}
-                 todayDateStr={selectedDateStr}
-                 defaultCollapsed={isMobile}
-               />
-               {priorityAlignment && (
+               {!isMobile && (
+                 <PlanDrift
+                   allTodos={allTodos}
+                   completedTodos={completedTodos}
+                   allMoments={todayMoments}
+                   todayDateStr={selectedDateStr}
+                   defaultCollapsed={false}
+                 />
+               )}
+               {!isMobile && priorityAlignment && (
                  <div className="mt-3 rounded-2xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-3">
                    <div className="flex items-start gap-2.5">
                      <div
