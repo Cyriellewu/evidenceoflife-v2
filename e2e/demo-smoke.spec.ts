@@ -50,7 +50,7 @@ test.describe('synthetic demo', () => {
 
     expect(layout.whiteSpace).toBe('normal');
     expect(layout.height).toBeGreaterThan(20);
-    expect(layout.left).toBeLessThan(100);
+    expect(layout.left).toBeLessThan(85);
     expect(layout.right).toBeLessThanOrEqual(layout.viewportWidth);
     expect(layout.pageWidth).toBe(layout.viewportWidth);
 
@@ -59,7 +59,7 @@ test.describe('synthetic demo', () => {
       const rect = element.getBoundingClientRect();
       return rect.left + Number.parseFloat(window.getComputedStyle(element, '::before').left);
     });
-    expect(axisX).toBeLessThan(80);
+    expect(axisX).toBeLessThan(65);
     const dotCenters = await page.getByTestId('recap-stream-dot').evaluateAll((dots) =>
       dots.slice(0, 3).map((dot) => {
         const rect = dot.getBoundingClientRect();
@@ -71,6 +71,7 @@ test.describe('synthetic demo', () => {
     await expect(page.getByTestId('recap-phase').first()).toHaveText('Morning');
     await expect(page.getByText('☀', { exact: true })).toHaveCount(0);
     expect(await titleNode.evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('15px');
-    expect(await page.getByTestId('recap-phase').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('11px');
+    expect(await titleNode.evaluate((element) => window.getComputedStyle(element).fontWeight)).toBe('500');
+    expect(await page.getByTestId('recap-phase').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('12px');
   });
 });

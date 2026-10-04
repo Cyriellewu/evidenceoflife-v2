@@ -75,9 +75,9 @@ import { StorageImage } from "@/components/StorageImage";
 
 type TimeBreakdownRange = 'today' | 'week' | 'month';
 
-/** Timeline time rail — keep HH:mm readable without stealing body width on phones. */
-const STREAM_TIME_RAIL = 'w-10 flex-shrink-0 sm:w-14';
-const STREAM_TIME_RAIL_PAD = 'pt-[3px] text-right pr-1 sm:pr-3';
+/** Mobile Recap type grid: 34px time + 12px axis, then the content column. */
+const STREAM_TIME_RAIL = 'w-[34px] flex-shrink-0 sm:w-14';
+const STREAM_TIME_RAIL_PAD = 'pt-1 text-right pr-0.5 sm:pt-[3px] sm:pr-3';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -1106,11 +1106,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
           {/* Right: day leads; month/year follow as one compact metadata block. */}
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:w-[38%] sm:flex-none sm:gap-3 lg:w-[32%]">
-            <span className="text-[28px] font-light tabular-nums leading-none tracking-[-0.03em] text-foreground sm:text-[30px] lg:text-[36px]">
+            <span className="text-[26px] font-light tabular-nums leading-none tracking-[-0.03em] text-foreground sm:text-[30px] lg:text-[36px]">
               {format(today, 'd')}
             </span>
             <div className="min-w-0 border-l border-border/55 pl-2.5 sm:pl-3">
-              <span className="block truncate text-[12px] font-semibold uppercase leading-tight tracking-[0.08em] text-primary sm:text-[18px] sm:tracking-[0.14em] lg:text-[22px]">
+              <span className="block truncate text-[13px] font-semibold uppercase leading-tight tracking-[0.08em] text-primary sm:text-[18px] sm:tracking-[0.14em] lg:text-[22px]">
                 {formatDate(today, 'MMMM')}
               </span>
               <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-none text-muted-foreground/80 sm:gap-1.5 sm:text-[15px] lg:text-[18px]">
@@ -1555,16 +1555,16 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             <>
                {/* ─── Today Summary (compact) ─── */}
                <div className="mb-2 pb-2 border-b border-border/30">
-                 <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 text-[13px]">
-                   <span className="font-semibold text-foreground">{realItemCount}</span>
-                   <span className="text-muted-foreground/60">{realItemCount === 1 ? t('recap.moment') : t('recap.moments')}</span>
+                 <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] leading-5">
+                   <span className="text-[13px] font-semibold text-foreground">{realItemCount}</span>
+                   <span className="text-muted-foreground/65">{realItemCount === 1 ? t('recap.moment') : t('recap.moments')}</span>
                    {totalActiveMin > 0 && (
                      <>
                        <span className="text-muted-foreground/30">·</span>
-                       <span className="font-semibold text-foreground">
+                       <span className="text-[13px] font-semibold text-foreground">
                          {activeHours > 0 ? `${activeHours}h` : ''}{activeMins > 0 ? `${activeMins}m` : activeHours > 0 ? '' : '0m'}
                        </span>
-                       <span className="text-muted-foreground/60">active</span>
+                       <span className="text-muted-foreground/65">active</span>
                      </>
                    )}
                    {rhythmSegments.length > 0 && (() => {
@@ -1783,7 +1783,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                )}
                   {/* ─── Timeline ─── */}
                   <div className="mb-1.5">
-                    <p className="text-[11px] uppercase tracking-[0.08em] mb-1 text-muted-foreground/35 font-normal">{t('recap.timeline')}</p>
+                    <p className="mb-1 text-[12px] font-medium uppercase tracking-[0.1em] text-muted-foreground/45">{t('recap.timeline')}</p>
                   </div>
 
             {/* Life Stream: flowing vertical line with dots, threads, phase labels */}
@@ -1872,7 +1872,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               let lastPhase = '';
 
               return (
-                <div data-testid="recap-stream" className="relative min-w-0 w-full max-w-full overflow-hidden px-1 before:pointer-events-none before:absolute before:bottom-1 before:left-[calc(0.25rem+2.5rem+0.4375rem)] before:top-11 before:w-px before:bg-border/70 before:content-[''] sm:px-2 sm:before:left-[calc(0.5rem+3.5rem+0.625rem)]">
+                <div data-testid="recap-stream" className="relative min-w-0 w-full max-w-full overflow-hidden px-0 before:pointer-events-none before:absolute before:bottom-1 before:left-[40px] before:top-11 before:w-px before:bg-border/70 before:content-[''] sm:px-2 sm:before:left-[calc(0.5rem+3.5rem+0.625rem)]">
                   {threads.map((thread, gi) => {
                     const isThread = thread.tag && thread.items.length > 1;
                     const firstHour = thread.startTime.getHours();
@@ -1904,9 +1904,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                           inlineInsertTime === midpointStr ? (
                             <div className="flex items-stretch gap-0">
                               <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
-                              <span className="font-mono text-[13px] tabular-nums text-primary/60">{midpointStr}</span>
+                              <span className="font-mono text-[12px] tabular-nums text-primary/60 sm:text-[13px]">{midpointStr}</span>
                               </div>
-                              <div className="z-10 flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
+                              <div className="z-10 flex w-[12px] flex-shrink-0 flex-col items-center sm:w-5">
                                 <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
                               </div>
                               <div className="flex-1 pl-2 pr-1 py-2">
@@ -1944,7 +1944,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                           ) : (
                             <div className="group/insert flex items-stretch gap-0">
                               <div className={STREAM_TIME_RAIL} />
-                              <div className="w-3.5 flex-shrink-0 sm:w-5" />
+                              <div className="w-[12px] flex-shrink-0 sm:w-5" />
                               <div className="flex-1 pl-2 pr-1">
                                 <button
                                   onClick={() => { setInlineInsertTime(midpointStr); setInlineInsertText(''); }}
@@ -1966,8 +1966,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
                         {/* Phase label — TimelineView section header style */}
                         {showPhase && (
-                          <div className="relative z-10 flex items-center gap-2 bg-background pb-2 pl-[3.9375rem] pr-3 pt-4 sm:pl-[5.375rem]">
-                            <span data-testid="recap-phase" className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/55">
+                          <div className="relative z-10 flex items-center gap-2 bg-background pb-2 pl-[60px] pr-2 pt-4 sm:pl-[5.375rem] sm:pr-3">
+                            <span data-testid="recap-phase" className="text-[12px] font-medium uppercase tracking-[0.1em] text-muted-foreground/60">
                               {phase}
                             </span>
                             <div className="flex-1 h-px bg-border/50" />
@@ -1978,19 +1978,19 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                         {isThread && (
                           <div className="flex items-stretch gap-0">
                             <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
-                              <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
+                              <span className="font-mono text-[12px] tabular-nums text-muted-foreground sm:text-[13px]">
                                 {format(thread.startTime, 'HH:mm')}
                               </span>
                             </div>
-                            <div className="z-10 flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
+                            <div className="z-10 flex w-[12px] flex-shrink-0 flex-col items-center sm:w-5">
                               <div
                                 className="w-[10px] h-[10px] rounded-full flex-shrink-0 mt-[6px] z-10 ring-2 ring-background border-2"
                                 style={{ borderColor: thread.color, backgroundColor: 'hsl(var(--background))' }}
                               />
                             </div>
-                            <div className="flex-1 pl-2 pr-1 py-1.5">
+                            <div className="flex-1 py-1.5 pl-1.5 pr-1 sm:pl-2">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[12px] font-medium" style={{ color: thread.color }}>
+                                <span className="text-[13px] font-medium" style={{ color: thread.color }}>
                                   {thread.icon || ''} {thread.threadName || `${thread.tag} block`}
                                 </span>
                                 <span className="text-[11px] text-muted-foreground/40 font-mono tabular-nums">
@@ -2026,7 +2026,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                               >
                                 <div className="group/card relative">
                                   <div className={cn("flex min-w-0 items-start gap-2", isPlanOutline && "opacity-50")}>
-                                    {item.tagIcon && <span className="text-[14px] flex-shrink-0">{item.tagIcon}</span>}
+                                    {item.tagIcon && <span className="flex-shrink-0 text-[14px] leading-[1.4]">{item.tagIcon}</span>}
                                     {editingTodoId === todo.id && !isPlanOutline ? (
                                       <input
                                         autoFocus
@@ -2051,7 +2051,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     ) : (
                                       <span
                                         className={cn(
-                                          "min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-semibold leading-[1.35] tracking-[-0.01em] transition-colors sm:text-[16px]",
+                                          "min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-medium leading-[1.4] tracking-[-0.006em] transition-colors sm:text-[16px] sm:font-semibold",
                                           isPlanOutline ? "text-muted-foreground" : "text-foreground hover:text-primary/80",
                                           !isPlanOutline && todo.is_completed && "text-foreground/80"
                                         )}
@@ -2085,7 +2085,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   {/* Meta row */}
                                   <div className="flex items-center gap-x-3 gap-y-1 mt-1 flex-wrap">
                                     {!isPlanOutline && hasTime && durationMin > 0 && (
-                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/75 sm:text-[13px]">
+                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/70 sm:text-[13px]">
                                         ⏱ {todoDurLabel}
                                       </span>
                                     )}
@@ -2162,7 +2162,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       />
                                     ) : (
                                       <span
-                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground transition-colors hover:text-primary/80 sm:text-[16px]"
+                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-medium leading-[1.4] tracking-[-0.006em] text-foreground transition-colors hover:text-primary/80 sm:text-[16px] sm:font-semibold"
                                         onClick={() => {
                                           setEditingImportedEventId(event.id);
                                           setEditingImportedEventTitle(event.title);
@@ -2355,10 +2355,10 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   <div className="min-w-0">
                                     {/* Title — full content width; ~16px is normal mobile “medium-large” */}
                                     <div className="relative flex items-start gap-2 min-w-0 pr-0 sm:pr-16">
-                                      {!item.tagIcon && moment.emoji && <span className="text-[15px] flex-shrink-0 leading-[1.35]">{moment.emoji}</span>}
-                                      {item.tagIcon && <span className="text-[14px] flex-shrink-0 leading-[1.35]">{item.tagIcon}</span>}
+                                      {!item.tagIcon && moment.emoji && <span className="flex-shrink-0 text-[15px] leading-[1.4]">{moment.emoji}</span>}
+                                      {item.tagIcon && <span className="flex-shrink-0 text-[14px] leading-[1.4]">{item.tagIcon}</span>}
                                       <span
-                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-semibold leading-[1.4] tracking-[-0.01em] text-foreground transition-colors hover:text-primary/80 sm:text-[16px]"
+                                        className="min-w-0 flex-1 break-words whitespace-normal cursor-pointer text-[15px] font-medium leading-[1.4] tracking-[-0.006em] text-foreground transition-colors hover:text-primary/80 sm:text-[16px] sm:font-semibold"
                                         onClick={() => startEdit(moment)}
                                       >
                                         {subtitle || moment.emoji || 'Moment'}
@@ -2387,14 +2387,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                           <button
                                             type="button"
                                             onClick={() => onFocusLocationOnMap({ name: moment.location!.name, lat: moment.location!.lat, lng: moment.location!.lng })}
-                                            className="flex min-w-0 max-w-full items-center gap-1 text-[13px] text-muted-foreground/75 hover:text-primary transition-colors"
+                                            className="flex min-w-0 max-w-full items-center gap-1 text-[12px] text-muted-foreground/75 transition-colors hover:text-primary sm:text-[13px]"
                                             title={lang === 'zh' ? `在地图上查看·${moment.location.name}` : `View on map · ${moment.location.name}`}
                                           >
                                             <MapPin size={13} className="flex-shrink-0" />
                                             <span className="min-w-0 truncate underline-offset-2 hover:underline">{moment.location.name}</span>
                                           </button>
                                         ) : (
-                                          <span className="flex min-w-0 max-w-full items-center gap-1 text-[13px] text-muted-foreground/75" title={moment.location.name}>
+                                          <span className="flex min-w-0 max-w-full items-center gap-1 text-[12px] text-muted-foreground/75 sm:text-[13px]" title={moment.location.name}>
                                             <MapPin size={13} className="flex-shrink-0" />
                                             <span className="min-w-0 truncate">{moment.location.name}</span>
                                           </span>
@@ -2517,9 +2517,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                       inlineInsertTime === endInsertKey ? (
                         <div className="flex items-stretch gap-0">
                           <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
-                            <span className="font-mono text-[13px] tabular-nums text-primary/60">{nowTime}</span>
+                            <span className="font-mono text-[12px] tabular-nums text-primary/60 sm:text-[13px]">{nowTime}</span>
                           </div>
-                          <div className="z-10 flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
+                          <div className="z-10 flex w-[12px] flex-shrink-0 flex-col items-center sm:w-5">
                             <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
                           </div>
                           <div className="flex-1 pl-2 pr-1 py-2">
@@ -2556,7 +2556,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                       ) : (
                         <div className="group/insert flex items-stretch gap-0">
                           <div className={STREAM_TIME_RAIL} />
-                          <div className="w-3.5 flex-shrink-0 sm:w-5" />
+                          <div className="w-[12px] flex-shrink-0 sm:w-5" />
                           <div className="flex-1 pl-2 pr-1">
                             <button
                               onClick={() => { setInlineInsertTime(endInsertKey); setInlineInsertText(''); }}
@@ -2577,7 +2577,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                   {/* End cap */}
                   <div className="flex items-stretch gap-0">
                     <div className={STREAM_TIME_RAIL} />
-                    <div className="z-10 flex w-3.5 flex-shrink-0 justify-center sm:w-5">
+                    <div className="z-10 flex w-[12px] flex-shrink-0 justify-center sm:w-5">
                       <div className="h-[7px] w-[7px] rounded-full bg-border ring-2 ring-background" />
                     </div>
                   </div>
@@ -2606,13 +2606,13 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
       {/* Time column — narrow on mobile so Chinese body copy gets the width */}
       <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
         {timeStr && (
-          <span className="font-mono text-[13px] tabular-nums text-muted-foreground sm:text-[14px]">
+          <span className="font-mono text-[12px] font-medium tabular-nums text-muted-foreground/80 sm:text-[14px] sm:font-normal">
             {timeStr}
           </span>
         )}
       </div>
       {/* Dot + line column */}
-      <div className="relative flex w-3.5 flex-shrink-0 flex-col items-center sm:w-5">
+      <div className="relative flex w-[12px] flex-shrink-0 flex-col items-center sm:w-5">
         <div
           data-testid="recap-stream-dot"
           className="w-[9px] h-[9px] sm:w-[10px] sm:h-[10px] rounded-full flex-shrink-0 mt-[5px] sm:mt-[6px] z-10 ring-2 ring-background"
@@ -2631,7 +2631,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
           return (
             <div
               className={cn(
-                "-ml-0.5 min-w-0 max-w-full overflow-hidden rounded-xl px-1.5 py-1.5 transition-colors sm:-ml-1 sm:px-3",
+                "min-w-0 max-w-full overflow-hidden rounded-xl px-2 py-1.5 transition-colors sm:-ml-1 sm:px-3",
                 isPlanOutline ? "" : "hover:bg-muted/35"
               )}
               style={outlineStyle}
