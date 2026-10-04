@@ -478,8 +478,13 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 setActiveTab(tab);
               }}
               centerSlot={
-                activeTab === 'today' && todayMode === 'plan'
-                  ? <PlanPaneSwitcher />
+                activeTab === 'today'
+                  ? (
+                    <PlanPaneSwitcher
+                      todayMode={todayMode}
+                      onTodayModeChange={setTodayMode}
+                    />
+                  )
                   : undefined
               }
             />
