@@ -1338,6 +1338,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 </button>
                 <button
                   type="button"
+                  data-testid="recap-location-action"
                   onClick={() => setLocationOpen(true)}
                   className={cn(
                     "w-9 h-9 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",

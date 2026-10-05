@@ -85,6 +85,7 @@ export function PlanPaneSwitcher({
             <button
               type="button"
               role="tab"
+              data-testid="today-mode-recap"
               aria-selected={false}
               onClick={() => onTodayModeChange('recap')}
               className="rounded-full px-2.5 py-1 text-[12px] font-semibold tracking-tight text-foreground/50 transition-colors hover:text-foreground/80"
@@ -107,6 +108,7 @@ export function PlanPaneSwitcher({
           <button
             type="button"
             role="tab"
+            data-testid="today-mode-recap"
             aria-selected="true"
             className="rounded-full bg-background px-3 py-1 text-[12px] font-semibold tracking-tight text-foreground shadow-[0_1px_2px_hsl(var(--foreground)/0.08)]"
           >

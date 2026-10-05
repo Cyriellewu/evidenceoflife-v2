@@ -26,9 +26,9 @@ test.describe('synthetic demo', () => {
     await page.goto('/demo-app');
     await expect(page.getByText('Public demo')).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByRole('button', { name: /Recap/ }).last()).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('today-mode-recap')).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('recap-photo-action')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add location' })).toBeVisible();
+    await expect(page.getByTestId('recap-location-action')).toBeVisible();
     await page.getByTestId('recap-photo-action').click();
     await expect(page.getByTestId('recap-camera-choice')).toBeVisible();
     await expect(page.getByTestId('recap-library-choice')).toBeVisible();
