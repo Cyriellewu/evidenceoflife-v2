@@ -32,6 +32,7 @@ test.describe('synthetic demo', () => {
     await page.getByTestId('recap-photo-action').click();
     await expect(page.getByTestId('recap-camera-choice')).toBeVisible();
     await expect(page.getByTestId('recap-library-choice')).toBeVisible();
+    expect(await page.getByTestId('recap-photo-sheet').evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(260);
     await page.keyboard.press('Escape');
     expect(await page.getByTestId('recap-notes-toggle').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('12px');
     await expect(page.getByText('07:48 → 08:18', { exact: true })).toHaveCount(0);
