@@ -118,7 +118,10 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const landingDemoMode = publicDemo || (isEmbeddedDemo && !!forcedDemoStep);
   const demoFixedDate = useMemo(() => new Date('2026-04-08T12:00:00'), []);
   const [activeTab, setActiveTab] = useState<TabType>('today');
-  const [todayMode, setTodayMode] = useState<TodayMode>('plan');
+  const [todayMode, setTodayMode] = useState<TodayMode>(() => {
+    if (typeof window === 'undefined') return 'plan';
+    return window.matchMedia('(max-width: 767px)').matches ? 'recap' : 'plan';
+  });
   const [voiceSheetOpen, setVoiceSheetOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Pending "focus this place on the map" request, carried into MapView when we jump there.

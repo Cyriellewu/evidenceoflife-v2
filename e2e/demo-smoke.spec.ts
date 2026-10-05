@@ -26,7 +26,13 @@ test.describe('synthetic demo', () => {
     await page.goto('/demo-app');
     await expect(page.getByText('Public demo')).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole('button', { name: /Recap/ }).last().click();
+    await expect(page.getByTestId('today-mode-recap')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('recap-photo-action')).toBeVisible();
+    await expect(page.getByTestId('recap-location-action')).toBeVisible();
+    await page.getByTestId('recap-photo-action').click();
+    await expect(page.getByTestId('recap-camera-choice')).toBeVisible();
+    await expect(page.getByTestId('recap-library-choice')).toBeVisible();
+    await page.keyboard.press('Escape');
     expect(await page.getByTestId('recap-notes-toggle').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('12px');
     await expect(page.getByText('07:48 → 08:18', { exact: true })).toHaveCount(0);
     await page.getByText('Draft project notes', { exact: true }).last().click();

@@ -3,7 +3,7 @@ import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
-import { MapPin, Image, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { MapPin, Image, Camera, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { InputPlusMenu, detectAutoTags } from '@/components/InputPlusMenu';
 import { useReminders } from '@/hooks/useReminders';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import monetPainting from '@/assets/monet-impression-sunrise.jpg';
 import dailyPainting from '@/assets/daily-painting.jpg';
 import { getDailyArtwork } from '@/lib/dailyArtwork';
@@ -159,6 +166,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const [inputStartTime, setInputStartTime] = useState(() => format(new Date(), 'HH:mm'));
   const [inputEndTime, setInputEndTime] = useState(() => format(new Date(), 'HH:mm'));
   const [locationOpen, setLocationOpen] = useState(false);
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResolvingLink, setIsResolvingLink] = useState(false);
@@ -305,6 +313,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const recapContentRef = useRef<HTMLDivElement>(null);
   const recapRightColRef = useRef<HTMLDivElement>(null);
   const [recapInputDock, setRecapInputDock] = useState<{ left: number; width: number } | null>(null);
@@ -801,7 +810,21 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   };
 
   const handlePhotoClick = () => {
+    if (isMobile) {
+      setPhotoSourceOpen(true);
+      return;
+    }
     fileInputRef.current?.click();
+  };
+
+  const handleCameraClick = () => {
+    cameraInputRef.current?.click();
+    setPhotoSourceOpen(false);
+  };
+
+  const handlePhotoLibraryClick = () => {
+    fileInputRef.current?.click();
+    setPhotoSourceOpen(false);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1060,6 +1083,44 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         onChange={handleFileChange}
         className="hidden"
       />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <Drawer open={photoSourceOpen} onOpenChange={setPhotoSourceOpen} shouldScaleBackground={false}>
+        <DrawerContent className="min-h-[42vh] max-h-[55vh] rounded-t-[28px] border-border/60 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-18px_60px_hsl(var(--foreground)/0.16)]">
+          <DrawerHeader className="px-1 pb-3 pt-5 text-left">
+            <DrawerTitle className="text-[18px] font-semibold">{lang === 'zh' ? '添加照片' : 'Add photo'}</DrawerTitle>
+            <DrawerDescription className="text-[13px]">
+              {lang === 'zh' ? '直接拍摄，或从照片库选择。' : 'Take a new photo or choose one from your library.'}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="grid grid-cols-2 gap-3 pb-2">
+            <button
+              type="button"
+              data-testid="recap-camera-choice"
+              onClick={handleCameraClick}
+              className="flex min-h-[96px] flex-col items-start justify-between rounded-2xl border border-border/60 bg-[hsl(var(--surface-soft))] p-4 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
+            >
+              <Camera size={22} className="text-primary" />
+              <span className="text-[15px] font-medium text-foreground">{lang === 'zh' ? '拍照' : 'Take photo'}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="recap-library-choice"
+              onClick={handlePhotoLibraryClick}
+              className="flex min-h-[96px] flex-col items-start justify-between rounded-2xl border border-border/60 bg-[hsl(var(--surface-soft))] p-4 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
+            >
+              <Image size={22} className="text-primary" />
+              <span className="text-[15px] font-medium text-foreground">{lang === 'zh' ? '照片库' : 'Photo library'}</span>
+            </button>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Date + painting — balanced split on phone (image leads, date breathes). */}
       <div className="overflow-hidden px-3 pb-1.5 pt-2 sm:px-6">
@@ -1262,6 +1323,22 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               <>
                 <button
                   type="button"
+                  data-testid="recap-photo-action"
+                  onClick={handlePhotoClick}
+                  className={cn(
+                    "h-9 w-9 flex-shrink-0 rounded-full transition-colors flex items-center justify-center",
+                    selectedPhotos.length > 0
+                      ? "bg-[hsl(var(--surface-inset))] text-foreground"
+                      : "text-muted-foreground hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                  )}
+                  title="Add photo"
+                  aria-label={lang === 'zh' ? '添加照片' : 'Add photo'}
+                >
+                  <Camera size={16} />
+                </button>
+                <button
+                  type="button"
+                  data-testid="recap-location-action"
                   onClick={() => setLocationOpen(true)}
                   className={cn(
                     "w-9 h-9 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
