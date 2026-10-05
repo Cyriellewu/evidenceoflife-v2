@@ -6,17 +6,18 @@ export function StorageImage({
   src,
   ...rest
 }: { src: string } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
-  const [resolved, setResolved] = useState(src);
+  const [resolved, setResolved] = useState({ source: src, url: src });
 
   useEffect(() => {
     let cancelled = false;
     void resolveMomentPhotoUrl(src).then((url) => {
-      if (!cancelled) setResolved(url);
+      if (!cancelled) setResolved({ source: src, url });
     });
     return () => {
       cancelled = true;
     };
   }, [src]);
 
-  return <img src={resolved} {...rest} />;
+  // Never show the previous photo while the new source is being resolved.
+  return <img src={resolved.source === src ? resolved.url : src} {...rest} />;
 }

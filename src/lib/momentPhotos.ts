@@ -10,6 +10,8 @@ async function getSupabase() {
 export function momentPhotoObjectPath(pathOrUrl: string): string | null {
   const value = pathOrUrl.trim();
   if (!value) return null;
+  // Local previews and bundled images are not private storage objects.
+  if (/^(?:data:|blob:|\/)/i.test(value)) return null;
 
   if (!/^https?:\/\//i.test(value)) {
     return value.replace(/^\/+/, '');

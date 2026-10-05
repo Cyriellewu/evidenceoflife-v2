@@ -12,6 +12,12 @@ describe('momentPhotoObjectPath', () => {
     expect(momentPhotoObjectPath(url)).toBe('user-1/abc.jpg');
   });
 
+  it('keeps local previews and bundled images out of storage', () => {
+    expect(momentPhotoObjectPath('data:image/png;base64,abc')).toBeNull();
+    expect(momentPhotoObjectPath('blob:http://localhost/photo')).toBeNull();
+    expect(momentPhotoObjectPath('/assets/photo.jpg')).toBeNull();
+  });
+
   it('returns null for unrelated URLs', () => {
     expect(momentPhotoObjectPath('https://example.com/x.jpg')).toBeNull();
   });

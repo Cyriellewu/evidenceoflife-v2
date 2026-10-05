@@ -29,11 +29,23 @@ test.describe('synthetic demo', () => {
     await expect(page.getByTestId('today-mode-recap')).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('recap-photo-action')).toBeVisible();
     await expect(page.getByTestId('recap-location-action')).toBeVisible();
+    const picker = page.waitForEvent('filechooser');
     await page.getByTestId('recap-photo-action').click();
-    await expect(page.getByTestId('recap-camera-choice')).toBeVisible();
-    await expect(page.getByTestId('recap-library-choice')).toBeVisible();
-    expect(await page.getByTestId('recap-photo-sheet').evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(260);
-    await page.keyboard.press('Escape');
+    const chooser = await picker;
+    await expect(page.getByTestId('recap-photo-sheet')).toHaveCount(0);
+    await chooser.setFiles({ name: 'too-large.png', mimeType: 'image/png', buffer: Buffer.alloc(6 * 1024 * 1024) });
+    await expect(page.getByText(/File too large/)).toBeVisible();
+    expect(await chooser.element().inputValue()).toBe('');
+    const nextPicker = page.waitForEvent('filechooser');
+    await page.getByTestId('recap-photo-action').click();
+    await (await nextPicker).setFiles({
+      name: 'retry.png', mimeType: 'image/png',
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'),
+    });
+    const preview = page.locator('img[src^="data:image/png"]');
+    await expect(preview).toBeVisible();
+    await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+    await preview.locator('..').getByRole('button').click();
     expect(await page.getByTestId('recap-notes-toggle').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('12px');
     await expect(page.getByText('07:48 → 08:18', { exact: true })).toHaveCount(0);
     await page.getByText('Draft project notes', { exact: true }).last().click();
