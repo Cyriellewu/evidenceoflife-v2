@@ -2511,7 +2511,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                             className="flex-shrink-0 snap-start overflow-hidden rounded-xl border border-border/25 bg-muted/20 shadow-[0_8px_20px_hsl(var(--foreground)/0.08)] transition-transform active:scale-[0.98]"
                                             onClick={() => setLightboxPhotos({ photos: moment.photos, index: i })}
                                           >
-                                            <img
+                                            <StorageImage
                                               src={photo}
                                               alt=""
                                               loading="lazy"

@@ -391,7 +391,7 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                             key={i}
                             className="aspect-square rounded-lg bg-secondary overflow-hidden"
                           >
-                            <img 
+                            <StorageImage
                               src={photo} 
                               alt="" 
                               className="w-full h-full object-cover"
