@@ -68,9 +68,11 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    const validFiles = Array.from(files).filter(f => validatePhotoFile(f));
+    const files = Array.from(e.currentTarget.files || []);
+    // Clear before validation/read so rejected files and retries never stick.
+    e.currentTarget.value = '';
+    if (!files.length) return;
+    const validFiles = files.filter(f => validatePhotoFile(f));
     if (!canAddMorePhotos(selectedPhotos.length, validFiles.length)) return;
     
     validFiles.forEach(file => {
@@ -83,7 +85,6 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
       };
       reader.readAsDataURL(file);
     });
-    e.target.value = '';
   };
 
   const removePhoto = (index: number) => {

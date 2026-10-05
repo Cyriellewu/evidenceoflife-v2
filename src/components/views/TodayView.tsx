@@ -30,13 +30,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from '@/components/ui/drawer';
 import monetPainting from '@/assets/monet-impression-sunrise.jpg';
 import dailyPainting from '@/assets/daily-painting.jpg';
 import { getDailyArtwork } from '@/lib/dailyArtwork';
@@ -166,7 +159,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const [inputStartTime, setInputStartTime] = useState(() => format(new Date(), 'HH:mm'));
   const [inputEndTime, setInputEndTime] = useState(() => format(new Date(), 'HH:mm'));
   const [locationOpen, setLocationOpen] = useState(false);
-  const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResolvingLink, setIsResolvingLink] = useState(false);
@@ -313,7 +305,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const recapContentRef = useRef<HTMLDivElement>(null);
   const recapRightColRef = useRef<HTMLDivElement>(null);
   const [recapInputDock, setRecapInputDock] = useState<{ left: number; width: number } | null>(null);
@@ -810,27 +801,17 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   };
 
   const handlePhotoClick = () => {
-    if (isMobile) {
-      setPhotoSourceOpen(true);
-      return;
-    }
+    // Open the native picker in the user gesture. On iOS it already offers
+    // camera and library choices, so another sheet duplicates the same step.
     fileInputRef.current?.click();
-  };
-
-  const handleCameraClick = () => {
-    cameraInputRef.current?.click();
-    setPhotoSourceOpen(false);
-  };
-
-  const handlePhotoLibraryClick = () => {
-    fileInputRef.current?.click();
-    setPhotoSourceOpen(false);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    const validFiles = Array.from(files).filter(f => validatePhotoFile(f));
+    const files = Array.from(e.currentTarget.files || []);
+    // Clear before validation/read so rejected files and retries never stick.
+    e.currentTarget.value = '';
+    if (!files.length) return;
+    const validFiles = files.filter(f => validatePhotoFile(f));
     if (!canAddMorePhotos(selectedPhotos.length, validFiles.length)) return;
     
     validFiles.forEach(file => {
@@ -844,8 +825,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       reader.readAsDataURL(file);
     });
     
-    // Reset input
-    e.target.value = '';
   };
 
   const removePhoto = (index: number) => {
@@ -864,9 +843,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   };
 
   const handleEditFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    const validFiles = Array.from(files).filter(f => validatePhotoFile(f));
+    const files = Array.from(e.currentTarget.files || []);
+    // Clear before validation/read so rejected files and retries never stick.
+    e.currentTarget.value = '';
+    if (!files.length) return;
+    const validFiles = files.filter(f => validatePhotoFile(f));
     if (!canAddMorePhotos(editPhotos.length, validFiles.length)) return;
     
     validFiles.forEach(file => {
@@ -880,7 +861,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       reader.readAsDataURL(file);
     });
     
-    e.target.value = '';
   };
 
   const removeEditPhoto = (index: number) => {
@@ -1083,49 +1063,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         onChange={handleFileChange}
         className="hidden"
       />
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-      <Drawer open={photoSourceOpen} onOpenChange={setPhotoSourceOpen} shouldScaleBackground={false}>
-        <DrawerContent
-          data-testid="recap-photo-sheet"
-          className="rounded-t-[20px] border-border/60 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_36px_hsl(var(--foreground)/0.12)]"
-        >
-          <DrawerHeader className="px-2 pb-2 pt-3 text-left">
-            <DrawerTitle className="text-[16px] font-semibold">{lang === 'zh' ? '添加照片' : 'Add photo'}</DrawerTitle>
-            <DrawerDescription className="sr-only">
-              {lang === 'zh' ? '选择拍照或照片库' : 'Choose camera or photo library'}
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="overflow-hidden rounded-xl bg-[hsl(var(--surface-soft))]">
-            <button
-              type="button"
-              data-testid="recap-camera-choice"
-              onClick={handleCameraClick}
-              className="flex h-12 w-full items-center gap-3 px-3 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
-            >
-              <Camera size={19} className="text-foreground/80" />
-              <span className="text-[15px] font-normal text-foreground">{lang === 'zh' ? '拍照' : 'Take photo'}</span>
-            </button>
-            <div className="ml-12 h-px bg-border/55" />
-            <button
-              type="button"
-              data-testid="recap-library-choice"
-              onClick={handlePhotoLibraryClick}
-              className="flex h-12 w-full items-center gap-3 px-3 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
-            >
-              <Image size={19} className="text-foreground/80" />
-              <span className="text-[15px] font-normal text-foreground">{lang === 'zh' ? '照片库' : 'Photo library'}</span>
-            </button>
-          </div>
-        </DrawerContent>
-      </Drawer>
-
       {/* Date + painting — balanced split on phone (image leads, date breathes). */}
       <div className="overflow-hidden px-3 pb-1.5 pt-2 sm:px-6">
         <div className="flex items-stretch gap-3 sm:gap-5">
