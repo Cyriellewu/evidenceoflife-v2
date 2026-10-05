@@ -1092,31 +1092,35 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         className="hidden"
       />
       <Drawer open={photoSourceOpen} onOpenChange={setPhotoSourceOpen} shouldScaleBackground={false}>
-        <DrawerContent className="min-h-[42vh] max-h-[55vh] rounded-t-[28px] border-border/60 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-18px_60px_hsl(var(--foreground)/0.16)]">
-          <DrawerHeader className="px-1 pb-3 pt-5 text-left">
-            <DrawerTitle className="text-[18px] font-semibold">{lang === 'zh' ? '添加照片' : 'Add photo'}</DrawerTitle>
-            <DrawerDescription className="text-[13px]">
-              {lang === 'zh' ? '直接拍摄，或从照片库选择。' : 'Take a new photo or choose one from your library.'}
+        <DrawerContent
+          data-testid="recap-photo-sheet"
+          className="rounded-t-[20px] border-border/60 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_36px_hsl(var(--foreground)/0.12)]"
+        >
+          <DrawerHeader className="px-2 pb-2 pt-3 text-left">
+            <DrawerTitle className="text-[16px] font-semibold">{lang === 'zh' ? '添加照片' : 'Add photo'}</DrawerTitle>
+            <DrawerDescription className="sr-only">
+              {lang === 'zh' ? '选择拍照或照片库' : 'Choose camera or photo library'}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="grid grid-cols-2 gap-3 pb-2">
+          <div className="overflow-hidden rounded-xl bg-[hsl(var(--surface-soft))]">
             <button
               type="button"
               data-testid="recap-camera-choice"
               onClick={handleCameraClick}
-              className="flex min-h-[96px] flex-col items-start justify-between rounded-2xl border border-border/60 bg-[hsl(var(--surface-soft))] p-4 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
+              className="flex h-12 w-full items-center gap-3 px-3 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
             >
-              <Camera size={22} className="text-primary" />
-              <span className="text-[15px] font-medium text-foreground">{lang === 'zh' ? '拍照' : 'Take photo'}</span>
+              <Camera size={19} className="text-foreground/80" />
+              <span className="text-[15px] font-normal text-foreground">{lang === 'zh' ? '拍照' : 'Take photo'}</span>
             </button>
+            <div className="ml-12 h-px bg-border/55" />
             <button
               type="button"
               data-testid="recap-library-choice"
               onClick={handlePhotoLibraryClick}
-              className="flex min-h-[96px] flex-col items-start justify-between rounded-2xl border border-border/60 bg-[hsl(var(--surface-soft))] p-4 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
+              className="flex h-12 w-full items-center gap-3 px-3 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
             >
-              <Image size={22} className="text-primary" />
-              <span className="text-[15px] font-medium text-foreground">{lang === 'zh' ? '照片库' : 'Photo library'}</span>
+              <Image size={19} className="text-foreground/80" />
+              <span className="text-[15px] font-normal text-foreground">{lang === 'zh' ? '照片库' : 'Photo library'}</span>
             </button>
           </div>
         </DrawerContent>
