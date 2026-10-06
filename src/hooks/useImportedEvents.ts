@@ -95,13 +95,13 @@ function parseICSDate(str: string): string {
 }
 
 export function useImportedEvents() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const [events, setEvents] = useState<ImportedEvent[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchEvents = useCallback(async () => {
-    if (!user) return;
+    if (!user || isDemo) return;
 
     try {
       const { data, error } = await supabase
@@ -128,7 +128,7 @@ export function useImportedEvents() {
     } catch (err) {
       console.error('Failed to fetch imported events (exception):', err);
     }
-  }, [user]);
+  }, [user, isDemo]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
@@ -139,7 +139,7 @@ export function useImportedEvents() {
   }, [fetchEvents]);
 
   const importICS = useCallback(async (file: File): Promise<boolean> => {
-    if (!user) return false;
+    if (!user || isDemo) return false;
     setLoading(true);
     try {
       const text = await file.text();
@@ -173,10 +173,10 @@ export function useImportedEvents() {
     } finally {
       setLoading(false);
     }
-  }, [user, fetchEvents]);
+  }, [user, isDemo, fetchEvents]);
 
   const addManualEvent = useCallback(async (input: { title: string; startISO: string; endISO: string; description?: string | null; location?: string | null; }) => {
-    if (!user) return false;
+    if (!user || isDemo) return false;
     const { error } = await supabase.from('imported_events').insert({
       user_id: user.id,
       title: input.title,
@@ -195,9 +195,10 @@ export function useImportedEvents() {
     await fetchEvents();
     notifyImportedEventsChanged();
     return true;
-  }, [user, fetchEvents]);
+  }, [user, isDemo, fetchEvents]);
 
   const updateEvent = useCallback(async (id: string, updates: ImportedEventUpdates) => {
+    if (!user || isDemo) return false;
     setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
     const { error } = await supabase.from('imported_events').update(updates).eq('id', id);
     if (error) {
@@ -207,24 +208,25 @@ export function useImportedEvents() {
     }
     notifyImportedEventsChanged();
     return true;
-  }, [fetchEvents]);
+  }, [user, isDemo, fetchEvents]);
 
   const deleteBatch = useCallback(async (batchId: string) => {
+    if (!user || isDemo) return;
     const { error } = await supabase.from('imported_events').delete().eq('import_batch_id', batchId);
     if (error) { toast.error('Delete failed'); return; }
     toast.success('Batch deleted');
     await fetchEvents();
     notifyImportedEventsChanged();
-  }, [fetchEvents]);
+  }, [user, isDemo, fetchEvents]);
 
   const deleteSelected = useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
+    if (!user || isDemo || ids.length === 0) return;
     const { error } = await supabase.from('imported_events').delete().in('id', ids);
     if (error) { toast.error('Delete failed'); return; }
     toast.success(`Deleted ${ids.length} events`);
     await fetchEvents();
     notifyImportedEventsChanged();
-  }, [fetchEvents]);
+  }, [user, isDemo, fetchEvents]);
 
   const searchEvents = useCallback((query: string) => {
     if (!query.trim()) return events;
@@ -233,6 +235,7 @@ export function useImportedEvents() {
   }, [events]);
 
   const toggleComplete = useCallback(async (id: string) => {
+    if (!user || isDemo) return;
     const event = events.find(e => e.id === id);
     if (!event) return;
     const newVal = !event.is_completed;
@@ -241,7 +244,7 @@ export function useImportedEvents() {
     const { error } = await supabase.from('imported_events').update({ is_completed: newVal }).eq('id', id);
     if (error) { toast.error('Update failed'); await fetchEvents(); return; }
     notifyImportedEventsChanged();
-  }, [events, fetchEvents]);
+  }, [user, isDemo, events, fetchEvents]);
 
   return { events, batches, loading, importICS, addManualEvent, updateEvent, deleteBatch, deleteSelected, searchEvents, toggleComplete, refetch: fetchEvents };
 }
