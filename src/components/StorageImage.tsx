@@ -1,12 +1,13 @@
 import { ImgHTMLAttributes, useEffect, useState } from 'react';
-import { resolveMomentPhotoUrl } from '@/lib/momentPhotos';
+import { momentPhotoObjectPath, resolveMomentPhotoUrl } from '@/lib/momentPhotos';
 
 /** <img> wrapper that turns storage paths / legacy public URLs into signed URLs. */
 export function StorageImage({
   src,
   ...rest
 }: { src: string } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
-  const [resolved, setResolved] = useState({ source: src, url: src });
+  const initialUrl = momentPhotoObjectPath(src) ? '' : src;
+  const [resolved, setResolved] = useState({ source: src, url: initialUrl });
 
   useEffect(() => {
     let cancelled = false;
@@ -19,5 +20,6 @@ export function StorageImage({
   }, [src]);
 
   // Never show the previous photo while the new source is being resolved.
-  return <img src={resolved.source === src ? resolved.url : src} {...rest} />;
+  const url = resolved.source === src ? resolved.url : initialUrl;
+  return <img src={url || undefined} {...rest} />;
 }
