@@ -546,6 +546,9 @@ function formatVisitDateLabel(value: string, formatDate: (date: Date, formatStr?
 type ViewMode = 'world' | 'city';
 
 export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapViewProps) {
+  // The hook's wrapper object changes on every parent render (including timer
+  // ticks). Only actual city data should restart expensive geo requests.
+  const structuredCities = placesData?.cities;
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>('world');
@@ -599,8 +602,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
 
     // 1) New structured places data (priority)
-    if (placesData?.cities) {
-      placesData.cities.forEach(city => {
+    if (structuredCities) {
+      structuredCities.forEach(city => {
         city.places.forEach(p => {
           const existing = placeMap.get(p.name);
           const visitDetails = p.visits.map((v: { date?: string; photos?: unknown; note?: string | null; moment_id?: string | null }) => ({
@@ -699,7 +702,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         };
       })
       .sort((a, b) => b.visits - a.visits);
-  }, [moments, placesData]);
+  }, [moments, structuredCities]);
 
   // Cluster into cities
   const [cities, setCities] = useState<CityCluster[]>([]);
@@ -717,8 +720,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     const initialCities = clusterByProximity(allPlaces);
     // Use city names from structured places data when available (database has proper names)
     const knownCityNames = new Map<string, string>();
-    if (placesData?.cities) {
-      placesData.cities.forEach(city => {
+    if (structuredCities) {
+      structuredCities.forEach(city => {
         city.places.forEach(p => {
           // Map place coords to their parent city name
           const key = `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
@@ -738,8 +741,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         if (cityName) { resolvedName = cityName; break; }
       }
       // Also check placesData cities by proximity
-      if (!resolvedName && placesData?.cities) {
-        for (const dbCity of placesData.cities) {
+      if (!resolvedName && structuredCities) {
+        for (const dbCity of structuredCities) {
           const dist = haversineKm(c.centerLat, c.centerLng, dbCity.lat, dbCity.lng);
           if (dist < 30) { resolvedName = dbCity.name; break; }
         }
@@ -838,7 +841,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
     runGeoSequence();
     return () => { geoSeqCancelled = true; };
-  }, [allPlaces, placesData, lang]);
+  }, [allPlaces, structuredCities, lang]);
 
   // Auto-select closest city to user's location on first load.
   // We start in world view with no city selected so users never see a
