@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
+import { fetchSupabaseWithRetry } from '@/lib/supabaseRetry';
 import { format } from 'date-fns';
 import { Todo } from '@/hooks/useTodos';
 import {
@@ -51,30 +52,6 @@ type TodoRow = Database['public']['Tables']['todos']['Row'];
 type TodoInsert = Database['public']['Tables']['todos']['Insert'];
 type TodoUpdate = Database['public']['Tables']['todos']['Update'];
 
-async function fetchWithRetry<T>(
-  fn: () => PromiseLike<{ data: T | null; error: unknown }>,
-  retries = 3,
-  delay = 1500
-): Promise<{ data: T | null; error: unknown }> {
-  for (let i = 0; i < retries; i++) {
-    let result: { data: T | null; error: unknown };
-    try {
-      result = await fn();
-    } catch (err) {
-      result = { data: null, error: err };
-    }
-
-    if (!result.error && result.data !== null) return result;
-    if (i < retries - 1) await new Promise(r => setTimeout(r, delay * (i + 1)));
-  }
-
-  try {
-    return await fn();
-  } catch (err) {
-    return { data: null, error: err };
-  }
-}
-
 export function useDues() {
   const { user, isDemo } = useAuth();
   const [dues, setDues] = useState<DueWithStats[]>([]);
@@ -90,12 +67,14 @@ export function useDues() {
     setLoading(true);
 
     try {
-      const { data: allTodos, error } = await fetchWithRetry(() =>
-        supabase
+      const { data: allTodos, error } = await fetchSupabaseWithRetry(
+        () => supabase
           .from('todos')
           .select('*')
           .or('date.like._due_%,parent_due_id.not.is.null')
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+        3,
+        1500,
       );
 
       if (error || !allTodos) {

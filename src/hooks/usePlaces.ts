@@ -47,12 +47,13 @@ function uniquePhotos(photos?: string[]): string[] {
 }
 
 export function usePlaces() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const [cities, setCities] = useState<CityWithPlaces[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!user) {
+    if (!user || isDemo) {
+      setCities([]);
       setLoading(false);
       return;
     }
@@ -92,13 +93,13 @@ export function usePlaces() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isDemo]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // Find or create a city by name (using reverse geocode city name)
   const findOrCreateCity = useCallback(async (cityName: string, lat: number, lng: number, country?: string): Promise<string | null> => {
-    if (!user) return null;
+    if (!user || isDemo) return null;
     // Check existing
     const existing = cities.find(c => c.name === cityName);
     if (existing) return existing.id;
@@ -118,13 +119,13 @@ export function usePlaces() {
       return null;
     }
     return data?.id || null;
-  }, [user, cities]);
+  }, [user, isDemo, cities]);
 
   // Find or create a place
   const findOrCreatePlace = useCallback(async (
     cityId: string, name: string, lat: number, lng: number, category: string
   ): Promise<string | null> => {
-    if (!user) return null;
+    if (!user || isDemo) return null;
     // Check existing place in city with similar name
     const city = cities.find(c => c.id === cityId);
     const existing = city?.places.find(p => sameName(p.name, name));
@@ -166,13 +167,13 @@ export function usePlaces() {
       .single();
     if (error) { console.error('Failed to create place:', error); return null; }
     return data?.id || null;
-  }, [user, cities]);
+  }, [user, isDemo, cities]);
 
   // Create or update the visit bound to a moment. A moment should only own one map visit.
   const createVisit = useCallback(async (
     placeId: string, date: string, momentId?: string, note?: string, photos?: string[]
   ) => {
-    if (!user) return;
+    if (!user || isDemo) return;
     const payload = {
       user_id: user.id,
       place_id: placeId,
@@ -202,7 +203,7 @@ export function usePlaces() {
     }
 
     await supabase.from('visits').insert(payload);
-  }, [user]);
+  }, [user, isDemo]);
 
   // High-level: keep places/visits in sync with the source moment.
   const syncVisitFromMoment = useCallback(async (
@@ -212,7 +213,7 @@ export function usePlaces() {
     note?: string,
     photos?: string[]
   ) => {
-    if (!user) return;
+    if (!user || isDemo) return;
     try {
       if (!location?.name || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) {
         await supabase.from('visits').delete().eq('user_id', user.id).eq('moment_id', momentId);
@@ -239,7 +240,7 @@ export function usePlaces() {
     } catch (err) {
       console.warn('Failed to sync visit from moment:', err);
     }
-  }, [user, findOrCreateCity, findOrCreatePlace, createVisit, fetchAll]);
+  }, [user, isDemo, findOrCreateCity, findOrCreatePlace, createVisit, fetchAll]);
 
   // Backwards-compatible name for callers that create a brand new moment.
   const recordVisitFromMoment = useCallback(async (
@@ -252,19 +253,22 @@ export function usePlaces() {
   }, [syncVisitFromMoment]);
 
   const deleteVisit = useCallback(async (visitId: string) => {
+    if (!user || isDemo) return;
     await supabase.from('visits').delete().eq('id', visitId);
     await fetchAll();
-  }, [fetchAll]);
+  }, [user, isDemo, fetchAll]);
 
   const deletePlace = useCallback(async (placeId: string) => {
+    if (!user || isDemo) return;
     await supabase.from('places').delete().eq('id', placeId);
     await fetchAll();
-  }, [fetchAll]);
+  }, [user, isDemo, fetchAll]);
 
   const deleteCity = useCallback(async (cityId: string) => {
+    if (!user || isDemo) return;
     await supabase.from('cities').delete().eq('id', cityId);
     await fetchAll();
-  }, [fetchAll]);
+  }, [user, isDemo, fetchAll]);
 
   return {
     cities, loading, fetchAll,

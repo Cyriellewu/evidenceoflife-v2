@@ -1,8 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Moment, MomentLinkPreview } from '@/types';
+import { fetchSupabaseWithRetry } from '@/lib/supabaseRetry';
 
 const PAGE_SIZE = 20;
 const MAX_DATA_URL_BYTES = 8 * 1024 * 1024;
+const MAX_PHOTO_EDGE_PX = 1920;
+const PHOTO_WEBP_QUALITY = 0.82;
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -37,6 +40,44 @@ function estimateDataUrlBytes(dataUrl: string): number {
   return Math.floor((base64.length * 3) / 4);
 }
 
+async function optimizePhotoBlob(blob: Blob): Promise<{ blob: Blob; contentType: string; ext: string }> {
+  const original = {
+    blob,
+    contentType: blob.type || 'image/jpeg',
+    ext: (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg'),
+  };
+
+  // Preserve animated GIFs. Unsupported browsers safely upload the original.
+  if (blob.type === 'image/gif' || typeof document === 'undefined' || typeof createImageBitmap === 'undefined') {
+    return original;
+  }
+
+  let bitmap: ImageBitmap | null = null;
+  try {
+    bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, MAX_PHOTO_EDGE_PX / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return original;
+    context.drawImage(bitmap, 0, 0, width, height);
+
+    const optimized = await new Promise<Blob | null>(resolve => {
+      canvas.toBlob(resolve, 'image/webp', PHOTO_WEBP_QUALITY);
+    });
+    if (!optimized || optimized.size >= blob.size) return original;
+    return { blob: optimized, contentType: 'image/webp', ext: 'webp' };
+  } catch (error) {
+    console.warn('Photo optimization skipped:', error);
+    return original;
+  } finally {
+    bitmap?.close();
+  }
+}
+
 async function uploadPhotoToStorage(userId: string, dataUrl: string): Promise<string | null> {
   try {
     if (!dataUrl.startsWith('data:')) return dataUrl;
@@ -50,14 +91,18 @@ async function uploadPhotoToStorage(userId: string, dataUrl: string): Promise<st
     if (!match) return null;
 
     const mimeType = match[1];
-    const ext = mimeType.split('/')[1] || 'png';
     const base64Data = match[2];
     const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: mimeType });
+    const optimized = await optimizePhotoBlob(new Blob([bytes], { type: mimeType }));
 
     for (let attempt = 0; attempt < 3; attempt++) {
       const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
-      const path = await uploadMomentPhotoObject(userId, blob, mimeType, ext);
+      const path = await uploadMomentPhotoObject(
+        userId,
+        optimized.blob,
+        optimized.contentType,
+        optimized.ext,
+      );
       if (path) return path;
 
       console.error(`Photo upload failed (attempt ${attempt + 1})`);
@@ -75,30 +120,6 @@ export async function uploadPhotos(userId: string, photos: string[]): Promise<st
   if (!photos.length) return [];
   const results = await Promise.all(photos.map(p => uploadPhotoToStorage(userId, p)));
   return results.filter((url): url is string => url !== null);
-}
-
-async function fetchWithRetry<T>(
-  fn: () => PromiseLike<{ data: T | null; error: unknown }>,
-  retries = 3,
-  delay = 1200
-): Promise<{ data: T | null; error: unknown }> {
-  for (let i = 0; i < retries; i++) {
-    let result: { data: T | null; error: unknown };
-    try {
-      result = await fn();
-    } catch (err) {
-      result = { data: null, error: err };
-    }
-
-    if (!result.error && result.data !== null) return result;
-    if (i < retries - 1) await wait(delay * (i + 1));
-  }
-
-  try {
-    return await fn();
-  } catch (err) {
-    return { data: null, error: err };
-  }
 }
 
 function mapMomentRow(row: MomentRow): Moment {
@@ -150,7 +171,7 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
 
   while (true) {
     const to = from + PAGE_SIZE - 1;
-    const { data, error } = await fetchWithRetry<MomentRow[]>(() => {
+    const { data, error } = await fetchSupabaseWithRetry<MomentRow[]>(() => {
         let query = supabase
           .from('moments')
           .select('id, date, text, emoji, photos, links, tags, is_special, created_at, timer_started_at, timer_ended_at, timer_seconds, location_name, location_lat, location_lng, location_category')
@@ -175,7 +196,7 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
       }
 
       if (isMissingMomentLinksColumn(error)) {
-        const fallbackResult = await fetchWithRetry<MomentRow[]>(() => {
+        const fallbackResult = await fetchSupabaseWithRetry<MomentRow[]>(() => {
           let fallbackQuery = supabase
             .from('moments')
             .select('id, date, text, emoji, photos, tags, is_special, created_at, timer_started_at, timer_ended_at, timer_seconds, location_name, location_lat, location_lng, location_category')
@@ -196,7 +217,7 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
         }
       }
 
-      const leanResult = await fetchWithRetry<MomentRow[]>(() => {
+      const leanResult = await fetchSupabaseWithRetry<MomentRow[]>(() => {
         let leanQuery = supabase
           .from('moments')
           .select('id, date, text, emoji, links, tags, is_special, created_at, timer_started_at, timer_ended_at, timer_seconds, location_name, location_lat, location_lng, location_category')
