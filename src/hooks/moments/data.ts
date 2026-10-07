@@ -94,14 +94,16 @@ async function uploadPhotoToStorage(userId: string, dataUrl: string): Promise<st
     const base64Data = match[2];
     const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
     const optimized = await optimizePhotoBlob(new Blob([bytes], { type: mimeType }));
+    const { createMomentPhotoObjectPath, uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
+    const objectPath = createMomentPhotoObjectPath(userId, optimized.ext);
 
     for (let attempt = 0; attempt < 3; attempt++) {
-      const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
       const path = await uploadMomentPhotoObject(
         userId,
         optimized.blob,
         optimized.contentType,
         optimized.ext,
+        objectPath,
       );
       if (path) return path;
 

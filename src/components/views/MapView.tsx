@@ -826,12 +826,16 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         const otherPlaces = allPlaces.filter(p => p.category === 'other');
         if (otherPlaces.length > 0) {
           try {
-            await supabase.functions.invoke('geo', {
+            const candidates = otherPlaces.slice(0, 10);
+            const reclassifyKey = `map-reclassify-v2:${new Date().toISOString().slice(0, 10)}:${candidates.map(p => p.id).sort().join(',')}`;
+            if (window.localStorage.getItem(reclassifyKey)) return;
+            const { error } = await supabase.functions.invoke('geo', {
               body: {
                 type: 'reclassify',
-                places: otherPlaces.slice(0, 10).map(p => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng })),
+                places: candidates.map(p => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng })),
               },
             });
+            if (!error) window.localStorage.setItem(reclassifyKey, '1');
           } catch { /* non-critical */ }
         }
       } catch (err) {

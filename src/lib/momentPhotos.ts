@@ -44,17 +44,24 @@ export function momentPhotoObjectPath(pathOrUrl: string): string | null {
 }
 
 /** Upload a blob and return the storage object path (not a durable public URL). */
+export function createMomentPhotoObjectPath(userId: string, ext = 'png'): string {
+  return `${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+}
+
 export async function uploadMomentPhotoObject(
   userId: string,
   blob: Blob,
   contentType: string,
   ext = 'png',
+  objectPath?: string,
 ): Promise<string | null> {
   const supabase = await getSupabase();
-  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = objectPath || createMomentPhotoObjectPath(userId, ext);
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, blob, { contentType, upsert: false });
+    // A caller-supplied path is an idempotency key. Retrying may overwrite the
+    // same object, but can never leak another orphan object under a new path.
+    .upload(path, blob, { contentType, upsert: Boolean(objectPath) });
 
   if (error) {
     console.error('Photo upload failed:', error);

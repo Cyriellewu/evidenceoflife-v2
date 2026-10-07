@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { isSpentOneShotReminder, patchAfterReminderFire } from '@/lib/reminderSchedule';
+import { withExclusiveWrite } from '@/lib/writeSafety';
 
 export interface Reminder {
   id: string;
@@ -65,27 +66,6 @@ export function useReminders() {
   }, [canUseDb, user]);
 
   useEffect(() => { fetchReminders(); }, [fetchReminders]);
-
-  // Heal legacy one-shots that already fired but stayed active because the old
-  // tick used Math.max(1, interval_days) and rescheduled them daily forever.
-  const healedRef = useRef(false);
-  useEffect(() => {
-    if (!canUseDb || healedRef.current || reminders.length === 0) return;
-    const stuck = reminders.filter(r => r.is_active && isSpentOneShotReminder(r));
-    if (stuck.length === 0) {
-      healedRef.current = true;
-      return;
-    }
-    healedRef.current = true;
-    (async () => {
-      await Promise.all(
-        stuck.map(r =>
-          supabase.from('reminders').update({ is_active: false }).eq('id', r.id),
-        ),
-      );
-      await fetchReminders();
-    })();
-  }, [canUseDb, reminders, fetchReminders]);
 
   const addReminder = useCallback(async (
     title: string,
@@ -178,47 +158,61 @@ export function useReminders() {
       let changed = false;
       for (const r of reminders) {
         if (!r.is_active) continue;
+        const handled = await withExclusiveWrite(`reminder-fire:${r.id}`, async () => {
+          // Several mounted views use this hook. Re-read inside the shared lock
+          // so only one hook/tab can deliver and advance a due reminder.
+          const { data } = await supabase
+            .from('reminders')
+            .select('*')
+            .eq('id', r.id)
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (!data || !data.is_active) return false;
 
-        // Already-delivered one-shot: stop quietly (covers rows healed mid-session
-        // or any that slipped past the mount heal).
-        if (isSpentOneShotReminder(r)) {
-          await supabase.from('reminders').update({ is_active: false }).eq('id', r.id);
-          changed = true;
-          continue;
-        }
+          const current: Reminder = {
+            ...(data as Reminder),
+            reminder_type: extractType(data.description),
+            description: stripTypePrefix(data.description),
+          };
 
-        const due = new Date(r.next_reminder_at);
-        if (due > now) continue;
-        changed = true;
+          if (isSpentOneShotReminder(current)) {
+            await supabase.from('reminders').update({ is_active: false }).eq('id', current.id).eq('is_active', true);
+            return true;
+          }
 
-        const type = r.reminder_type || 'browser';
-        const message = r.description || r.title;
+          if (new Date(current.next_reminder_at) > now) return false;
 
-        if (type === 'browser') {
-          if ('Notification' in window) {
-            if (Notification.permission === 'default') {
-              await Notification.requestPermission();
-            }
-            if (Notification.permission === 'granted') {
-              new Notification(r.title, { body: message });
+          const type = current.reminder_type || 'browser';
+          const message = current.description || current.title;
+
+          if (type === 'browser') {
+            if ('Notification' in window) {
+              if (Notification.permission === 'default') {
+                await Notification.requestPermission();
+              }
+              if (Notification.permission === 'granted') {
+                new Notification(current.title, { body: message });
+              } else {
+                toast.info(`提醒：${current.title}`);
+              }
             } else {
-              toast.info(`提醒：${r.title}`);
+              toast.info(`提醒：${current.title}`);
             }
           } else {
-            toast.info(`提醒：${r.title}`);
+            const to = encodeURIComponent(user.email || '');
+            const subject = encodeURIComponent(`Reminder: ${current.title}`);
+            const body = encodeURIComponent(message || current.title);
+            if (user.email) {
+              window.open(`mailto:${to}?subject=${subject}&body=${body}`, '_blank');
+            }
+            toast.info(`邮件提醒：${current.title}`);
           }
-        } else {
-          const to = encodeURIComponent(user.email || '');
-          const subject = encodeURIComponent(`Reminder: ${r.title}`);
-          const body = encodeURIComponent(message || r.title);
-          if (user.email) {
-            window.open(`mailto:${to}?subject=${subject}&body=${body}`, '_blank');
-          }
-          toast.info(`邮件提醒：${r.title}`);
-        }
 
-        const patch = patchAfterReminderFire(r, now);
-        await supabase.from('reminders').update(patch).eq('id', r.id);
+          const patch = patchAfterReminderFire(current, now);
+          await supabase.from('reminders').update(patch).eq('id', current.id).eq('is_active', true);
+          return true;
+        });
+        if (handled) changed = true;
       }
 
       if (changed) fetchReminders();

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Moment, DayRecord, MomentLinkPreview } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
@@ -160,6 +160,7 @@ export function useMoments() {
   const [moments, setMoments] = useState<Moment[]>([]);
   const allLocations = useMemo(() => moments.filter(m => m.location), [moments]);
   const [loading, setLoading] = useState(true);
+  const pendingAddsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!authReady) {
@@ -209,6 +210,17 @@ export function useMoments() {
 
   const addMoment = useCallback(async (moment: Omit<Moment, 'id' | 'createdAt'>) => {
     if (!user) return;
+    const addKey = JSON.stringify([
+      moment.date,
+      moment.text || '',
+      moment.emoji || '',
+      moment.location?.lat ?? null,
+      moment.location?.lng ?? null,
+      moment.photos?.length ?? 0,
+    ]);
+    if (pendingAddsRef.current.has(addKey)) return;
+    pendingAddsRef.current.add(addKey);
+    try {
 
     if (isDemo) {
       const newMoment: Moment = {
@@ -300,6 +312,9 @@ export function useMoments() {
     }
     
     return newMoment;
+    } finally {
+      pendingAddsRef.current.delete(addKey);
+    }
   }, [user, isDemo]);
 
   const editMoment = useCallback(async (id: string, updates: MomentUpdates) => {
