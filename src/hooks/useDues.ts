@@ -57,6 +57,7 @@ export function useDues() {
   const [dues, setDues] = useState<DueWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const prevDuesRef = useRef<DueWithStats[]>([]);
+  const pendingAddsRef = useRef(new Set<string>());
 
   const fetchDues = useCallback(async () => {
     if (!user || isDemo) {
@@ -178,21 +179,8 @@ export function useDues() {
         };
       });
 
-      // Persist auto-completion to DB for any dues that should be completed but aren't yet.
-      // Step-based dues are excluded: completing their steps must not silently
-      // finish (and lock) the deadline — see shouldBeCompleted above.
-      const toAutoComplete = duesWithStats.filter(
-        d => !!d.due_date && d.steps.length === 0 && d.maxProgress >= 100 && !masters.find(m => m.id === d.id)?.is_completed
-      );
-      // Auto-fix: uncomplete habits that were incorrectly marked as completed
-      const toAutoUncomplete = masters.filter(m => m.habit_category !== null && m.is_completed);
-
-      const dbOps = [
-        ...toAutoComplete.map(d => supabase.from('todos').update({ is_completed: true }).eq('id', d.id)),
-        ...toAutoUncomplete.map(m => supabase.from('todos').update({ is_completed: false }).eq('id', m.id)),
-      ];
-      if (dbOps.length > 0) await Promise.all(dbOps);
-
+      // Fetching is deliberately read-only. Completion normalization remains a
+      // derived UI value; database changes only happen through explicit actions.
       prevDuesRef.current = duesWithStats;
       setDues(duesWithStats);
     } catch (err) {
@@ -209,6 +197,10 @@ export function useDues() {
 
   const addDue = useCallback(async (title: string, dueDate?: string, habitCategory?: string, showInRecapDaily = false): Promise<string | null> => {
     if (!user) return null;
+    const addKey = JSON.stringify([title.trim(), dueDate || null, habitCategory || null, showInRecapDaily]);
+    if (pendingAddsRef.current.has(addKey)) return null;
+    pendingAddsRef.current.add(addKey);
+    try {
     const dateVal = dueDate ? '_due_' + dueDate : '_due_none';
     const { data, error } = await supabase
       .from('todos')
@@ -230,6 +222,9 @@ export function useDues() {
       return (data as Pick<TodoRow, 'id'>).id;
     }
     return null;
+    } finally {
+      pendingAddsRef.current.delete(addKey);
+    }
   }, [user, fetchDues]);
 
   const addToToday = useCallback(async (masterId: string, stepTitle?: string) => {

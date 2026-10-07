@@ -188,13 +188,18 @@ export function useStickyNotes() {
     if (localNotes.length === 0) return;
 
     try {
-      const { count, error: countError } = await supabase
+      const { data: remoteNotes, error: notesReadError } = await supabase
         .from('sticky_notes')
-        .select('id', { count: 'exact', head: true })
+        .select('id')
         .eq('user_id', user.id);
 
-      if (countError) throw countError;
-      if ((count || 0) > 0) return;
+      if (notesReadError) throw notesReadError;
+      const localIds = new Set(localNotes.map(note => note.id));
+      const remoteIds = new Set((remoteNotes || []).map(note => note.id));
+      const isPartialPreviousMigration = [...remoteIds].some(id => localIds.has(id));
+      // Preserve the old rule for an account that already has unrelated cloud
+      // notes, but resume safely if a previous migration stopped midway.
+      if (remoteIds.size > 0 && !isPartialPreviousMigration) return;
 
       const noteInserts = localNotes.map((note, index, all) => ({
         id: note.id,
@@ -218,11 +223,15 @@ export function useStickyNotes() {
         }))
       );
 
-      const { error: notesInsertError } = await supabase.from('sticky_notes').insert(noteInserts);
+      const { error: notesInsertError } = await supabase
+        .from('sticky_notes')
+        .upsert(noteInserts, { onConflict: 'id', ignoreDuplicates: true });
       if (notesInsertError) throw notesInsertError;
 
       if (itemInserts.length > 0) {
-        const { error: itemsInsertError } = await supabase.from('sticky_note_items').insert(itemInserts);
+        const { error: itemsInsertError } = await supabase
+          .from('sticky_note_items')
+          .upsert(itemInserts, { onConflict: 'id', ignoreDuplicates: true });
         if (itemsInsertError) throw itemsInsertError;
       }
 

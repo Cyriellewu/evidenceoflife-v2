@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Json } from '@/integrations/supabase/types';
+import { patchProfileSettings } from '@/lib/profileSettings';
 
 export interface Profile {
   id: string;
@@ -90,18 +91,21 @@ export function useProfile() {
   }, [user, profile, isDemo]);
 
   const updateSettings = useCallback(async (updates: Record<string, Json>) => {
-    const currentSettings =
-      profile?.settings && typeof profile.settings === 'object' && !Array.isArray(profile.settings)
-        ? profile.settings as Record<string, Json>
-        : {};
-
-    await updateProfile({
-      settings: {
-        ...currentSettings,
-        ...updates,
-      },
-    } as Partial<Profile>);
-  }, [profile?.settings, updateProfile]);
+    if (!user) return;
+    if (isDemo) {
+      const currentSettings =
+        profile?.settings && typeof profile.settings === 'object' && !Array.isArray(profile.settings)
+          ? profile.settings as Record<string, Json>
+          : {};
+      await updateProfile({ settings: { ...currentSettings, ...updates } } as Partial<Profile>);
+      return;
+    }
+    const { settings, error } = await patchProfileSettings(user.id, updates);
+    if (!error && settings) {
+      setProfile(prev => prev ? { ...prev, settings } : prev);
+      window.dispatchEvent(new CustomEvent('profile-updated'));
+    }
+  }, [isDemo, profile?.settings, updateProfile, user]);
 
   const uploadHomepageImage = useCallback(async (file: File): Promise<string | null> => {
     if (!user) return null;

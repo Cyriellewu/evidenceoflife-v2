@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Json } from '@/integrations/supabase/types';
+import { patchProfileSettings } from '@/lib/profileSettings';
 
 export interface LinkItem {
   id: string;
@@ -135,7 +136,7 @@ function normalizeGroups(parsed: unknown): LinkGroup[] {
 export function useLinks() {
   const { user, isDemo, authReady } = useAuth();
   const [groups, setGroups] = useState<LinkGroup[]>(load);
-  const [profileSettings, setProfileSettings] = useState<Record<string, unknown>>({});
+  const [, setProfileSettings] = useState<Record<string, unknown>>({});
   const hydratedRef = useRef(false);
   const migratedLocalRef = useRef(false);
   const lastSavedRef = useRef('');
@@ -184,16 +185,11 @@ export function useLinks() {
           hydratedRef.current = true;
           lastSavedRef.current = JSON.stringify(localGroups);
 
-          const nextSettings = {
-            ...settings,
-            linkHubGroups: localGroups,
-          };
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ settings: nextSettings as unknown as Json })
-            .eq('user_id', user.id);
-          if (!updateError) {
-            setProfileSettings(nextSettings);
+          const { settings: nextSettings, error: updateError } = await patchProfileSettings(user.id, {
+            linkHubGroups: localGroups as unknown as Json,
+          });
+          if (!updateError && nextSettings) {
+            setProfileSettings(nextSettings as Record<string, unknown>);
           }
           return;
         }
@@ -225,27 +221,21 @@ export function useLinks() {
     if (!user || isDemo) return;
 
     const persist = async () => {
-      const nextSettings = {
-        ...profileSettings,
-        linkHubGroups: groups,
-      };
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ settings: nextSettings as unknown as Json })
-        .eq('user_id', user.id);
+      const { settings: nextSettings, error } = await patchProfileSettings(user.id, {
+        linkHubGroups: groups as unknown as Json,
+      });
 
       if (error) {
         console.error('Failed to persist LinkHub:', error);
         return;
       }
 
-      setProfileSettings(nextSettings);
+      if (nextSettings) setProfileSettings(nextSettings as Record<string, unknown>);
       window.dispatchEvent(new CustomEvent('profile-updated'));
     };
 
     void persist();
-  }, [authReady, groups, isDemo, profileSettings, user]);
+  }, [authReady, groups, isDemo, user]);
 
   const addGroup = useCallback((title: string) => {
     const group: LinkGroup = {

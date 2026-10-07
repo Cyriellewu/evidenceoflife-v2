@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { isUniqueViolation, stableWriteUuid } from '@/lib/writeSafety';
 
 export interface City {
   id: string;
@@ -101,18 +102,27 @@ export function usePlaces() {
   const findOrCreateCity = useCallback(async (cityName: string, lat: number, lng: number, country?: string): Promise<string | null> => {
     if (!user || isDemo) return null;
     // Check existing
-    const existing = cities.find(c => c.name === cityName);
+    const existing = cities.find(c => sameName(c.name, cityName));
     if (existing) return existing.id;
 
+    const { data: existingRows } = await supabase
+      .from('cities')
+      .select('id, name')
+      .eq('user_id', user.id);
+    const existingFromDb = ((existingRows || []) as Pick<City, 'id' | 'name'>[])
+      .find(city => sameName(city.name, cityName));
+    if (existingFromDb) return existingFromDb.id;
+
+    const cityId = await stableWriteUuid('city', user.id, cityName.trim().toLowerCase());
     const { data, error } = await supabase
       .from('cities')
-      .insert({ user_id: user.id, name: cityName, country: country || null, lat, lng })
+      .upsert({ id: cityId, user_id: user.id, name: cityName.trim(), country: country || null, lat, lng }, { onConflict: 'id' })
       .select()
       .single();
     if (error) {
       // Unique constraint - try select again
-      if (error.code === '23505') {
-        const { data: ex } = await supabase.from('cities').select('id').eq('user_id', user.id).eq('name', cityName).single();
+      if (isUniqueViolation(error)) {
+        const { data: ex } = await supabase.from('cities').select('id').eq('user_id', user.id).eq('name', cityName.trim()).single();
         return ex?.id || null;
       }
       console.error('Failed to create city:', error);
@@ -160,9 +170,10 @@ export function usePlaces() {
       return existingFromDb.id;
     }
 
+    const placeId = await stableWriteUuid('place', user.id, cityId, name.trim().toLowerCase());
     const { data, error } = await supabase
       .from('places')
-      .insert({ user_id: user.id, city_id: cityId, name, category, lat, lng })
+      .upsert({ id: placeId, user_id: user.id, city_id: cityId, name, category, lat, lng }, { onConflict: 'id' })
       .select()
       .single();
     if (error) { console.error('Failed to create place:', error); return null; }
@@ -200,6 +211,13 @@ export function usePlaces() {
         }
         return;
       }
+    }
+
+    if (momentId) {
+      // A visit is a projection of one moment. Reusing the moment UUID makes
+      // concurrent tabs and ambiguous retries converge on the same visit row.
+      await supabase.from('visits').upsert({ ...payload, id: momentId }, { onConflict: 'id' });
+      return;
     }
 
     await supabase.from('visits').insert(payload);

@@ -16,6 +16,7 @@ import {
   RECURRING_HABIT_CATEGORY,
 } from '@/lib/recurringTodos';
 import { type DueLink, parseDueLinks, serializeDueLinks } from '@/lib/dueLinks';
+import { stableWriteUuid } from '@/lib/writeSafety';
 
 export interface Todo {
   id: string;
@@ -65,7 +66,7 @@ type TodoInsert = Database['public']['Tables']['todos']['Insert'];
 type RecurringSourceRow = Pick<TodoRow, 'id' | 'user_id' | 'title' | 'time_segment' | 'date' | 'sort_order'>;
 type RecurringExistingRow = Pick<TodoRow, 'id' | 'recurrence_source_id' | 'title'>;
 type RecurringInstanceRow = Pick<TodoRow, 'date' | 'is_completed' | 'id'>;
-type SourceStepSeedRow = Pick<TodoRow, 'title' | 'sort_order'>;
+type SourceStepSeedRow = Pick<TodoRow, 'id' | 'title' | 'sort_order'>;
 type StepSelectRow = Pick<
   TodoRow,
   'id' | 'title' | 'is_completed' | 'sort_order' | 'parent_due_id' | 'timer_started_at' | 'timer_seconds' | 'plan_started_at' | 'plan_ended_at' | 'links'
@@ -167,6 +168,7 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
   const [stepsByParent, setStepsByParent] = useState<Record<string, TodoStep[]>>({});
   const [loading, setLoading] = useState(true);
   const fetchGen = useRef(0);
+  const pendingAddsRef = useRef(new Set<string>());
 
   const rollOverYesterdayTodos = useCallback(async () => {
     // Unfinished tasks stay on the day they belong to. Today's list shows them
@@ -227,8 +229,11 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
       .eq('user_id', user.id)
       .eq('is_recurring', true)
       .order('created_at', { ascending: true });
-    try { localStorage.setItem(cloneKey, '1'); } catch { /* ignore */ }
-    if (srcErr || !sources || sources.length === 0) return;
+    if (srcErr) return;
+    if (!sources || sources.length === 0) {
+      try { localStorage.setItem(cloneKey, '1'); } catch { /* ignore */ }
+      return;
+    }
 
     const recurringSources = (sources ?? []) as RecurringSourceRow[];
     const sourceIds = recurringSources.map(s => s.id);
@@ -244,7 +249,10 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
       existingRows.map(r => ({ id: r.id, recurrence_source_id: r.recurrence_source_id })),
       targetDate,
     );
-    if (needed.length === 0) return;
+    if (needed.length === 0) {
+      try { localStorage.setItem(cloneKey, '1'); } catch { /* ignore */ }
+      return;
+    }
 
     const { data: existingTodayForSort } = await supabase
       .from('todos')
@@ -255,6 +263,7 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
     let nextSort = ((existingTodayForSort?.[0]?.sort_order as number | undefined) ?? -1) + 1;
 
     const neededSources = recurringSources.filter(s => needed.includes(s.id));
+    let cloneHadError = false;
     for (const src of neededSources) {
       // Inherit the source's sort_order so a daily-recurring task lands in the
       // SAME slot every day (same time_segment + same rank) rather than being
@@ -266,30 +275,58 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
         targetDate,
         clonedSort,
       );
+      const cloneId = await stableWriteUuid('recurring-clone', user.id, src.id, targetDate);
       nextSort += 1;
       const { data: newRow, error: insErr } = await supabase
         .from('todos')
-        .insert(insertPayload as TodoInsert)
+        .upsert({ ...insertPayload, id: cloneId } as TodoInsert, { onConflict: 'id', ignoreDuplicates: true })
         .select('id')
-        .single();
-      if (insErr || !newRow) continue;
-      const newParentId = (newRow as Pick<TodoRow, 'id'>).id;
+        .maybeSingle();
+      let newParentId = (newRow as Pick<TodoRow, 'id'> | null)?.id ?? cloneId;
+      if (insErr) {
+        // A lost response is ambiguous: verify the deterministic id before
+        // deciding whether this source still needs a retry.
+        const { data: existingClone, error: verifyError } = await supabase
+          .from('todos')
+          .select('id')
+          .eq('id', cloneId)
+          .maybeSingle();
+        if (verifyError || !existingClone) {
+          cloneHadError = true;
+          continue;
+        }
+        newParentId = existingClone.id;
+      }
 
-      const { data: srcSteps } = await supabase
+      const { data: srcSteps, error: stepsReadError } = await supabase
         .from('todos')
-        .select('title, sort_order')
+        .select('id, title, sort_order')
         .eq('date', '_step_')
         .eq('parent_due_id', src.id)
         .order('sort_order', { ascending: true });
+      if (stepsReadError) {
+        cloneHadError = true;
+        continue;
+      }
       if (srcSteps && srcSteps.length > 0) {
         const sourceSteps = srcSteps as SourceStepSeedRow[];
-        const stepInserts = buildClonedStepInserts(
+        const baseStepInserts = buildClonedStepInserts(
           sourceSteps.map(s => ({ title: s.title, sort_order: s.sort_order })),
           newParentId,
           user.id,
         );
-        await supabase.from('todos').insert(stepInserts as TodoInsert[]);
+        const stepInserts = await Promise.all(baseStepInserts.map(async (step, index) => ({
+          ...step,
+          id: await stableWriteUuid('recurring-step-clone', user.id, newParentId, sourceSteps[index].id),
+        })));
+        const { error: stepsWriteError } = await supabase
+          .from('todos')
+          .upsert(stepInserts as TodoInsert[], { onConflict: 'id', ignoreDuplicates: true });
+        if (stepsWriteError) cloneHadError = true;
       }
+    }
+    if (!cloneHadError) {
+      try { localStorage.setItem(cloneKey, '1'); } catch { /* ignore */ }
     }
   }, [user, isDemo, targetDate, runSideEffects]);
 
@@ -315,9 +352,13 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
       .eq('user_id', user.id)
       .eq('is_recurring', true)
       .is('promoted_to_habit_id', null);
-    try { localStorage.setItem(promoteKey, '1'); } catch { /* ignore */ }
-    if (srcErr || !sources || sources.length === 0) return;
+    if (srcErr) return;
+    if (!sources || sources.length === 0) {
+      try { localStorage.setItem(promoteKey, '1'); } catch { /* ignore */ }
+      return;
+    }
 
+    let promotionHadError = false;
     for (const src of (sources as Array<Pick<TodoRow, 'id' | 'title'>>)) {
       const srcId = src.id;
       const { data: instances } = await supabase
@@ -332,9 +373,11 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
       );
       if (streak < RECURRING_PROMOTION_THRESHOLD) continue;
 
-      const { data: habitRow, error: habitErr } = await supabase
+      const habitId = await stableWriteUuid('recurring-promotion', user.id, srcId);
+      const { error: habitErr } = await supabase
         .from('todos')
-        .insert({
+        .upsert({
+          id: habitId,
           user_id: user.id,
           title: src.title,
           date: '_due_none',
@@ -343,16 +386,20 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
           sort_order: 0,
           progress: 1,
           habit_category: RECURRING_HABIT_CATEGORY,
-        })
-        .select('id')
-        .single();
-      if (habitErr || !habitRow) continue;
-      const habitId = (habitRow as Pick<TodoRow, 'id'>).id;
+        }, { onConflict: 'id', ignoreDuplicates: true });
+      if (habitErr) {
+        promotionHadError = true;
+        continue;
+      }
 
-      await supabase
+      const { error: linkError } = await supabase
         .from('todos')
         .update({ promoted_to_habit_id: habitId })
         .or(`id.eq.${srcId},recurrence_source_id.eq.${srcId}`);
+      if (linkError) promotionHadError = true;
+    }
+    if (!promotionHadError) {
+      try { localStorage.setItem(promoteKey, '1'); } catch { /* ignore */ }
     }
   }, [user, isDemo, targetDate, runSideEffects]);
 
@@ -394,16 +441,10 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
         const recurringRows = filtered.filter(t => t.is_recurring || t.recurrence_source_id);
         const recurringGroups = new Map<string, Todo[]>();
         const recurringDupIds = new Set<string>();
-        const recurringBlankDupIds: string[] = [];
         const recurringScore = (t: Todo) =>
           (t.timer_started_at ? 1_000_000_000 : 0) +
           ((t.progress || 0) * 100000) +
           (t.timer_seconds || 0);
-        const isRecurringBlank = (t: Todo) =>
-          (t.progress || 0) === 0 &&
-          (t.timer_seconds || 0) === 0 &&
-          !t.timer_started_at;
-
         for (const row of recurringRows) {
           const key = row.title?.trim().toLowerCase();
           if (!key) continue;
@@ -424,7 +465,6 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
           const [, ...duplicates] = ranked;
           for (const dup of duplicates) {
             recurringDupIds.add(dup.id);
-            if (isRecurringBlank(dup)) recurringBlankDupIds.push(dup.id);
           }
         }
 
@@ -432,23 +472,13 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
           ? filtered.filter(t => !recurringDupIds.has(t.id))
           : filtered;
 
-        if (recurringBlankDupIds.length > 0) {
-          void supabase.from('todos').delete().in('id', recurringBlankDupIds);
-        }
-
-        // Heal corrupt timers: a task whose banked timer_seconds is an absurd
-        // multi-day value (thousands of hours) got its clock polluted — reset
-        // the timer to zero while keeping the task and its progress. Fire the DB
-        // update and zero the values locally so the runaway clock is gone on
-        // this render, not just the next one.
+        // Read paths must never delete or repair rows automatically. Historical
+        // duplicates are hidden locally; corrupt timers are normalized locally.
+        // Destructive cleanup belongs in an explicit, reviewed maintenance flow.
         const corruptIds = selectCorruptTimerIds(
           filteredDeduped as { id: string; timer_seconds: number | null }[],
         );
         if (corruptIds.length > 0) {
-          void supabase
-            .from('todos')
-            .update({ timer_seconds: 0, timer_started_at: null, timer_ended_at: null })
-            .in('id', corruptIds);
           const corruptSet = new Set(corruptIds);
           for (const t of filteredDeduped) {
             if (corruptSet.has(t.id)) {
@@ -492,10 +522,6 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
             pastOpen as { id: string; timer_seconds: number | null }[],
           );
           if (corruptPastIds.length > 0) {
-            void supabase
-              .from('todos')
-              .update({ timer_seconds: 0, timer_started_at: null, timer_ended_at: null })
-              .in('id', corruptPastIds);
             const corruptPastSet = new Set(corruptPastIds);
             pastOpen = pastOpen.map(t =>
               corruptPastSet.has(t.id)
@@ -559,6 +585,10 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
     options?: AddTodoOptions,
   ): Promise<Todo | null> => {
     if (!user) return null;
+    const addKey = JSON.stringify([targetDate, title.trim(), timeSegment, dueDate || null, options || null]);
+    if (pendingAddsRef.current.has(addKey)) return null;
+    pendingAddsRef.current.add(addKey);
+    try {
     const isRecurring = options?.isRecurring === true;
     const seedCompleted = options?.is_completed === true;
     const seedProgress = options?.progress ?? (seedCompleted ? 100 : 0);
@@ -608,6 +638,9 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
     } else {
       setTodos(prev => prev.filter(t => t.id !== tempId));
       return null;
+    }
+    } finally {
+      pendingAddsRef.current.delete(addKey);
     }
   }, [user, targetDate, todos.length, isDemo]);
 

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Json } from '@/integrations/supabase/types';
+import { patchProfileSettings } from '@/lib/profileSettings';
 
 const DEFAULT_PLAN_TAGS = [
   { key: 'ptag.gym', label: 'Gym' },
@@ -123,7 +124,7 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 export function useCustomOptions() {
   const { user, isDemo, authReady } = useAuth();
   const [data, setData] = useState<CustomOptionsData>(() => loadLocal());
-  const [profileSettings, setProfileSettings] = useState<Record<string, unknown>>({});
+  const [, setProfileSettings] = useState<Record<string, unknown>>({});
   const hydratedRef = useRef(false);
   const migratedRef = useRef(false);
   const lastSavedRef = useRef('');
@@ -172,9 +173,10 @@ export function useCustomOptions() {
           hydratedRef.current = true;
           lastSavedRef.current = JSON.stringify(local);
 
-          const nextSettings = { ...settings, customOptions: local };
-          await supabase.from('profiles').update({ settings: nextSettings as unknown as Json }).eq('user_id', user.id);
-          setProfileSettings(nextSettings);
+          const { settings: nextSettings } = await patchProfileSettings(user.id, {
+            customOptions: local as unknown as Json,
+          });
+          if (nextSettings) setProfileSettings(nextSettings as Record<string, unknown>);
           return;
         }
 
@@ -203,12 +205,13 @@ export function useCustomOptions() {
     if (!user || isDemo) return;
 
     const persist = async () => {
-      const nextSettings = { ...profileSettings, customOptions: data };
-      const { error } = await supabase.from('profiles').update({ settings: nextSettings as unknown as Json }).eq('user_id', user.id);
-      if (!error) setProfileSettings(nextSettings);
+      const { settings: nextSettings, error } = await patchProfileSettings(user.id, {
+        customOptions: data as unknown as Json,
+      });
+      if (!error && nextSettings) setProfileSettings(nextSettings as Record<string, unknown>);
     };
     void persist();
-  }, [authReady, data, isDemo, profileSettings, user]);
+  }, [authReady, data, isDemo, user]);
 
   const update = useCallback((fn: (prev: CustomOptionsData) => CustomOptionsData) => setData(fn), []);
 

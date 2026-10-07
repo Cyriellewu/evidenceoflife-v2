@@ -36,20 +36,21 @@ export function useDueReminders() {
 
   const upsertReminder = useCallback(async (dueId: string, type: 'browser' | 'email', beforeMinutes: number, isRecurring = false, intervalDays?: number) => {
     if (!user) return;
-    // Check if exists
-    const existing = reminders.find(r => r.due_id === dueId && r.reminder_type === type);
-    if (existing) {
-      await supabase
-        .from('due_reminders')
-        .update({ remind_before_minutes: beforeMinutes, is_recurring: isRecurring, recurring_interval_days: intervalDays || null, is_active: true })
-        .eq('id', existing.id);
-    } else {
-      await supabase
-        .from('due_reminders')
-        .insert({ user_id: user.id, due_id: dueId, reminder_type: type, remind_before_minutes: beforeMinutes, is_recurring: isRecurring, recurring_interval_days: intervalDays || null });
-    }
+    // The database already has UNIQUE(user_id, due_id, reminder_type). Use it
+    // atomically instead of a stale client-side check followed by INSERT.
+    await supabase
+      .from('due_reminders')
+      .upsert({
+        user_id: user.id,
+        due_id: dueId,
+        reminder_type: type,
+        remind_before_minutes: beforeMinutes,
+        is_recurring: isRecurring,
+        recurring_interval_days: intervalDays || null,
+        is_active: true,
+      }, { onConflict: 'user_id,due_id,reminder_type' });
     await fetchReminders();
-  }, [user, reminders, fetchReminders]);
+  }, [user, fetchReminders]);
 
   const removeReminder = useCallback(async (reminderId: string) => {
     await supabase.from('due_reminders').delete().eq('id', reminderId);

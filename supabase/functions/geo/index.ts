@@ -350,7 +350,9 @@ Deno.serve(async (req) => {
           if (res.ok) {
             const json = await res.json();
             const category = detectCategory({ class: json.class, type: json.type, display_name: json.display_name, address: json.address });
-            results.push({ id: place.id, category });
+            // `other` is already the caller's current value. Do not issue a
+            // no-op UPDATE every time the map mounts.
+            if (category !== 'other') results.push({ id: place.id, category });
           }
           // Rate limit: Nominatim requires 1 req/s
           await new Promise(r => setTimeout(r, 1100));
@@ -366,7 +368,13 @@ Deno.serve(async (req) => {
       );
       
       for (const r of results) {
-        await supabaseAdmin.from('moments').update({ location_category: r.category }).eq('id', r.id).eq('user_id', userData.user.id);
+        await supabaseAdmin
+          .from('moments')
+          .update({ location_category: r.category })
+          .eq('id', r.id)
+          .eq('user_id', userData.user.id)
+          // If another request/user edit already classified it, leave it alone.
+          .eq('location_category', 'other');
       }
       
       return Response.json({ updated: results }, { headers: { ...corsHeaders } });
