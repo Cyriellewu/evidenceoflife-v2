@@ -135,7 +135,7 @@ export default function Landing() {
 
   const handleStart = () => {
     trackEvent('landing_cta_clicked', { cta: 'start_free', page: '/' });
-    navigate('/auth');
+    navigate('/auth?mode=signup');
   };
 
   const handleDemo = () => {

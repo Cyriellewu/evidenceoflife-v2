@@ -37,14 +37,16 @@ export default function PublicDemo() {
 
   const handleAuth = async () => {
     trackEvent('landing_cta_clicked', {
+      // cta id kept for series continuity; the button now says "Sign up".
       cta: 'sign_in_from_demo_banner',
+      label: 'sign_up',
     });
 
     if (isDemo) {
       await signOut();
     }
 
-    navigate('/auth');
+    navigate('/auth?mode=signup');
   };
 
   if (!isReady) {
@@ -68,7 +70,7 @@ export default function PublicDemo() {
               Sample data, not saved
             </p>
             <Button size="sm" className="h-7 shrink-0 rounded-full px-3 text-xs" onClick={handleAuth}>
-              Sign in
+              Sign up
             </Button>
           </div>
           {/* Desktop: compact pill centered in the top margin, clear of
@@ -79,7 +81,7 @@ export default function PublicDemo() {
               <span className="hidden xl:inline"><span className="mx-1.5 text-muted-foreground/40">·</span>Sample data, not saved</span>
             </p>
             <Button size="sm" className="h-7 shrink-0 rounded-full px-3 text-xs" onClick={handleAuth}>
-              Sign in
+              Sign up
             </Button>
           </div>
         </>
