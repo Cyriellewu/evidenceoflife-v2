@@ -3605,7 +3605,8 @@ export function PlanView({
           title={lang === 'zh' ? '添加到 Recap' : 'Add to recap'}
         >
           <NotebookPen size={13} strokeWidth={1.85} className="opacity-80" />
-          <span>{lang === 'zh' ? 'Recap' : 'Recap'}</span>
+          {/* Not "Recap": that label already means "switch to the Recap pane". */}
+          <span>{lang === 'zh' ? '记录' : 'Capture'}</span>
         </button>
       )}
 
