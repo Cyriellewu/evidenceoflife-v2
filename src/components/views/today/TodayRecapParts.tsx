@@ -21,7 +21,7 @@ import {
   buildLocalLifeReplay,
 } from './todayHelpers';
 
-export const recapTimeInputClassName = "min-h-8 w-[64px] rounded-lg border border-border/35 bg-[hsl(var(--surface-soft))] px-2 py-1 text-center font-mono text-[15px] tabular-nums tracking-[-0.03em] text-foreground shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.65)] focus:outline-none focus:ring-1 focus:ring-primary/35";
+export const recapTimeInputClassName = "min-h-8 w-[64px] rounded-lg border border-border/35 bg-[hsl(var(--surface-soft))] px-2 py-1 text-center tabular-nums text-[15px] tracking-[-0.03em] text-foreground shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.65)] focus:outline-none focus:ring-1 focus:ring-primary/35";
 
 export function DailyHabitTracker({
   habits,
@@ -307,14 +307,14 @@ export function MomentTimerSummary({ title, elapsed, startedAt, onConfirm, onCan
           <p className="text-base font-medium text-foreground">{title}</p>
         </div>
         <div className="text-center">
-          <span className="text-3xl font-mono font-light text-foreground/40 tabular-nums">
+          <span className="text-3xl tabular-nums font-light text-foreground/40">
             {hrs > 0 ? `${pad(hrs)}:` : ''}{pad(mins)}:{pad(secs)}
           </span>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-sm font-mono text-center w-24 focus:outline-none focus:ring-1 focus:ring-primary" />
+          <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-sm tabular-nums text-center w-24 focus:outline-none focus:ring-1 focus:ring-primary" />
           <span className="text-muted-foreground text-sm">→</span>
-          <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-sm font-mono text-center w-24 focus:outline-none focus:ring-1 focus:ring-primary" />
+          <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-sm tabular-nums text-center w-24 focus:outline-none focus:ring-1 focus:ring-primary" />
         </div>
         <div className="flex items-center gap-3 justify-center pt-1">
           <button onClick={onCancel} aria-label="Discard" className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"><X size={20} /></button>
@@ -366,7 +366,7 @@ export function MomentTimeEditor({ moment, onEditMoment }: { moment: Moment; onE
   if (moment.timer_started_at && moment.timer_ended_at) {
     return (
       <span
-        className="inline-flex items-center text-sm font-mono tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+        className="inline-flex items-center text-sm tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
         onClick={handleStartEdit}
       >
         🕐 {format(parseISO(moment.timer_started_at), 'HH:mm')} → {format(parseISO(moment.timer_ended_at), 'HH:mm')}
@@ -378,7 +378,7 @@ export function MomentTimeEditor({ moment, onEditMoment }: { moment: Moment; onE
   if (moment.timer_started_at && !moment.timer_ended_at) {
     return (
       <span
-        className="inline-flex items-center text-sm font-mono tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+        className="inline-flex items-center text-sm tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
         onClick={handleStartEdit}
       >
         🕐 {format(parseISO(moment.timer_started_at), 'HH:mm')}

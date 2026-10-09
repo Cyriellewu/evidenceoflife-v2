@@ -930,11 +930,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             {momentTimerPaused ? 'Paused' : 'Focusing'}
           </p>
           <p className="text-base font-medium text-foreground/80">{timerMomentTitle}</p>
-          <div className="text-5xl font-mono font-extralight text-foreground/30 tabular-nums">
+          <div className="text-5xl tabular-nums font-extralight text-foreground/30">
             {String(Math.floor(momentTimerElapsed / 3600)).padStart(2, '0')}:{String(Math.floor((momentTimerElapsed % 3600) / 60)).padStart(2, '0')}
           </div>
           {momentTimerPaused && momentPauseElapsed > 0 && (
-            <p className="text-sm font-mono text-muted-foreground/50 tabular-nums">
+            <p className="text-sm tabular-nums text-muted-foreground/50">
               paused {String(Math.floor(momentPauseElapsed / 60)).padStart(2, '0')}:{String(momentPauseElapsed % 60).padStart(2, '0')}
             </p>
           )}
@@ -1009,7 +1009,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 >
                   <ChevronLeft size={18} />
                 </button>
-                <span className="min-w-[4.5rem] text-center font-mono text-[12px] tabular-nums text-muted-foreground">
+                <span className="min-w-[4.5rem] text-center tabular-nums text-[12px] text-muted-foreground">
                   {lightboxPhotos.index + 1} / {lightboxPhotos.photos.length}
                 </span>
                 <button
@@ -1050,7 +1050,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           <Timer size={16} className="text-primary" />
           <div className="flex flex-col">
             <span className="text-xs truncate max-w-[120px] font-medium">{timerMomentTitle}</span>
-            <span className="text-base font-mono font-semibold tabular-nums text-primary">{String(Math.floor(momentTimerElapsed / 60)).padStart(2, '0')}:{String(momentTimerElapsed % 60).padStart(2, '0')}</span>
+            <span className="text-base tabular-nums font-semibold text-primary">{String(Math.floor(momentTimerElapsed / 60)).padStart(2, '0')}:{String(momentTimerElapsed % 60).padStart(2, '0')}</span>
           </div>
         </button>
       )}
@@ -1608,7 +1608,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                <span className="text-muted-foreground/30">·</span>
                                <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: info.color }} />
                                <span className="text-muted-foreground/50 ml-0.5">{tag}</span>
-                               <span className="font-mono tabular-nums text-muted-foreground/40 text-[11px]">
+                               <span className="tabular-nums text-muted-foreground/40 text-[11px]">
                                  {h > 0 ? `${h}h` : ''}{m > 0 ? `${m}m` : h > 0 ? '' : '0m'}
                                </span>
                              </span>
@@ -1932,7 +1932,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                           inlineInsertTime === midpointStr ? (
                             <div className="flex items-stretch gap-0">
                               <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
-                              <span className="font-mono text-[12px] tabular-nums text-primary/60 sm:text-[13px]">{midpointStr}</span>
+                              <span className="tabular-nums text-[12px] text-primary/60 sm:text-[13px]">{midpointStr}</span>
                               </div>
                               <div className="z-10 flex w-[12px] flex-shrink-0 flex-col items-center sm:w-5">
                                 <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
@@ -2009,7 +2009,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                         {isThread && (
                           <div className="flex items-stretch gap-0">
                             <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
-                              <span className="font-mono text-[12px] tabular-nums text-muted-foreground sm:text-[13px]">
+                              <span className="tabular-nums text-[12px] text-muted-foreground sm:text-[13px]">
                                 {format(thread.startTime, 'HH:mm')}
                               </span>
                             </div>
@@ -2121,7 +2121,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       </span>
                                     )}
                                     {editingTodoId === todo.id && hasTime && durationMin > 0 && (
-                                      <span className="font-mono text-[12px] tabular-nums text-muted-foreground/45 sm:text-[13px]">
+                                      <span className="tabular-nums text-[12px] text-muted-foreground/45 sm:text-[13px]">
                                         {format(parseISO(todo.timer_started_at!), 'HH:mm')} → {format(parseISO(todo.timer_ended_at!), 'HH:mm')}
                                       </span>
                                     )}
@@ -2545,7 +2545,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                       inlineInsertTime === endInsertKey ? (
                         <div className="flex items-stretch gap-0">
                           <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
-                            <span className="font-mono text-[12px] tabular-nums text-primary/60 sm:text-[13px]">{nowTime}</span>
+                            <span className="tabular-nums text-[12px] text-primary/60 sm:text-[13px]">{nowTime}</span>
                           </div>
                           <div className="z-10 flex w-[12px] flex-shrink-0 flex-col items-center sm:w-5">
                             <div className="w-[9px] h-[9px] rounded-full bg-primary/60 mt-[6px] z-10 ring-2 ring-background" />
@@ -2634,7 +2634,7 @@ function StreamNode({ timeStr, color, isPlanOutline, isLast, children }: {
       {/* Time column — narrow on mobile so Chinese body copy gets the width */}
       <div className={cn(STREAM_TIME_RAIL, STREAM_TIME_RAIL_PAD)}>
         {timeStr && (
-          <span className="font-mono text-[12px] font-medium tabular-nums text-muted-foreground/80 sm:text-[14px] sm:font-normal">
+          <span className="tabular-nums text-[12px] font-medium text-muted-foreground/80 sm:text-[14px] sm:font-normal">
             {timeStr}
           </span>
         )}
