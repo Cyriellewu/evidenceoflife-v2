@@ -428,6 +428,19 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           </div>
           
           <div className="flex items-center gap-1.5">
+            {/* Import is occasional; it lives in the header rather than as a
+                primary-colored FAB that covered the event list. */}
+            <button
+              onClick={() => setShowICSManager(prev => !prev)}
+              className={cn(
+                'p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground',
+                showICSManager && 'bg-secondary text-foreground',
+              )}
+              title="Import calendar"
+              aria-label="Import calendar"
+            >
+              <Upload size={17} />
+            </button>
             <button
               onClick={() => setShowSearch(prev => !prev)}
               className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
@@ -795,18 +808,6 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
         onAddMoment={onAddMoment}
       />
 
-      <button
-        onClick={() => setShowICSManager(prev => !prev)}
-        className={cn(
-          'fixed z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105',
-          'right-5 bottom-[max(1.25rem,calc(0.75rem+env(safe-area-inset-bottom)))] sm:right-6 sm:bottom-6',
-          showICSManager && 'scale-95 brightness-95',
-        )}
-        title="Import calendar"
-        aria-label="Import calendar"
-      >
-        <Upload size={18} />
-      </button>
     </div>
   );
 }
