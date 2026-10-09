@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent, useCallback } from 'react';
+import { useState, useRef, KeyboardEvent, useCallback, type ReactNode } from 'react';
 import { ChevronDown, ExternalLink, Link2, Loader2, Plus, X, Camera, Pencil, GripVertical, FolderPlus } from 'lucide-react';
 import { useLinks, LinkGroup, LinkSection, LinkItem } from '@/hooks/useLinks';
 import { supabase } from '@/integrations/supabase/client';
@@ -464,7 +464,7 @@ function GroupCard({
   );
 }
 
-export function LinksView() {
+export function LinksView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
   const {
     groups, addGroup, renameGroup, deleteGroup, restoreGroup, toggleCollapse, reorderGroups,
     addSection, renameSection, deleteSection, toggleSectionCollapse,
@@ -517,7 +517,7 @@ export function LinksView() {
   return (
     <div className="flex h-full flex-col bg-background">
       <SheetHeader
-        title={lang === 'zh' ? '链接' : 'Links'}
+        title={titleSlot ?? (lang === 'zh' ? '链接' : 'Links')}
         subtitle={lang === 'zh' ? '保存网址,自动归类成卡片。' : 'Save URLs and group them into collections.'}
       />
 

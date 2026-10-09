@@ -7,7 +7,7 @@ test.describe('synthetic demo', () => {
   test('renders plan item, timeline axis, and recap evidence', async ({ page }) => {
     await page.goto('/demo-app');
 
-    await expect(page.getByText('Public demo')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Public demo').filter({ visible: true })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('Draft project notes').first()).toBeVisible();
     await expect(page.getByText('12:00').first()).toBeVisible();
     await expect(page.getByText('focused').first()).toBeVisible();
@@ -15,7 +15,7 @@ test.describe('synthetic demo', () => {
 
   test('exposes the add-task composer', async ({ page }) => {
     await page.goto('/demo-app');
-    await expect(page.getByText('Public demo')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Public demo').filter({ visible: true })).toBeVisible({ timeout: 20_000 });
     await expect(
       page.getByPlaceholder(/Add a task/i).or(page.getByPlaceholder(/添加任务/)),
     ).toBeVisible();
@@ -24,7 +24,7 @@ test.describe('synthetic demo', () => {
   test('keeps long recap titles inside the phone viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 844 });
     await page.goto('/demo-app');
-    await expect(page.getByText('Public demo')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Public demo').filter({ visible: true })).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByTestId('today-mode-recap')).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('recap-photo-action')).toBeVisible();

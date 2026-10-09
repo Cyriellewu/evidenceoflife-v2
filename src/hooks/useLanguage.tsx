@@ -282,8 +282,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'horizon.empty': { zh: '这段时间还没有记录', en: 'Nothing here yet' },
   // SideNav phase groups
   'sidenav.dailyLoop': { zh: '每日循环', en: 'Daily loop' },
-  'sidenav.evidence': { zh: '生活证据', en: 'Evidence' },
-  'sidenav.obligations': { zh: '待办事务', en: 'Obligations' },
+  'sidenav.more': { zh: '收藏与待办', en: 'Library & upcoming' },
   // Landing — header & hero
   'landing.tagline': { zh: '你真的活过的证据', en: 'Proof you actually lived' },
   'landing.eyebrow': { zh: '别让你的日子悄悄消失', en: "Don't let your days disappear" },

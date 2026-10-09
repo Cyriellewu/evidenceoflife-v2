@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { SideNav } from '@/components/SideNav';
+import { SheetSwitcher } from '@/components/sheet/SheetSwitcher';
 import { MobileNavChrome } from '@/components/MobileNavChrome';
 import { PlanPaneSwitcher } from '@/components/PlanPaneSwitcher';
 import { TodayView } from '@/components/views/TodayView';
@@ -32,7 +33,6 @@ import { showUndoToast } from '@/lib/undoToast';
 import { extractLeadingEmoji } from '@/lib/emoji';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { FocusRecapPrompt, type FocusRecapDraft } from '@/components/FocusRecapPrompt';
-import { useLifeReminder } from '@/hooks/useLifeReminder';
 
 function isActivelyRunningTodo(todo: { timer_started_at: string | null; timer_ended_at: string | null }) {
   if (!todo.timer_started_at || todo.timer_ended_at) return false;
@@ -112,7 +112,6 @@ function AppSideSheet({
 const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const [searchParams] = useSearchParams();
   const { t, lang } = useLanguage();
-  useLifeReminder({ disabled: publicDemo }); // disable personal reminder behavior in public demo
   const isEmbeddedDemo = searchParams.get('embed') === '1';
   const forcedDemoStep = searchParams.get('demoStep');
   const landingDemoMode = publicDemo || (isEmbeddedDemo && !!forcedDemoStep);
@@ -129,6 +128,26 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   // Only one side sheet can be open at a time.
   const [activeSheet, setActiveSheet] = useState<'notes' | 'dues' | 'habits' | 'links' | null>(null);
   const openDues = useCallback(() => setActiveSheet('dues'), []);
+  const librarySwitcher = (
+    <SheetSwitcher<'notes' | 'links'>
+      options={[
+        { key: 'notes', label: lang === 'zh' ? '笔记' : 'Notes' },
+        { key: 'links', label: lang === 'zh' ? '链接' : 'Links' },
+      ]}
+      value={activeSheet === 'links' ? 'links' : 'notes'}
+      onChange={setActiveSheet}
+    />
+  );
+  const upcomingSwitcher = (
+    <SheetSwitcher<'dues' | 'habits'>
+      options={[
+        { key: 'dues', label: lang === 'zh' ? '截止' : 'Deadlines' },
+        { key: 'habits', label: lang === 'zh' ? '习惯' : 'Habits' },
+      ]}
+      value={activeSheet === 'habits' ? 'habits' : 'dues'}
+      onChange={setActiveSheet}
+    />
+  );
   
   const [selectedDate, setSelectedDate] = useState<Date>(() => (landingDemoMode ? demoFixedDate : new Date()));
   const [autoFollowToday, setAutoFollowToday] = useState(() => !landingDemoMode);
@@ -383,7 +402,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     });
     // Auto-create visit in places system when moment has location
     if (newMoment && data.location && data.location.lat && data.location.lng) {
-      placesData.recordVisitFromMoment(data.location, selectedDateStr, newMoment.id, data.photos);
+      placesData.recordVisitFromMoment(data.location, selectedDateStr, newMoment.id, newMoment.photos);
     }
     return newMoment;
   }, [addMoment, selectedDateStr, placesData]);
@@ -766,26 +785,35 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
         </AppSectionErrorBoundary>
       )}
 
-      <AppSideSheet open={activeSheet === 'notes'} onOpenChange={(open) => setActiveSheet(open ? 'notes' : null)} maxWidthClass="sm:max-w-[720px]">
-        <StickyNotesView />
+      {/* Library = Notes + Links; Upcoming = Deadlines + Habits. Each pair shares
+          one nav entry and one sheet, switched from the sheet title. */}
+      <AppSideSheet
+        open={activeSheet === 'notes' || activeSheet === 'links'}
+        onOpenChange={(open) => setActiveSheet(open ? 'notes' : null)}
+        maxWidthClass="sm:max-w-[720px]"
+      >
+        {activeSheet === 'links'
+          ? <LinksView titleSlot={librarySwitcher} />
+          : <StickyNotesView titleSlot={librarySwitcher} />}
       </AppSideSheet>
 
-      <AppSideSheet open={activeSheet === 'dues'} onOpenChange={(open) => setActiveSheet(open ? 'dues' : null)} maxWidthClass="sm:max-w-[780px]">
-        <DuesView
-          onBack={() => setActiveSheet(null)}
-          onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
-          voiceSheetOpen={voiceSheetOpen}
-          initialMode="deadline"
-          lockedMode
-        />
-      </AppSideSheet>
-
-      <AppSideSheet open={activeSheet === 'habits'} onOpenChange={(open) => setActiveSheet(open ? 'habits' : null)} maxWidthClass="sm:max-w-[520px]">
-        <HabitsView />
-      </AppSideSheet>
-
-      <AppSideSheet open={activeSheet === 'links'} onOpenChange={(open) => setActiveSheet(open ? 'links' : null)} maxWidthClass="sm:max-w-[680px]">
-        <LinksView />
+      <AppSideSheet
+        open={activeSheet === 'dues' || activeSheet === 'habits'}
+        onOpenChange={(open) => setActiveSheet(open ? 'dues' : null)}
+        maxWidthClass="sm:max-w-[780px]"
+      >
+        {activeSheet === 'habits'
+          ? <HabitsView titleSlot={upcomingSwitcher} />
+          : (
+            <DuesView
+              onBack={() => setActiveSheet(null)}
+              onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
+              voiceSheetOpen={voiceSheetOpen}
+              initialMode="deadline"
+              lockedMode
+              titleSlot={upcomingSwitcher}
+            />
+          )}
       </AppSideSheet>
 
       <AppSectionErrorBoundary label="VoiceInputSheet">

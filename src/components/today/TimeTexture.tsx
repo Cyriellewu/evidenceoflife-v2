@@ -330,7 +330,7 @@ export function TimeTexture({
         style={{ left: tooltipPos.left, top: tooltipPos.top }}
       >
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 border-b border-border/30 pb-1.5">
-          <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+          <span className="tabular-nums text-[10px] text-muted-foreground">
             {fmtTime(hTime)}–{fmtTime(Math.min(hTime + BUCKET_AGG_MIN, rangeEndMin))}
           </span>
           <span className="text-[10px] text-muted-foreground tabular-nums">{formatHoverDetail(plannedUnionMin, actualUnionMin)}</span>
@@ -506,7 +506,7 @@ export function TimeTexture({
             textAnchor="middle"
             fill="currentColor"
             opacity={0.32}
-            style={{ fontSize: 9, fontFamily: 'ui-monospace, monospace' }}
+            style={{ fontSize: 9, fontVariantNumeric: 'tabular-nums' }}
           >
             {fmtTime(tickA)}
           </text>
@@ -518,7 +518,7 @@ export function TimeTexture({
             textAnchor="middle"
             fill="currentColor"
             opacity={0.32}
-            style={{ fontSize: 9, fontFamily: 'ui-monospace, monospace' }}
+            style={{ fontSize: 9, fontVariantNumeric: 'tabular-nums' }}
           >
             {fmtTime(tickB)}
           </text>
@@ -558,7 +558,7 @@ export function TimeTexture({
 
       <div className="mt-0.5 flex min-h-[14px] items-center justify-center text-[9.5px] tabular-nums text-muted-foreground/45">
         {hover && hTime != null ? (
-          <span className="font-mono text-[9px] text-muted-foreground/55">
+          <span className="tabular-nums text-[9px] text-muted-foreground/55">
             {fmtTime(hTime)}–{fmtTime(Math.min(hTime + BUCKET_AGG_MIN, rangeEndMin))}
             <span className="ml-1.5 text-[8.5px] font-sans font-normal text-muted-foreground/40">
               {lang === 'zh' ? '悬停查看任务' : 'Hover for tasks'}

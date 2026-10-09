@@ -39,7 +39,7 @@ The timeline (`src/components/views/PlanTimelineView.tsx` +
   NOT semi-transparent accent-into-black washes (those read muddy/gray-purple).
 - Solid color is produced by `solidEventColor()`; CSS-var accents are mapped to
   concrete hex first via `resolveAccentToHex()` so every block takes the solid path.
-- Keep saturation restrained (currently capped ~46). The user repeatedly asked for
+- Keep saturation restrained (currently capped ~30). The user repeatedly asked for
   LOWER saturation — when unsure, err softer, not louder.
 - Do not re-introduce a near-black "progress fill" overlay on completed blocks.
 - The liked reference for colored pills is `FloatingTimer` in

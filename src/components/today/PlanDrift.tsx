@@ -492,7 +492,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
                 style={{ width: `${Math.min(100, Math.max(2, planRatio ?? 0))}%` }}
               />
             </span>
-            <span className="font-mono text-[9px] leading-none tabular-nums text-muted-foreground/40">
+            <span className="tabular-nums text-[9px] leading-none text-muted-foreground/40">
               {planRatio}%
             </span>
           </span>
@@ -575,13 +575,13 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
               {planRatio != null && totalPlannedMin > 0 && (
                 <span
                   title={lang === 'zh' ? '计划的事情里实际做了多少' : 'How much of your plan you actually did'}
-                  className="inline-flex items-center rounded-full border border-border/35 bg-background/45 px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground/58"
+                  className="inline-flex items-center rounded-full border border-border/35 bg-background/45 px-2 py-0.5 tabular-nums text-[10px] font-medium text-muted-foreground/58"
                 >
                   {lang === 'zh' ? `计划完成 ${planRatio}%` : `${planRatio}% of plan`}
                 </span>
               )}
               {remainingStr && (
-                <span className="inline-flex items-center rounded-full border border-border/30 bg-background/32 px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground/50">
+                <span className="inline-flex items-center rounded-full border border-border/30 bg-background/32 px-2 py-0.5 tabular-nums text-[10px] font-medium text-muted-foreground/50">
                   {remainingStr} {leftWord}
                 </span>
               )}

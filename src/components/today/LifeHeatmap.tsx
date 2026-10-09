@@ -109,7 +109,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
         <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: '#8E8E93' }}>
           Life Heatmap
         </p>
-        <p className="text-[10px] font-mono" style={{ color: '#636366' }}>
+        <p className="text-[10px] tabular-nums" style={{ color: '#636366' }}>
           {totalDays} active days
         </p>
       </div>
@@ -122,7 +122,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
           return (
             <span
               key={i}
-              className="text-[9px] font-mono absolute"
+              className="text-[9px] tabular-nums absolute"
               style={{
                 color: 'hsl(var(--muted-foreground) / 0.5)',
                 left: 32 + ml.weekIdx * (CELL + GAP),
@@ -140,7 +140,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
         <div className="flex flex-col flex-shrink-0 mr-1" style={{ gap: GAP }}>
           {['', 'M', '', 'W', '', 'F', ''].map((label, i) => (
             <div key={i} className="flex items-center justify-end" style={{ height: CELL, width: 14 }}>
-              <span className="text-[8px] font-mono" style={{ color: '#AEAEB2' }}>{label}</span>
+              <span className="text-[8px] tabular-nums" style={{ color: '#AEAEB2' }}>{label}</span>
             </div>
           ))}
         </div>

@@ -769,8 +769,13 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               {isResting && (
                 <span className="inline-flex items-center gap-1 text-amber-500/70">
                   <span>{fmtSec(priorWorkSec)}</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span className="text-muted-foreground/55">{lang === 'zh' ? `休${fmtSec(restSec)}` : `${fmtSec(restSec)} ago`}</span>
+                  {/* A rest gap past a day ("184d4h ago") is noise, not signal. */}
+                  {restSec < 86400 && (
+                    <>
+                      <span className="text-muted-foreground/40">·</span>
+                      <span className="text-muted-foreground/55">{lang === 'zh' ? `休${fmtSec(restSec)}` : `${fmtSec(restSec)} ago`}</span>
+                    </>
+                  )}
                 </span>
               )}
               {!isResting && tagLabel && (
@@ -3600,7 +3605,8 @@ export function PlanView({
           title={lang === 'zh' ? '添加到 Recap' : 'Add to recap'}
         >
           <NotebookPen size={13} strokeWidth={1.85} className="opacity-80" />
-          <span>{lang === 'zh' ? 'Recap' : 'Recap'}</span>
+          {/* Not "Recap": that label already means "switch to the Recap pane". */}
+          <span>{lang === 'zh' ? '记录' : 'Capture'}</span>
         </button>
       )}
 

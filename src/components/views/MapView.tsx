@@ -1803,6 +1803,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 <span><strong className="font-semibold tabular-nums text-foreground/72">{cities.length}</strong> {lang === 'zh' ? '座城市' : (cities.length === 1 ? 'city' : 'cities')}</span>
                 <span className="h-1 w-1 rounded-full bg-primary/45" />
                 <span><strong className="font-semibold tabular-nums text-foreground/72">{totalPlaces}</strong> {lang === 'zh' ? '个地点' : t('map.places').toLowerCase()}</span>
+                <span className="h-1 w-1 rounded-full bg-primary/45" />
+                <span><strong className="font-semibold tabular-nums text-foreground/72">{totalVisits}</strong> {lang === 'zh' ? '次访问' : (totalVisits === 1 ? 'visit' : 'visits')}</span>
               </p>
             </div>
           </div>
@@ -2074,25 +2076,6 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             </div>
           )}
 
-          {/* Stats summary */}
-          {cities.length > 0 && (
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              {[
-                { label: lang === 'zh' ? '城市' : 'Cities', value: cities.length, color: '#8b5cf6' },
-                { label: lang === 'zh' ? '地点' : 'Places', value: totalPlaces, color: '#22c55e' },
-                { label: lang === 'zh' ? '访问' : 'Visits', value: totalVisits, color: LIFE_MAP_COLOR },
-              ].map(stat => (
-                <div
-                  key={stat.label}
-                  className="text-center py-3 rounded-2xl bg-card shadow-sm border border-border/30"
-                  style={{ boxShadow: `inset 0 -2px 0 ${stat.color}33` }}
-                >
-                  <p className="text-lg font-bold" style={{ color: stat.color }}>{stat.value}</p>
-                  <p className="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wider">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

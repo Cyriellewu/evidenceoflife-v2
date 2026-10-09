@@ -43,8 +43,11 @@ function sameName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
+// Visits only keep storage references. Inline data: URLs are multi-MB and
+// belong in Storage via the moment upload path, never in a table row.
 function uniquePhotos(photos?: string[]): string[] {
-  return Array.from(new Set((photos || []).filter(photo => typeof photo === 'string' && photo.trim().length > 0)));
+  return Array.from(new Set((photos || []).filter(photo =>
+    typeof photo === 'string' && photo.trim().length > 0 && !photo.startsWith('data:'))));
 }
 
 export function usePlaces() {
@@ -65,12 +68,15 @@ export function usePlaces() {
       const [citiesRes, placesRes, visitsRes] = await Promise.all([
         supabase.from('cities').select('*').eq('user_id', user.id),
         supabase.from('places').select('*').eq('user_id', user.id),
-        supabase.from('visits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        // Skip visits.photos: legacy rows hold multi-MB base64 images, and pulling
+        // them on every refresh exhausted the egress quota. The map falls back to
+        // the linked moment's storage photos instead.
+        supabase.from('visits').select('id, place_id, moment_id, date, note').eq('user_id', user.id).order('created_at', { ascending: false }),
       ]);
 
       const rawCities = (citiesRes.data || []) as City[];
       const rawPlaces = (placesRes.data || []) as Place[];
-      const rawVisits = (visitsRes.data || []) as Visit[];
+      const rawVisits = ((visitsRes.data || []) as Omit<Visit, 'photos'>[]).map(v => ({ ...v, photos: [] }));
 
       const result: CityWithPlaces[] = rawCities.map((c) => {
         const cPlaces = rawPlaces
