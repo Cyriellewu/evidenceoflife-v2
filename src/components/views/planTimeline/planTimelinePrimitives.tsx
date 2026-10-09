@@ -19,8 +19,6 @@ export const TIMELINE_CANVAS_LIGHT = '#fbfbfa';
 export const SPINE_X_PX = 14;
 /** Rounded "card" silhouette for timed blocks */
 export const BLOCK_CORNER_PX = 10;
-/** In Both mode short blocks: plan dashed top+bottom seams crush title — soften chrome */
-export const SLIM_BOTH_OUTER_PX = 34;
 /** Very short inflated shells: shave resize-hit strips + widen title lane */
 export const ULTRA_SHORT_OUTER_PX = 30;
 /** Drag a planned block beyond the timeline by this much to unschedule it. */
@@ -88,7 +86,7 @@ export function TimelineIntervalPill({
   return (
     <div
       className={cn(
-        'inline-flex max-w-[min(100%,280px)] items-center justify-center truncate rounded-full font-mono font-medium tabular-nums tracking-tight',
+        'inline-flex max-w-[min(100%,280px)] items-center justify-center truncate rounded-full tabular-nums font-medium tracking-tight',
         subtle ? 'px-2 py-px text-[11px]' : 'px-2.5 py-[3px] text-[12px] sm:text-[13px]',
         className,
       )}
@@ -168,7 +166,7 @@ export function TimelineTodayRemainingPill({
     >
       <span
         className={cn(
-          'font-mono font-medium tabular-nums',
+          'tabular-nums font-medium',
           subtle ? 'text-[12px]' : 'text-[14px] sm:text-[15px]',
         )}
         style={{ color: numColor, letterSpacing: '-0.015em', lineHeight: 1 }}
@@ -490,8 +488,9 @@ export function solidEventColor(color: string | undefined): string | null {
   if (!color) return null;
   const hsl = hexToHSL(color);
   if (!hsl) return null; // CSS-var colours handled by caller fallback
-  const newS = Math.min(46, Math.max(hsl.s, 16));
-  const newL = Math.min(50, Math.max(42, hsl.l > 60 ? hsl.l - 18 : hsl.l));
+  // Restrained, editorial fills: user asked repeatedly for lower saturation.
+  const newS = Math.min(30, Math.max(hsl.s, 12));
+  const newL = Math.min(42, Math.max(36, hsl.l > 60 ? hsl.l - 20 : hsl.l));
   return hslToHex(hsl.h, newS, newL);
 }
 
@@ -560,7 +559,8 @@ export function timelineBlockShell(
     const solidHsl = hexToHSL(solid)!;
     const fillL = Math.max(20, Math.min(52, solidHsl.l * dim));
     const fill = hslToHex(solidHsl.h, solidHsl.s, fillL);
-    const borderCol = hslToHex(solidHsl.h, Math.min(80, solidHsl.s + 8), Math.min(64, fillL + 14));
+    // Quiet edge: a bright ring around every block added visual noise.
+    const borderCol = hslToHex(solidHsl.h, solidHsl.s, Math.min(56, fillL + 6));
     return {
       background: `linear-gradient(180deg, ${fill} 0%, ${fill} 100%)`,
       border: borderCol,

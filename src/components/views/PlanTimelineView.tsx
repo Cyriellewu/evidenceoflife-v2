@@ -39,7 +39,6 @@ import {
   TIME_RAIL_WIDTH_PX,
   TIMELINE_CANVAS_LIGHT,
   BLOCK_CORNER_PX,
-  SLIM_BOTH_OUTER_PX,
   ULTRA_SHORT_OUTER_PX,
   DRAG_UNSCHEDULE_MARGIN_PX,
   MAX_TIMELINE_TITLE_FONT_PX,
@@ -1573,7 +1572,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     const overlapLen = Math.max(0, overlapEnd - overlapStart);
     const actualLen = Math.max(1, actualEnd - actualStart);
     const overlapRatio = overlapLen / actualLen;
-    const planDurationForChrome = Math.max(1, planEnd - planStart);
 
     // When plan and actual are nearly identical, we still keep the planned frame visible
     // so "Both" mode remains structurally consistent. Only the extra planned label/connector
@@ -1648,13 +1646,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     const tallNarrowLayout = blockWidthPx > 0 && blockWidthPx < 145 && height > 120;
     const compactLayout = height < 64 || (blockWidthPx > 0 && blockWidthPx < 170);
     const veryCompactLayout = height < 42 || (blockWidthPx > 0 && blockWidthPx < 120);
-    /** Plan dashed top+bottom stripes fight text in squat Both-mode blocks — use single inset outline */
-    const slimBothQuietPlanStripe =
-      displayMode === 'both' &&
-      hasPlan &&
-      hasActual &&
-      height <= SLIM_BOTH_OUTER_PX &&
-      overlapLen >= planDurationForChrome * 0.78;
     const ultraShortOuter = height <= ULTRA_SHORT_OUTER_PX;
     const narrowLayout = blockWidthPx > 0 && blockWidthPx < 150;
     const ultraNarrowLayout = blockWidthPx > 0 && blockWidthPx < 105;
@@ -1665,34 +1656,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     const slimBarLayout = height < 38 && blockWidthPx >= 120;
     /** Too narrow for any readable title (would render as "U…"); show only color bar + emoji + duration, title on hover */
     const hideTitleTooNarrow = blockWidthPx > 0 && blockWidthPx < 64;
-    const titleFontSizePx = microLayout
-      ? 11
-      : narrowLayout
-        ? 13
-        : compactLayout
-          ? 15
-          : extraLargeBlockLayout
-            ? 18
-            : largeBlockLayout
-              ? 17
-              : 16;
+    // Two-step type scale: one title size for every block (the old
+    // 11/13/15/16/17/18 ladder made neighbouring blocks look mismatched).
+    const titleFontSizePx = microLayout ? 12 : 14;
     const titleFontSize = `${Math.min(titleFontSizePx, MAX_TIMELINE_TITLE_FONT_PX)}px`;
-    const timeFontSize = microLayout
-      ? '8px'
-      : compactLayout
-        ? '11px'
-        : extraLargeBlockLayout
-          ? '14px'
-          : largeBlockLayout
-            ? '13px'
-            : '12px';
-    const pillFontSize = microLayout
-      ? '7px'
-      : extraLargeBlockLayout
-        ? '9px'
-        : largeBlockLayout
-          ? '8px'
-          : '8px';
+    const timeFontSize = microLayout ? '10px' : '11px';
+    const pillFontSize = microLayout ? '8px' : '9px';
     /** When plan dashed sits on actual fill, keep interior transparent */
     const planOpaqueBackdrop =
       !(displayMode === 'both' && showPlan && showActual && hasPlan && hasActual);
@@ -1816,14 +1785,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 ) : (
                   <span
                     className="min-w-0 flex-1 truncate leading-none"
-                    style={{ fontSize: '12px', fontWeight: 500, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))' }}
+                    style={{ fontSize: '13px', fontWeight: 500, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))' }}
                   >
                     {block.title}
                   </span>
                 )}
                 <span
-                  className="flex-shrink-0 font-mono tabular-nums leading-none text-muted-foreground/70"
-                  style={{ fontSize: '10px' }}
+                  className="flex-shrink-0 tabular-nums leading-none text-muted-foreground/70"
+                  style={{ fontSize: '11px' }}
                 >
                   {Math.max(1, effectiveEnd - effectiveStart)}m
                 </span>
@@ -1839,12 +1808,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     className="h-7 w-7 flex-shrink-0 rounded-lg border border-background/70 object-cover shadow-sm"
                   />
                 )}
-                {(block.emoji || tagIcon) && <span className="flex-shrink-0" style={{ fontSize: '15px' }}>{block.emoji || tagIcon}</span>}
-                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))', textShadow: isDarkMode ? '0 1px 1.5px rgba(0,0,0,0.30)' : undefined }}>{block.title}</span>}
+                {(block.emoji || tagIcon) && <span className="flex-shrink-0" style={{ fontSize: '14px' }}>{block.emoji || tagIcon}</span>}
+                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '14px', fontWeight: 500, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))', textShadow: isDarkMode ? '0 1px 1.5px rgba(0,0,0,0.30)' : undefined }}>{block.title}</span>}
               </div>
               {height > 34 && (
                 <div className="flex items-center gap-1 mt-0.5">
-                  <span className="font-mono tabular-nums text-muted-foreground/70" style={{ fontSize: '12px' }}>{Math.max(1, effectiveEnd - effectiveStart)}m</span>
+                  <span className="tabular-nums text-muted-foreground/70" style={{ fontSize: '11px' }}>{Math.max(1, effectiveEnd - effectiveStart)}m</span>
                 </div>
               )}
             </div>
@@ -1917,7 +1886,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             title={t('plan.resumeHere')}
           >
             <span
-              className="rounded-full px-1.5 py-[2px] font-mono text-[9px] font-semibold tabular-nums leading-none shadow-sm"
+              className="rounded-full px-1.5 py-[2px] tabular-nums text-[9px] font-semibold leading-none shadow-sm"
               style={{
                 background: colorWithAlpha(isDarkMode ? 0.92 : 0.88),
                 color: isDarkMode ? 'hsl(0 0% 8%)' : 'hsl(0 0% 100%)',
@@ -2050,11 +2019,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           // solid actual fill) and on plan-only (so an empty outline doesn't
           // disappear against the canvas).
           const hollowPlanFrame = !showActual;
-          // Redesign: planning should read clearly in dark mode.
-          // Use a calmer blue-violet outline + slightly denser dash rhythm.
-          const plannedStrokeColor = isDarkMode
-            ? 'hsl(230 38% 68% / 0.72)'
-            : 'hsl(230 30% 52% / 0.64)';
+          // Plan outline uses the task's own colour with a thin, fine dash so
+          // it reads as "planned" without a heavy blue frame fighting the fill.
+          const plannedStrokeColor = colorWithAlpha(isDarkMode ? 0.62 : 0.55);
           // Plan-only completion (marked done via checkbox, no timer ran): render
           // with a subtle tinted fill + solid clean border instead of the hesitant
           // dashed hollow. This differentiates "done" from "still planned" without
@@ -2063,18 +2030,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           const isCompletedPlanOnly = hollowPlanFrame && !!block.isCompleted && !hasActual;
           const planDashColor = hollowPlanFrame
             ? plannedStrokeColor
-            : (isDarkMode ? 'hsl(230 34% 66% / 0.6)' : colorWithAlpha(edgeAlpha(0.34)));
-          const planDashWidth = hollowPlanFrame ? (isDarkMode ? 2.25 : 2.35) : (isDarkMode ? 1.5 : 1.6);
-          const planDashSegment = hollowPlanFrame ? 13 : 11;
-          const planDashGap = hollowPlanFrame ? 6 : 7;
+            : colorWithAlpha(isDarkMode ? 0.5 : edgeAlpha(0.34));
+          const planDashWidth = hollowPlanFrame ? 1.25 : 1;
           const planBackdrop = isCompletedPlanOnly
             ? (isDarkMode
                 ? `linear-gradient(180deg, ${colorWithAlpha(0.24)} 0%, ${colorWithAlpha(0.18)} 100%)`
                 : `linear-gradient(180deg, ${colorWithAlpha(0.16)} 0%, ${colorWithAlpha(0.10)} 100%)`)
             : hollowPlanFrame
-              ? (isDarkMode
-                  ? 'linear-gradient(180deg, hsl(230 42% 58% / 0.11) 0%, hsl(230 42% 58% / 0.06) 100%)'
-                  : 'linear-gradient(180deg, hsl(230 38% 58% / 0.08) 0%, hsl(230 38% 58% / 0.03) 100%)')
+              ? colorWithAlpha(isDarkMode ? 0.07 : 0.05)
               : planOpaqueBackdrop
                 ? shellFor('plan').background
                 : 'transparent';
@@ -2104,21 +2067,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       border: `1px solid ${colorWithAlpha(isDarkMode ? 0.55 : 0.45)}`,
                       boxSizing: 'border-box',
                     }
-                    : slimBothQuietPlanStripe
-                    ? {
+                    : {
+                      // Real CSS dashed border so the outline keeps the block's
+                      // rounded corners (gradient stripes left the corners open).
                       border: `${planDashWidth}px dashed ${planDashColor}`,
                       boxSizing: 'border-box',
-                    }
-                    : {
-                      backgroundImage: [
-                        `repeating-linear-gradient(90deg, ${planDashColor} 0 ${planDashSegment}px, transparent ${planDashSegment}px ${planDashSegment + planDashGap}px)`,
-                        `repeating-linear-gradient(90deg, ${planDashColor} 0 ${planDashSegment}px, transparent ${planDashSegment}px ${planDashSegment + planDashGap}px)`,
-                        `repeating-linear-gradient(180deg, ${planDashColor} 0 ${planDashSegment}px, transparent ${planDashSegment}px ${planDashSegment + planDashGap}px)`,
-                        `repeating-linear-gradient(180deg, ${planDashColor} 0 ${planDashSegment}px, transparent ${planDashSegment}px ${planDashSegment + planDashGap}px)`,
-                      ].join(', '),
-                      backgroundPosition: 'left top, left bottom, left top, right top',
-                      backgroundSize: `100% ${planDashWidth}px, 100% ${planDashWidth}px, ${planDashWidth}px 100%, ${planDashWidth}px 100%`,
-                      backgroundRepeat: 'no-repeat',
                     }),
                 }}
               />
@@ -2304,7 +2257,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           && (blockWidthPx === 0 || blockWidthPx >= 130)
           && !(displayMode === 'both' && hasPlan && hasActual) && (
           <div
-            className="absolute left-3 bottom-2 z-[6] flex items-center gap-1.5 pointer-events-none font-mono tabular-nums leading-none"
+            className="absolute left-3 bottom-2 z-[6] flex items-center gap-1.5 pointer-events-none tabular-nums leading-none"
             style={{ fontSize: '11px', color: isDarkMode ? 'hsl(0 0% 100% / 0.5)' : 'hsl(var(--muted-foreground) / 0.72)' }}
           >
             <span aria-hidden style={{ opacity: 0.65 }}>↳</span>
@@ -2429,7 +2382,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               autoFocus
               value={editingTimeStart}
               onChange={e => setEditingTimeStart(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
                 if (e.key === 'Enter') handleSaveBlockTime(block.id);
@@ -2440,7 +2393,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             <input
               value={editingTimeEnd}
               onChange={e => setEditingTimeEnd(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
                 if (e.key === 'Enter') handleSaveBlockTime(block.id);
@@ -2461,7 +2414,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               autoFocus
               value={editingActualStart}
               onChange={e => setEditingActualStart(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
                 if (e.key === 'Enter') handleSaveActualTime(block.id);
@@ -2472,7 +2425,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             <input
               value={editingActualEnd}
               onChange={e => setEditingActualEnd(e.target.value)}
-              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center font-mono text-[11px] tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
                 if (e.key === 'Enter') handleSaveActualTime(block.id);
@@ -2493,8 +2446,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           // box is taller so the title has room to render. Otherwise a just-started
           // timer (actual ~12px) would squash the title into an invisible strip
           // while the 60-min plan frame sits empty next to it.
+          // Only fall back to the plan frame while the actual bar is too thin to
+          // hold a title; otherwise the solid block that really happened owns it
+          // (moving it into the plan frame left the actual block blank).
           const bothPresent = showPlan && showActual;
-          const useTallestFrame = bothPresent && planBoxH > actBoxH;
+          const useTallestFrame = bothPresent && actBoxH < 24 && planBoxH > actBoxH;
           const contentTopOffset = useTallestFrame
             ? planTopOffset
             : (showActual ? actTopOffset : planTopOffset);
@@ -2503,11 +2459,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             : (showActual ? actBoxH : showPlan ? planBoxH : height);
           /** Outer shell is inflated (outerMinH) but title sat in thin act Seg band — vertically center across full pill */
           const compactContentFullShell = veryCompactLayout && contentHeight > 0 && contentHeight <= height - 4;
+          // Short frames: top-align with slim padding so overflow clips the
+          // meta row, never the title (centered content was cut at both edges).
+          const shortContentFrame = !compactContentFullShell && contentHeight < 56;
           return (
         <div
           className={cn(
             "absolute left-0 right-0 z-10 overflow-hidden",
-            veryCompactLayout ? "px-0 py-0" : "px-3.5 py-2.5 flex flex-col justify-center",
+            veryCompactLayout ? "px-0 py-0" : shortContentFrame ? "px-3.5 py-1.5 flex flex-col justify-start" : "px-3.5 py-2.5 flex flex-col justify-center",
             tallNarrowLayout && !veryCompactLayout && "items-center text-center"
           )}
           style={{
@@ -2582,7 +2541,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         <input
                           value={editingTimeStart}
                           onChange={e => setEditingTimeStart(e.target.value)}
-                          className="w-[48px] font-mono tabular-nums bg-muted/20 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          className="w-[48px] tabular-nums bg-muted/20 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-primary/30"
                           style={{ fontSize: '11px' }}
                           placeholder="HH:MM"
                           onKeyDown={e => { if (e.key === 'Enter') handleSaveBlockTime(block.id); if (e.key === 'Escape') setEditingBlockId(null); }}
@@ -2591,7 +2550,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         <input
                           value={editingTimeEnd}
                           onChange={e => setEditingTimeEnd(e.target.value)}
-                          className="w-[48px] font-mono tabular-nums bg-muted/20 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          className="w-[48px] tabular-nums bg-muted/20 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-primary/30"
                           style={{ fontSize: '11px' }}
                           placeholder="HH:MM"
                           onKeyDown={e => { if (e.key === 'Enter') handleSaveBlockTime(block.id); if (e.key === 'Escape') setEditingBlockId(null); }}
@@ -2659,7 +2618,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     </span>
                     {!hideElapsedWhileTiming && !narrowLayout && blockWidthPx >= 280 && compactDurationLabel.length <= 10 && (
                       <span
-                        className="flex-shrink-0 font-mono tabular-nums text-muted-foreground/60 leading-none"
+                        className="flex-shrink-0 tabular-nums text-muted-foreground/60 leading-none"
                         style={{ fontSize: '10px', fontWeight: 500, lineHeight: 1, margin: 0 }}
                       >
                         {compactDurationLabel}
@@ -2724,7 +2683,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           autoFocus
                           value={editingTimeStart}
                           onChange={e => setEditingTimeStart(e.target.value)}
-                          className="w-[52px] font-mono tabular-nums bg-secondary/90 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-2 focus:ring-primary/35"
+                          className="w-[52px] tabular-nums bg-secondary/90 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-2 focus:ring-primary/35"
                           style={{ fontSize: compactLayout ? '11px' : '13px' }}
                           placeholder="HH:MM"
                           onKeyDown={e => {
@@ -2736,7 +2695,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         <input
                           value={editingTimeEnd}
                           onChange={e => setEditingTimeEnd(e.target.value)}
-                          className="w-[52px] font-mono tabular-nums bg-secondary/90 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-2 focus:ring-primary/35"
+                          className="w-[52px] tabular-nums bg-secondary/90 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-2 focus:ring-primary/35"
                           style={{ fontSize: compactLayout ? '11px' : '13px' }}
                           placeholder="HH:MM"
                           onKeyDown={e => {
@@ -2757,7 +2716,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         {showPlanRowTime &&
                           (displayMode === 'plan' ? (
                           <button
-                            className="max-w-full whitespace-nowrap font-mono tabular-nums leading-none text-muted-foreground/70 hover:text-primary hover:underline underline-offset-2 transition-colors cursor-pointer bg-transparent border-none p-0"
+                            className="max-w-full whitespace-nowrap tabular-nums leading-none text-muted-foreground/70 hover:text-primary hover:underline underline-offset-2 transition-colors cursor-pointer bg-transparent border-none p-0"
                             style={{ fontSize: timeFontSize, fontWeight: 500 }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2771,7 +2730,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           </button>
                         ) : (
                           <span
-                            className="max-w-full whitespace-nowrap font-mono tabular-nums leading-none text-muted-foreground/70"
+                            className="max-w-full whitespace-nowrap tabular-nums leading-none text-muted-foreground/70"
                             style={{ fontSize: timeFontSize, fontWeight: 500 }}
                           >
                             {narrowLayout ? durationStr : timeStr}
@@ -2784,7 +2743,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                               autoFocus
                               value={editingActualStart}
                               onChange={e => setEditingActualStart(e.target.value)}
-                              className="w-[52px] font-mono tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
+                              className="w-[52px] tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
                               style={{ fontSize: compactLayout ? '11px' : '13px' }}
                               placeholder="HH:MM"
                               onKeyDown={e => {
@@ -2796,7 +2755,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             <input
                               value={editingActualEnd}
                               onChange={e => setEditingActualEnd(e.target.value)}
-                              className="w-[52px] font-mono tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
+                              className="w-[52px] tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
                               style={{ fontSize: compactLayout ? '11px' : '13px' }}
                               placeholder="HH:MM"
                               onKeyDown={e => {
@@ -2812,18 +2771,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         {showCombinedBothMeta && block.isCompleted && (showPlanActualBars ? (
                           <div className="mt-1.5 space-y-[4px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-muted-foreground/50 flex-shrink-0 font-mono" style={{ fontSize: '9px', minWidth: '22px' }}>plan</span>
+                              <span className="text-muted-foreground/50 flex-shrink-0 tabular-nums" style={{ fontSize: '9px', minWidth: '22px' }}>plan</span>
                               <div className="flex-1 h-[4px] rounded-full bg-muted/30 overflow-hidden">
                                 <div className="h-full rounded-full transition-all" style={{ width: `${planBarPct}%`, backgroundColor: colorWithAlpha(0.35) }} />
                               </div>
-                              <span className="text-muted-foreground/55 font-mono flex-shrink-0" style={{ fontSize: '9px', minWidth: '28px', textAlign: 'right' }}>{durationStr}</span>
+                              <span className="text-muted-foreground/55 tabular-nums flex-shrink-0" style={{ fontSize: '9px', minWidth: '28px', textAlign: 'right' }}>{durationStr}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <span className="flex-shrink-0 font-mono" style={{ fontSize: '9px', color: blockColor, minWidth: '22px' }}>done</span>
+                              <span className="flex-shrink-0 tabular-nums" style={{ fontSize: '9px', color: blockColor, minWidth: '22px' }}>done</span>
                               <div className="flex-1 h-[4px] rounded-full bg-muted/30 overflow-hidden">
                                 <div className="h-full rounded-full transition-all" style={{ width: `${actualBarPct}%`, backgroundColor: blockColor }} />
                               </div>
-                              <span className="font-mono flex-shrink-0" style={{ fontSize: '9px', color: blockColor, minWidth: '28px', textAlign: 'right' }}>
+                              <span className="tabular-nums flex-shrink-0" style={{ fontSize: '9px', color: blockColor, minWidth: '28px', textAlign: 'right' }}>
                                 {actualDurationStr}{Math.abs(overrunMin) >= 3 ? ` ${overrunMin > 0 ? '+' : ''}${overrunMin}m` : ''}
                               </span>
                             </div>
@@ -2844,7 +2803,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                                 autoFocus
                                 value={editingActualStart}
                                 onChange={e => setEditingActualStart(e.target.value)}
-                                className="w-[52px] font-mono tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                className="w-[52px] tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
                                 style={{ fontSize: compactLayout ? '10px' : '12px' }}
                                 placeholder="HH:MM"
                                 onKeyDown={e => {
@@ -2856,7 +2815,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                               <input
                                 value={editingActualEnd}
                                 onChange={e => setEditingActualEnd(e.target.value)}
-                                className="w-[52px] font-mono tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                className="w-[52px] tabular-nums bg-secondary rounded px-1 py-0 text-center focus:outline-none focus:ring-1 focus:ring-primary/40"
                                 style={{ fontSize: compactLayout ? '10px' : '12px' }}
                                 placeholder="HH:MM"
                                 onKeyDown={e => {
@@ -2909,7 +2868,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       <div className="h-full rounded-full transition-all" style={{ width: `${blockProgressPct}%`, backgroundColor: colorWithAlpha(0.5) }} />
                     </div>
                     <span
-                      className="text-muted-foreground/50 font-mono"
+                      className="text-muted-foreground/50 tabular-nums"
                       style={{ fontSize: blockWidthPx >= 215 && height >= 150 ? '12px' : blockWidthPx >= 185 && height >= 110 ? '11px' : '10px' }}
                     >
                       {blockProgressPct}%
@@ -3156,7 +3115,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     {previewTitle || (isPastDrop ? 'Log actual time' : 'Drop to schedule')}
                   </span>
                   {!previewCompact && (
-                    <span className="flex-shrink-0 font-mono text-[10.5px] leading-none text-muted-foreground/55">
+                    <span className="flex-shrink-0 tabular-nums text-[10.5px] leading-none text-muted-foreground/55">
                       {fmtTime(dropIndicatorMin)} → {fmtTime(Math.min(dropIndicatorMin + previewDur, END_TOTAL_MIN))}
                     </span>
                   )}
@@ -3278,7 +3237,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           autoFocus
                           enterKeyHint="done"
                         />
-                      <div className="flex flex-shrink-0 items-center gap-1 font-mono tabular-nums text-muted-foreground/68" style={{ fontSize: '10px' }}>
+                      <div className="flex flex-shrink-0 items-center gap-1 tabular-nums text-muted-foreground/68" style={{ fontSize: '10px' }}>
                         <div className="hidden items-center gap-0.5 rounded-full bg-background/48 px-1.5 py-1 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.24)] xl:inline-flex">
                           <input
                             className="w-[36px] bg-transparent text-center focus:outline-none"
@@ -3565,7 +3524,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       {tOr('plan.sampleBlock', 'Example task')}
                     </span>
                   </div>
-                  <div className="mt-1 font-mono tabular-nums text-[12px] text-muted-foreground/75">
+                  <div className="mt-1 tabular-nums text-[12px] text-muted-foreground/75">
                     {tOr('plan.sampleTimeRange', '09:00 → 10:00')} <span className="text-muted-foreground/50">• 1h</span>
                   </div>
                 </div>
@@ -3580,8 +3539,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             /** Minutes between tasks — primary cue for readable “hero” pill vs quiet chip */
             const FULL_PILL_MIN_MINUTES = 28;
             const gaps: { startMin: number; endMin: number }[] = [];
+            // Track the latest end seen so far: with overlapping columns the
+            // previous block by start time can end before an earlier, longer one,
+            // which produced "free" pills drawn on top of occupied time.
+            let coveredUntil = -Infinity;
             for (let i = 0; i < sortedPlanBlocks.length - 1; i++) {
-              const gapStart = sortedPlanBlocks[i].endMin;
+              coveredUntil = Math.max(coveredUntil, sortedPlanBlocks[i].endMin);
+              const gapStart = coveredUntil;
               const gapEnd = sortedPlanBlocks[i + 1].startMin;
               if (gapEnd - gapStart < 5) continue;
               // Note: we intentionally still show the gap pill even when the NEXT
@@ -3686,7 +3650,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 className="absolute right-1 z-[53] -translate-y-1/2 pointer-events-none"
                 style={{ top: minToY(nowPreciseMin) }}
               >
-                <span className="inline-flex items-center rounded-full bg-background/72 px-1.5 py-[2px] font-mono text-[10px] tabular-nums tracking-[0.02em] text-foreground/55 backdrop-blur-[3px]">
+                <span className="inline-flex items-center rounded-full bg-background/72 px-1.5 py-[2px] tabular-nums text-[10px] tracking-[0.02em] text-foreground/55 backdrop-blur-[3px]">
                   {nowTimeLabel}
                 </span>
               </div>
