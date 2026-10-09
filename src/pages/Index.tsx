@@ -32,7 +32,6 @@ import { showUndoToast } from '@/lib/undoToast';
 import { extractLeadingEmoji } from '@/lib/emoji';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { FocusRecapPrompt, type FocusRecapDraft } from '@/components/FocusRecapPrompt';
-import { useLifeReminder } from '@/hooks/useLifeReminder';
 
 function isActivelyRunningTodo(todo: { timer_started_at: string | null; timer_ended_at: string | null }) {
   if (!todo.timer_started_at || todo.timer_ended_at) return false;
@@ -112,7 +111,6 @@ function AppSideSheet({
 const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const [searchParams] = useSearchParams();
   const { t, lang } = useLanguage();
-  useLifeReminder({ disabled: publicDemo }); // disable personal reminder behavior in public demo
   const isEmbeddedDemo = searchParams.get('embed') === '1';
   const forcedDemoStep = searchParams.get('demoStep');
   const landingDemoMode = publicDemo || (isEmbeddedDemo && !!forcedDemoStep);

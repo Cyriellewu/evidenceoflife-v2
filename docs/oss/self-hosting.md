@@ -82,7 +82,6 @@ supabase functions deploy google-calendar-sync
 | External link images | `image-proxy` + anon `apikey` query |
 | Life replay / smart input | `LOVABLE_API_KEY` + functions |
 | Google Calendar sync | Google OAuth client + calendar functions + `APP_URL` |
-| Optional ntfy life reminders | User topic in Profile (client → ntfy.sh or self-hosted); no edge secret |
 
 ## 6. Run locally
 
