@@ -58,17 +58,31 @@ export default function PublicDemo() {
   return (
     <div className="relative min-h-screen bg-background">
       {!isEmbedded && (
-        // Compact corner pill: a full-width centered banner covered page headers
-        // (date, calendar view switcher) on both desktop and mobile.
-        <div className="fixed right-2 top-1 z-[135] flex items-center gap-2 rounded-full border border-primary/15 bg-background/90 py-1 pl-3 pr-1 shadow-[0_14px_40px_-24px_rgba(74,46,29,0.42)] backdrop-blur-md md:right-auto md:left-1/2 md:top-3 md:-translate-x-1/2">
-          <p className="text-[11px] text-muted-foreground" title="Sample data only, not saved to any account.">
-            <span className="font-medium text-foreground">Demo</span>
-            <span className="hidden xl:inline"><span className="mx-1.5 text-muted-foreground/40">·</span>Sample data, not saved</span>
-          </p>
-          <Button size="sm" className="h-7 shrink-0 rounded-full px-3 text-xs" onClick={handleAuth}>
-            Sign in
-          </Button>
-        </div>
+        <>
+          {/* Phone: thin in-flow strip above the app so it never covers the
+              header switcher or the date. */}
+          <div className="flex items-center gap-2 border-b border-border/40 bg-background px-4 py-1.5 pt-[calc(env(safe-area-inset-top)+0.375rem)] md:hidden">
+            <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground">Demo</span>
+              <span className="mx-1.5 text-muted-foreground/40">·</span>
+              Sample data, not saved
+            </p>
+            <Button size="sm" className="h-7 shrink-0 rounded-full px-3 text-xs" onClick={handleAuth}>
+              Sign in
+            </Button>
+          </div>
+          {/* Desktop: compact pill centered in the top margin, clear of
+              per-page header actions on both sides. */}
+          <div className="fixed left-1/2 top-3 z-[135] hidden -translate-x-1/2 items-center gap-2 rounded-full border border-primary/15 bg-background/90 py-1 pl-3 pr-1 shadow-[0_14px_40px_-24px_rgba(74,46,29,0.42)] backdrop-blur-md md:flex">
+            <p className="text-[11px] text-muted-foreground" title="Sample data only, not saved to any account.">
+              <span className="font-medium text-foreground">Demo</span>
+              <span className="hidden xl:inline"><span className="mx-1.5 text-muted-foreground/40">·</span>Sample data, not saved</span>
+            </p>
+            <Button size="sm" className="h-7 shrink-0 rounded-full px-3 text-xs" onClick={handleAuth}>
+              Sign in
+            </Button>
+          </div>
+        </>
       )}
 
       <Index publicDemo />
