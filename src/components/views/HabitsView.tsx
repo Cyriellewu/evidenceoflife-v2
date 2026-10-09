@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useMemo, useRef, useEffect, KeyboardEvent, type ReactNode } from 'react';
 import { format, subDays } from 'date-fns';
 import { Plus, MoreHorizontal, Trash2, Flame } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -68,7 +68,7 @@ function hueFor(cat: string | null): Hue {
   return HUES[h % HUES.length];
 }
 
-export function HabitsView() {
+export function HabitsView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
   const { lang } = useLanguage();
   const {
     dues,
@@ -140,7 +140,7 @@ export function HabitsView() {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <SheetHeader
-        title={lang === 'zh' ? '习惯' : 'Habits'}
+        title={titleSlot ?? (lang === 'zh' ? '习惯' : 'Habits')}
         subtitle={
           habits.length === 0
             ? undefined

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ChevronDown, ChevronUp, Mic } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
@@ -37,12 +37,14 @@ export function DuesView({
   voiceSheetOpen,
   initialMode = 'deadline',
   lockedMode = false,
+  titleSlot,
 }: {
   onBack?: () => void;
   onOpenVoiceSheet?: () => void;
   voiceSheetOpen?: boolean;
   initialMode?: DuesViewMode;
   lockedMode?: boolean;
+  titleSlot?: ReactNode;
 }) {
   const { t, lang } = useLanguage();
   const { dues, addDue, addToToday, deleteDue, updateDue, addStep, toggleStep, deleteStep, reorderDues, incrementHabitCount, setHabitCount, refetch } = useDues();
@@ -466,11 +468,11 @@ export function DuesView({
     <div className="flex h-full w-full flex-col overflow-hidden">
       {lockedMode && (
         <SheetHeader
-          title={
+          title={titleSlot ?? (
             isDeadlineMode
               ? (lang === 'zh' ? '截止任务' : 'Deadlines')
               : (lang === 'zh' ? '习惯' : 'Habits')
-          }
+          )}
           subtitle={
             isDeadlineMode
               ? (lang === 'zh' ? '保留有期限的任务,按期推进。' : 'Time-bound tasks. Pull the next one into Today.')

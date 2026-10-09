@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Calendar, ChevronRight, Clock3, Link2, LogOut, MapPin, Pin, Repeat, StickyNote, User } from 'lucide-react';
+import { Calendar, ChevronRight, Clock3, Library, LogOut, MapPin, Pin, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { TabType } from '@/types';
 import { cn } from '@/lib/utils';
@@ -20,12 +20,11 @@ interface SideNavProps {
   variant?: 'rail' | 'panel';
 }
 
-// Maps a sheet-opener tab id to the Index activeSheet key.
-const SHEET_KEY_BY_TAB: Partial<Record<TabType, SheetKey>> = {
-  dues: 'dues',
-  habits: 'habits',
-  notes: 'notes',
-  linkup: 'links',
+// Maps a sheet-opener tab id to the Index activeSheet keys it covers. Notes +
+// Links share the Library sheet; Deadlines + Habits share the Upcoming sheet.
+const SHEET_KEYS_BY_TAB: Partial<Record<TabType, SheetKey[]>> = {
+  notes: ['notes', 'links'],
+  dues: ['dues', 'habits'],
 };
 
 // Primary navigation tabs (full-page views)
@@ -35,23 +34,15 @@ const tabConfig: { id: TabType; icon: typeof Clock3; labelKey: string }[] = [
   { id: 'map', icon: MapPin, labelKey: 'nav.places' },
 ];
 
-// Sheet-opener quick-access buttons, grouped by the role each plays in the
-// Plan → Live → Capture → Revisit loop. "Evidence" holds the material that
-// proves a day actually happened; "Obligations" holds what keeps life moving.
+// Sheet-opener quick-access buttons: Library (notes + quick links) and
+// Upcoming (deadlines + habits), each opening one shared sheet.
 type SheetItem = { id: TabType; icon: typeof Clock3; shortLabel: string; hint: string };
 const sheetGroups: { labelKey: string; items: SheetItem[] }[] = [
   {
-    labelKey: 'sidenav.evidence',
+    labelKey: 'sidenav.more',
     items: [
-      { id: 'notes', icon: StickyNote, shortLabel: 'Notes', hint: 'Lists, images, reminders' },
-      { id: 'linkup', icon: Link2, shortLabel: 'Links', hint: 'Collections & references' },
-    ],
-  },
-  {
-    labelKey: 'sidenav.obligations',
-    items: [
-      { id: 'dues', icon: Pin, shortLabel: 'Deadlines', hint: 'Due dates & urgent work' },
-      { id: 'habits', icon: Repeat, shortLabel: 'Habits', hint: 'Repeatable routines' },
+      { id: 'notes', icon: Library, shortLabel: 'Library', hint: 'Notes & quick links' },
+      { id: 'dues', icon: Pin, shortLabel: 'Upcoming', hint: 'Deadlines & habits' },
     ],
   },
 ];
@@ -315,7 +306,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                   </span>
                   <div className="space-y-0.5">
                     {group.items.map(({ id, icon: Icon, shortLabel, hint }) => {
-                      const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
+                      const isOpen = activeSheet != null && !!SHEET_KEYS_BY_TAB[id]?.includes(activeSheet);
                       return (
                       <button
                         key={id}
@@ -349,7 +340,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
             <div className="mt-3 flex flex-col gap-0.5 border-t border-border/45 pt-3">
               {sheetGroups.flatMap((group) =>
                 group.items.map(({ id, icon: Icon, shortLabel, hint }) => {
-                  const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
+                  const isOpen = activeSheet != null && !!SHEET_KEYS_BY_TAB[id]?.includes(activeSheet);
                   return (
                     <button
                       key={id}

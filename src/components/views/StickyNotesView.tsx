@@ -1,4 +1,4 @@
-import { KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp, Link2, Plus, X } from 'lucide-react';
 import { useStickyNotes, StickyCategory, StickyNote } from '@/hooks/useStickyNotes';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -568,7 +568,7 @@ function loadStickyCategoryOrder(): string[] {
   return [];
 }
 
-export function StickyNotesView() {
+export function StickyNotesView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
   const { notes, addNote, deleteNote, restoreNote, renameNote, reorderNote, addItem, renameItem, attachItemLink, removeItemLink, attachItemImage, removeItemImage, toggleItem, deleteItem } = useStickyNotes();
   const { t, lang } = useLanguage();
 
@@ -669,7 +669,7 @@ export function StickyNotesView() {
   return (
     <div className="flex h-full flex-col bg-[hsl(var(--surface-soft))]">
       <SheetHeader
-        title={t('notes.header')}
+        title={titleSlot ?? t('notes.header')}
         subtitle={lang === 'zh' ? '小清单、图片和需要记住的事。' : 'Small lists, images, and things to remember.'}
         secondaryRow={
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/55 bg-card/60 px-2 py-1.5 dark:border-border/60 dark:bg-card/45">
