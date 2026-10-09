@@ -769,8 +769,13 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
               {isResting && (
                 <span className="inline-flex items-center gap-1 text-amber-500/70">
                   <span>{fmtSec(priorWorkSec)}</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span className="text-muted-foreground/55">{lang === 'zh' ? `休${fmtSec(restSec)}` : `${fmtSec(restSec)} ago`}</span>
+                  {/* A rest gap past a day ("184d4h ago") is noise, not signal. */}
+                  {restSec < 86400 && (
+                    <>
+                      <span className="text-muted-foreground/40">·</span>
+                      <span className="text-muted-foreground/55">{lang === 'zh' ? `休${fmtSec(restSec)}` : `${fmtSec(restSec)} ago`}</span>
+                    </>
+                  )}
                 </span>
               )}
               {!isResting && tagLabel && (
