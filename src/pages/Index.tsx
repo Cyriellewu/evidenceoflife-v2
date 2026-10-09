@@ -383,7 +383,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     });
     // Auto-create visit in places system when moment has location
     if (newMoment && data.location && data.location.lat && data.location.lng) {
-      placesData.recordVisitFromMoment(data.location, selectedDateStr, newMoment.id, data.photos);
+      placesData.recordVisitFromMoment(data.location, selectedDateStr, newMoment.id, newMoment.photos);
     }
     return newMoment;
   }, [addMoment, selectedDateStr, placesData]);

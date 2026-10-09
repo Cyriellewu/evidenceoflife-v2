@@ -43,8 +43,11 @@ function sameName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
+// Visits only keep storage references. Inline data: URLs are multi-MB and
+// belong in Storage via the moment upload path, never in a table row.
 function uniquePhotos(photos?: string[]): string[] {
-  return Array.from(new Set((photos || []).filter(photo => typeof photo === 'string' && photo.trim().length > 0)));
+  return Array.from(new Set((photos || []).filter(photo =>
+    typeof photo === 'string' && photo.trim().length > 0 && !photo.startsWith('data:'))));
 }
 
 export function usePlaces() {
