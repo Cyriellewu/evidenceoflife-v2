@@ -48,7 +48,7 @@ export function useProfile() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, user_id, display_name, avatar_url, bedtime_hour, bedtime_minute, created_at, updated_at, wake_hour, wake_minute, homepage_image_url, language, settings')
         .eq('user_id', user.id)
         .single();
 

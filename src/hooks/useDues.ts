@@ -71,6 +71,7 @@ export function useDues() {
       const { data: allTodos, error } = await fetchSupabaseWithRetry(
         () => supabase
           .from('todos')
+          // eslint-disable-next-line no-restricted-syntax -- prod schema lags migrations (todos/imported_events columns differ from types.ts); an explicit list would 400. See schema-drift follow-up.
           .select('*')
           .or('date.like._due_%,parent_due_id.not.is.null')
           .order('created_at', { ascending: false }),

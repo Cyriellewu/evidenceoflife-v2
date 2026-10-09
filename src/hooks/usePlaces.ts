@@ -66,8 +66,8 @@ export function usePlaces() {
 
     try {
       const [citiesRes, placesRes, visitsRes] = await Promise.all([
-        supabase.from('cities').select('*').eq('user_id', user.id),
-        supabase.from('places').select('*').eq('user_id', user.id),
+        supabase.from('cities').select('id, user_id, name, country, lat, lng, created_at').eq('user_id', user.id),
+        supabase.from('places').select('id, user_id, city_id, name, category, lat, lng, created_at').eq('user_id', user.id),
         // Skip visits.photos: legacy rows hold multi-MB base64 images, and pulling
         // them on every refresh exhausted the egress quota. The map falls back to
         // the linked moment's storage photos instead.

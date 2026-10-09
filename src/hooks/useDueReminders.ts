@@ -23,7 +23,7 @@ export function useDueReminders() {
     if (!user) return;
     const { data } = await supabase
       .from('due_reminders')
-      .select('*')
+      .select('id, user_id, due_id, reminder_type, remind_before_minutes, is_recurring, recurring_interval_days, is_active, last_notified_at, created_at, updated_at')
       .eq('user_id', user.id);
     if (data) setReminders(data as DueReminder[]);
   }, [user]);
