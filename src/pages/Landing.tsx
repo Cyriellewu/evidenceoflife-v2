@@ -34,6 +34,13 @@ const outcomeKeys = [
   ['landing.outcome.3.title', 'landing.outcome.3.body'],
 ];
 
+const faqKeys = [
+  ['landing.faq.medical.q', 'landing.faq.medical.a'],
+  ['landing.faq.free.q', 'landing.faq.free.a'],
+  ['landing.faq.data.q', 'landing.faq.data.a'],
+  ['landing.faq.demo.q', 'landing.faq.demo.a'],
+];
+
 const framePresets: Record<string, { scale: number; x: number; y: number; width: string; height: string }> = {
   plan: { scale: 0.84, x: -12, y: -6, width: '118%', height: '118%' },
   focus: { scale: 0.84, x: -12, y: -6, width: '118%', height: '118%' },
@@ -381,7 +388,24 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ── 5. Final CTA (narrative quote folded in as lead-in) ──── */}
+        {/* ── 5. FAQ — scope, cost, privacy, demo ──────────────────── */}
+        <section className="mx-auto max-w-3xl px-6 pt-24 lg:px-8">
+          <Reveal>
+            <h2 className="text-center text-3xl font-semibold tracking-[-0.03em] text-[rgb(var(--lp-ink))] sm:text-4xl">
+              {t('landing.faq.h2')}
+            </h2>
+            <dl className="mt-10 divide-y divide-[rgb(var(--lp-border)/0.1)] border-y border-[rgb(var(--lp-border)/0.1)]">
+              {faqKeys.map(([qKey, aKey]) => (
+                <div key={qKey} className="py-5">
+                  <dt className="text-base font-semibold text-[rgb(var(--lp-ink-strong))]">{t(qKey)}</dt>
+                  <dd className="mt-2 text-[15px] leading-7 text-[rgb(var(--lp-brown-600))]">{t(aKey)}</dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
+        </section>
+
+        {/* ── 6. Final CTA (narrative quote folded in as lead-in) ──── */}
         <section className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
           <Reveal>
             <div className="relative overflow-hidden rounded-3xl bg-[rgb(var(--lp-ink))] px-8 py-14 text-center shadow-[0_44px_88px_-44px_rgb(var(--lp-ink)/0.75)] sm:px-16 sm:py-16">
