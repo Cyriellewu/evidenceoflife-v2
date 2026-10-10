@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { markPendingSignup, trackEvent } from '@/lib/analytics';
+import { getAttribution, markPendingSignup, trackEvent } from '@/lib/analytics';
 import { getErrorMessage } from '@/lib/utils';
 import { BrandLogo } from '@/components/BrandLogo';
 
@@ -98,6 +98,7 @@ export default function Auth() {
       trackEvent('sign_up_clicked', {
         method: 'email',
         page: '/auth',
+        ...getAttribution(),
       });
       markPendingSignup('email');
 
@@ -119,6 +120,7 @@ export default function Auth() {
         if (data.session?.user) {
           trackEvent('account_created', {
             method: 'email',
+            ...getAttribution(),
           });
           navigate('/app');
           return;
@@ -170,9 +172,13 @@ export default function Auth() {
     try {
       const redirectTo = `${window.location.origin}/auth/callback`;
 
+      // Google is one button for both sign-in and sign-up; auth_mode tells
+      // them apart. account_created is decided server-side in AuthCallback.
       trackEvent('sign_up_clicked', {
         method: 'google',
         page: '/auth',
+        auth_mode: isLogin ? 'login' : 'signup',
+        ...getAttribution(),
       });
       markPendingSignup('google');
 

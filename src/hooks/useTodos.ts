@@ -628,6 +628,11 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
     if (!error && data) {
       const todo = data as Todo;
       setTodos(prev => prev.map(t => t.id === tempId ? todo : t));
+      // Every real (non-demo) task; no title or other user text is sent.
+      trackEvent('todo_created', {
+        has_plan_time: !!(options?.plan_started_at),
+        is_recurring: !!isRecurring,
+      });
       if (!hasTrackedFirstAction(user.id, 'todo_created')) {
         trackEvent('first_action', {
           action_type: 'todo_created',
@@ -939,6 +944,7 @@ export function useTodos(date?: string, options?: { sideEffects?: boolean }) {
       return next;
     });
     if (isDemo || !dbWrite) return;
+    trackEvent('timer_started', { source: 'step' });
     await supabase.from('todos').update({ timer_started_at: dbWrite.timer_started_at, timer_seconds: dbWrite.timer_seconds }).eq('id', stepId);
   }, [isDemo]);
 

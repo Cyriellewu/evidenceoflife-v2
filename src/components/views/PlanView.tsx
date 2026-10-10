@@ -48,6 +48,7 @@ import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getActivityAccentColor } from '@/lib/activityColors';
+import { trackEvent } from '@/lib/analytics';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 import { createTodoDoneUndoSnapshot, restoreTodoDoneFromUndo } from '@/lib/todoDoneUndo';
 import {
@@ -2148,6 +2149,7 @@ export function PlanView({
       }
       updateTodo(todo.id, { timer_started_at: startISO, timer_ended_at: null });
       window.dispatchEvent(new Event('eol-timer-started'));
+      if (!isDemo) trackEvent('timer_started', { source: 'focus' });
     } finally {
       setTimeout(() => startFocusInFlightRef.current.delete(todo.id), 400);
     }
@@ -2192,6 +2194,7 @@ export function PlanView({
     setFreshTimerStarts(prev => ({ ...prev, [todoId]: startISO }));
     updateTodo(todoId, { timer_started_at: startISO, timer_ended_at: null, timer_seconds: 0 });
     window.dispatchEvent(new Event('eol-timer-started'));
+    if (!isDemo) trackEvent('timer_started', { source: 'reset' });
     setResetPromptTodoId(null);
     setShowOverlayForId(todoId);
   };
@@ -2303,6 +2306,7 @@ export function PlanView({
         const startISO = new Date().toISOString();
         setFreshTimerStarts(prev => ({ ...prev, [newTodo.id]: startISO }));
         await updateTodo(newTodo.id, { timer_started_at: startISO });
+        if (!isDemo) trackEvent('timer_started', { source: 'add_and_start' });
         if (activeTimerTodos.length === 0 && showOverlayForId === null) {
           setShowOverlayForId(newTodo.id);
         }
