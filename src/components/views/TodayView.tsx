@@ -1,3 +1,5 @@
+import { useAuth } from '@/hooks/useAuth';
+import { trackEvent } from '@/lib/analytics';
 import { useMemo, useState, useRef, useCallback, useEffect, ChangeEvent } from 'react';
 import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
@@ -138,6 +140,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const isDarkMode = useIsDarkMode();
   const { getWorkType } = useWorkTypes();
   const { dues, addDue, updateDue, incrementHabitCount, setHabitCount } = useDues();
+  const { isDemo } = useAuth();
   const { defaultRecapTags, customRecapTags, allEmojis, orderedRecapTags } = useCustomOptions();
   const emojis = allEmojis;
   const quickTags = orderedRecapTags.map(key => {
@@ -226,6 +229,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     if (onEditMoment) {
       onEditMoment(moment.id, { timer_started_at: startISO } as Partial<Moment>);
     }
+    if (!isDemo) trackEvent('timer_started', { source: 'moment' });
   };
 
   const startImportedEventTimer = (event: ImportedEvent) => {
@@ -244,6 +248,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       seconds: event.timer_seconds ?? null,
     });
     onUpdateImportedEvent?.(event.id, { timer_started_at: startISO, timer_ended_at: null, timer_seconds: 0 });
+    if (!isDemo) trackEvent('timer_started', { source: 'calendar_event' });
   };
 
   const handleMomentTimerStop = () => {

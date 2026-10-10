@@ -304,6 +304,13 @@ export function useMoments() {
     };
     setMoments(prev => [newMoment, ...prev]);
 
+    // Focus sessions auto-log a moment; split them from manual captures so
+    // activation can be measured both ways. No text is sent.
+    trackEvent('moment_created', {
+      has_photo: photoUrls.length > 0,
+      has_location: !!moment.location,
+      source: moment.tags?.includes('focus-session') ? 'focus_session' : 'manual',
+    });
     if (!hasTrackedFirstAction(user.id, 'moment_created')) {
       trackEvent('first_action', {
         action_type: 'moment_created',

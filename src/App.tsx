@@ -8,7 +8,7 @@ import { LanguageProvider } from "@/hooks/useLanguage";
 import { AccentColorProvider } from "@/hooks/useAccentColor";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { Suspense, lazy, useEffect } from "react";
-import { identifyUser } from "@/lib/analytics";
+import { identifyUser, trackDayReturned } from "@/lib/analytics";
 
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -56,11 +56,15 @@ function HomeRoute() {
 }
 
 function AnalyticsIdentity() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
+  // The public demo signs every visitor in as one shared demo user; don't let
+  // that merge strangers into a single analytics identity.
+  const realUserId = !isDemo ? user?.id ?? null : null;
 
   useEffect(() => {
-    identifyUser(user?.id ?? null);
-  }, [user?.id]);
+    identifyUser(realUserId);
+    if (realUserId) trackDayReturned(realUserId);
+  }, [realUserId]);
 
   return null;
 }

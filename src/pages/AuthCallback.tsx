@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { consumePendingSignup, trackEvent } from '@/lib/analytics';
+import { consumePendingSignup, getAttribution, isFreshAccount, trackEvent } from '@/lib/analytics';
 import { getErrorMessage } from '@/lib/utils';
 
 export default function AuthCallback() {
@@ -29,9 +29,12 @@ export default function AuthCallback() {
 
         if (session?.user) {
           const signupMethod = consumePendingSignup();
-          if (signupMethod) {
+          // The pending flag is set on every Google click and can go stale for
+          // email, so only count it when this is the account's first sign-in.
+          if (signupMethod && isFreshAccount(session.user.created_at, session.user.last_sign_in_at)) {
             trackEvent('account_created', {
               method: signupMethod,
+              ...getAttribution(),
             });
           }
           navigate('/app', { replace: true });
