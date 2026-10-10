@@ -106,6 +106,7 @@ export function useImportedEvents() {
     try {
       const { data, error } = await supabase
         .from('imported_events')
+        // eslint-disable-next-line no-restricted-syntax -- prod schema lags migrations (todos/imported_events columns differ from types.ts); an explicit list would 400. See schema-drift follow-up.
         .select('*')
         .order('start_time', { ascending: true });
 

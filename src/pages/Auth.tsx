@@ -1,16 +1,23 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { markPendingSignup, trackEvent } from '@/lib/analytics';
+import { getAttribution, markPendingSignup, trackEvent } from '@/lib/analytics';
 import { getErrorMessage } from '@/lib/utils';
 import { BrandLogo } from '@/components/BrandLogo';
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  // The URL is the single source of truth for the form mode: sign-up CTAs link
+  // to `?mode=signup`, while plain /auth (expired sessions, "Sign in" links)
+  // stays on sign-in. Toggling rewrites the URL so refresh/back keep the mode.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isLogin = searchParams.get('mode') !== 'signup';
+  const setIsLogin = (login: boolean) => {
+    setSearchParams(login ? {} : { mode: 'signup' }, { replace: true });
+  };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -98,6 +105,7 @@ export default function Auth() {
       trackEvent('sign_up_clicked', {
         method: 'email',
         page: '/auth',
+        ...getAttribution(),
       });
       markPendingSignup('email');
 
@@ -119,6 +127,7 @@ export default function Auth() {
         if (data.session?.user) {
           trackEvent('account_created', {
             method: 'email',
+            ...getAttribution(),
           });
           navigate('/app');
           return;
@@ -170,9 +179,13 @@ export default function Auth() {
     try {
       const redirectTo = `${window.location.origin}/auth/callback`;
 
+      // Google is one button for both sign-in and sign-up; auth_mode tells
+      // them apart. account_created is decided server-side in AuthCallback.
       trackEvent('sign_up_clicked', {
         method: 'google',
         page: '/auth',
+        auth_mode: isLogin ? 'login' : 'signup',
+        ...getAttribution(),
       });
       markPendingSignup('google');
 
@@ -210,7 +223,7 @@ export default function Auth() {
         <div className="flex flex-col items-center gap-2 text-center">
           <BrandLogo alt="Logo" className="w-16 h-16" />
           <h1 className="font-brand text-[34px] text-foreground">Evidence of life</h1>
-          <p className="text-sm text-muted-foreground">Record your daily moments</p>
+          <p className="text-sm text-muted-foreground">{isLogin ? 'Welcome back' : 'Create your free account'}</p>
         </div>
 
         <div className="mt-7">
