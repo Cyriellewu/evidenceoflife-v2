@@ -10,7 +10,9 @@ import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { SideNav } from '@/components/SideNav';
 import { SheetSwitcher } from '@/components/sheet/SheetSwitcher';
 import { MobileNavChrome } from '@/components/MobileNavChrome';
-import { PlanPaneSwitcher } from '@/components/PlanPaneSwitcher';
+import { PlanPaneSwitcher, writePlanMobilePane } from '@/components/PlanPaneSwitcher';
+import { useAuth } from '@/hooks/useAuth';
+import { dismissFirstRunGuide, getFirstRunSteps, isFirstRunAccount, isFirstRunGuideDismissed } from '@/lib/firstRun';
 import { TodayView } from '@/components/views/TodayView';
 import { PlanView } from '@/components/views/PlanView';
 
@@ -117,8 +119,17 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const landingDemoMode = publicDemo || (isEmbeddedDemo && !!forcedDemoStep);
   const demoFixedDate = useMemo(() => new Date('2026-04-08T12:00:00'), []);
   const [activeTab, setActiveTab] = useState<TabType>('today');
+  const { user, isDemo } = useAuth();
+  // New accounts (first 72h) start on Plan with a short guide instead of an
+  // empty Recap. Decided once, synchronously, from account age — never from
+  // "no data loaded", which a failed fetch would fake for existing users.
+  const [isFirstRun] = useState(() => (
+    !landingDemoMode && !isEmbeddedDemo && isFirstRunAccount({ isDemo, createdAt: user?.created_at })
+  ));
+  const [guideDismissed, setGuideDismissed] = useState(() => isFirstRunGuideDismissed(user?.id));
   const [todayMode, setTodayMode] = useState<TodayMode>(() => {
     if (typeof window === 'undefined') return 'plan';
+    if (isFirstRun && !guideDismissed) return 'plan';
     return window.matchMedia('(max-width: 767px)').matches ? 'recap' : 'plan';
   });
   const [voiceSheetOpen, setVoiceSheetOpen] = useState(false);
@@ -181,6 +192,20 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const { addDue, dues } = useDues();
   const placesData = usePlaces();
   const momentStats = useMemo(() => getStats(), [getStats]);
+  const showFirstRunGuide = isFirstRun && !guideDismissed;
+  const firstRunSteps = useMemo(() => getFirstRunSteps(todos, moments.length), [todos, moments.length]);
+  const handleDismissFirstRunGuide = useCallback(() => {
+    dismissFirstRunGuide(user?.id);
+    setGuideDismissed(true);
+  }, [user?.id]);
+
+  // A first-run phone user must see the list pane (where the guide lives), even
+  // if this device last used the timeline pane for another account.
+  useEffect(() => {
+    if (showFirstRunGuide) writePlanMobilePane('list');
+    // Once, on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const embedTourEnabled = isEmbeddedDemo && searchParams.get('tour') === '1';
 
   useEffect(() => {
@@ -560,6 +585,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 voiceSheetOpen={voiceSheetOpen}
                 overlayOpen={!!activeSheet}
                 onSwitchToRecap={() => setTodayMode('recap')}
+                firstRunGuide={showFirstRunGuide ? { steps: firstRunSteps, onDismiss: handleDismissFirstRunGuide } : undefined}
                 moments={dateMoments}
                 onAddMoment={(data) => handleAddMoment(data)}
                 onEditMoment={handleEditMoment}
