@@ -394,7 +394,7 @@ export function DuesView({
       // Refetch again to ensure we have the latest data
       const { data: freshData } = await supabase
         .from('todos')
-        .select('*')
+        .select('id')
         .like('date', '_due_%')
         .eq('title', finalTitle)
         .order('created_at', { ascending: false })
