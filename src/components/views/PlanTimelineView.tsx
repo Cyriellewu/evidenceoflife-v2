@@ -2132,22 +2132,22 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   The clearest "did I stick to my plan?" signal in Both mode. */}
               {showDeviationChip && actHeight >= 18 && blockWidthPx >= 88 && (
                 <div
-                  className="absolute right-1 top-1 z-20 flex items-center gap-[2px] rounded-full px-1.5 py-[1px] font-semibold leading-none pointer-events-none whitespace-nowrap"
+                  className="absolute right-1 top-1 z-20 flex items-center rounded-full px-1.5 py-[1px] font-medium leading-none pointer-events-none whitespace-nowrap"
                   style={{
                     fontSize: extraLargeBlockLayout ? '11px' : '10px',
-                    color: colorWithAlpha(isDarkMode ? 0.95 : 0.82),
+                    // Muted on purpose: drift is information, not a warning.
+                    color: 'hsl(var(--muted-foreground))',
                     background: isDarkMode ? 'hsl(240 6% 9% / 0.72)' : 'hsl(0 0% 100% / 0.86)',
-                    boxShadow: `inset 0 0 0 1px ${colorWithAlpha(0.28)}`,
+                    boxShadow: 'inset 0 0 0 1px hsl(var(--border) / 0.6)',
                     backdropFilter: 'blur(2px)',
                   }}
                   title={lang === 'zh'
                     ? `实际比计划${startDeltaMin > 0 ? '晚' : '早'}开始 ${fmtDelta(startDeltaMin)}`
                     : `Started ${fmtDelta(startDeltaMin)} ${startDeltaMin > 0 ? 'later' : 'earlier'} than planned`}
                 >
-                  <span style={{ fontSize: '0.95em', lineHeight: 1 }}>{startDeltaMin > 0 ? '↓' : '↑'}</span>
                   {lang === 'zh'
-                    ? `${startDeltaMin > 0 ? '晚' : '早'}${fmtDelta(startDeltaMin)}`
-                    : `${fmtDelta(startDeltaMin)} ${startDeltaMin > 0 ? 'late' : 'early'}`}
+                    ? `${startDeltaMin > 0 ? '晚了' : '早了'} ${fmtDelta(startDeltaMin)}`
+                    : `${fmtDelta(startDeltaMin)} ${startDeltaMin > 0 ? 'later' : 'earlier'}`}
                 </div>
               )}
               {isTimerActive && (
@@ -3229,7 +3229,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           }}
                           placeholder={
                             isPastRange
-                              ? (lang === 'zh' ? '刚才做了什么？' : 'What did you do?')
+                              ? (lang === 'zh' ? '那时做了什么？' : 'What happened then?')
                               : (lang === 'zh' ? '任务名称…' : 'Task name…')
                           }
                           className="min-w-[96px] flex-1 bg-transparent text-[14px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/45 text-foreground"
