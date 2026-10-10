@@ -157,6 +157,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
 
       const { data, error } = await supabase
         .from('todos')
+        // eslint-disable-next-line no-restricted-syntax -- prod schema lags migrations (todos/imported_events columns differ from types.ts); an explicit list would 400. See schema-drift follow-up.
         .select('*')
         .gte('date', todoRange.start)
         .lte('date', todoRange.end)

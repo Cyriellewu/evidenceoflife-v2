@@ -49,7 +49,7 @@ export function useReminders() {
     try {
       const { data, error } = await supabase
         .from('reminders')
-        .select('*')
+        .select('id, user_id, title, description, interval_days, next_reminder_at, last_reminded_at, is_active, created_at, updated_at')
         .eq('user_id', user.id)
         .order('next_reminder_at', { ascending: true });
       if (!error && data) {
@@ -163,7 +163,7 @@ export function useReminders() {
           // so only one hook/tab can deliver and advance a due reminder.
           const { data } = await supabase
             .from('reminders')
-            .select('*')
+            .select('id, user_id, title, description, interval_days, next_reminder_at, last_reminded_at, is_active, created_at, updated_at')
             .eq('id', r.id)
             .eq('user_id', user.id)
             .maybeSingle();
