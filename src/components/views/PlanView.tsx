@@ -48,12 +48,15 @@ import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getActivityAccentColor } from '@/lib/activityColors';
+import { FirstRunChecklist } from '@/components/FirstRunChecklist';
+import type { FirstRunSteps } from '@/lib/firstRun';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 import { createTodoDoneUndoSnapshot, restoreTodoDoneFromUndo } from '@/lib/todoDoneUndo';
 import {
   PLAN_MOBILE_PANE_EVENT,
   readPlanMobilePane,
   type PlanMobilePane,
+  writePlanMobilePane,
 } from '@/components/PlanPaneSwitcher';
 import {
   getPlanTimelineRhythmPreset,
@@ -1368,6 +1371,7 @@ export function PlanView({
   voiceSheetOpen,
   overlayOpen,
   onSwitchToRecap,
+  firstRunGuide,
   moments = [],
   todos: todosProp,
   pastDayOpenTodos: pastDayOpenTodosProp,
@@ -1389,6 +1393,8 @@ export function PlanView({
   voiceSheetOpen?: boolean;
   overlayOpen?: boolean;
   onSwitchToRecap?: () => void;
+  /** New-account checklist; when set it replaces the empty-list placeholder. */
+  firstRunGuide?: { steps: FirstRunSteps; onDismiss: () => void };
   moments?: Moment[];
   todos?: Todo[];
   pastDayOpenTodos?: Todo[];
@@ -3076,9 +3082,27 @@ export function PlanView({
                 : 'pb-28',
             )}
           >
+              {/* First-run guide replaces the empty state for new accounts, so a
+                  zero-data user never sees two competing onboarding blocks. */}
+              {firstRunGuide && (
+                <FirstRunChecklist
+                  steps={firstRunGuide.steps}
+                  lang={lang}
+                  onAddTask={() => {
+                    if (isMobile) writePlanMobilePane('list');
+                    requestAnimationFrame(() => taskInputRef.current?.focus());
+                  }}
+                  onLogMoment={() => setCaptureSheetOpen(true)}
+                  onSeeRecap={() => {
+                    firstRunGuide.onDismiss();
+                    onSwitchToRecap?.();
+                  }}
+                  onDismiss={firstRunGuide.onDismiss}
+                />
+              )}
               {/* Empty state — when no active tasks, invite the first action rather
                   than leaving the column a black void next to a busy timeline. */}
-              {mainListTodos.filter(t => !t.is_completed).length === 0 && (
+              {!firstRunGuide && mainListTodos.filter(t => !t.is_completed).length === 0 && (
                 <div className="flex flex-col items-center justify-center gap-3.5 px-6 py-20 text-center animate-fade-in">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.08] text-primary/80">
                     <NotebookPen size={22} strokeWidth={1.8} />
