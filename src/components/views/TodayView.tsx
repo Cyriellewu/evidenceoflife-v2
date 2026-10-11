@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { trackEvent } from '@/lib/analytics';
 import { useMemo, useState, useRef, useCallback, useEffect, ChangeEvent } from 'react';
 import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
-import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
+import { addDays, format, isToday, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
 import { MapPin, Image, Camera, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -62,6 +62,8 @@ import {
   buildLocalSummary,
   isStandaloneUrl,
   buildLocalLifeReplay,
+  buildRecapClosing,
+  buildYesterdayNudge,
 } from './today/todayHelpers';
 import {
   DailyHabitTracker,
@@ -321,6 +323,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const today = selectedDate;
   const selectedDateStr = format(today, 'yyyy-MM-dd');
   const todayMoments = getMomentsForDate(format(today, 'yyyy-MM-dd'));
+  // The demo is pinned to 2026-04-08 (Index.tsx demoFixedDate), so treat that as "today" there.
+  const isSelectedToday = isDemo ? selectedDateStr === '2026-04-08' : isToday(selectedDate);
+  const hasYesterdayMoments = getMomentsForDate(format(subDays(today, 1), 'yyyy-MM-dd')).length > 0;
   const recapHabits = useMemo(
     () => dues.filter(due => due.habit_category !== null && due.show_in_recap_daily && !due.is_completed),
     [dues]
@@ -1497,7 +1502,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                     {lang === 'zh' ? '今天的回看' : 'Recap my day'}
                   </p>
                   <p className="mt-3 text-[12px] leading-6 text-muted-foreground/70">
-                    {lang === 'zh' ? '还没有记录。在下方添加一条 moment。' : 'Nothing logged yet. Add a moment below.'}
+                    {isSelectedToday && hasYesterdayMoments
+                      ? buildYesterdayNudge(lang)
+                      : lang === 'zh' ? '还没有记录。在下方添加一条 moment。' : 'Nothing logged yet. Add a moment below.'}
                   </p>
                   <ChevronDown size={16} className="mx-auto mt-3 text-muted-foreground/35 animate-bounce" aria-hidden />
                 </div>
@@ -1589,7 +1596,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                        <span className="text-[13px] font-semibold text-foreground">
                          {activeHours > 0 ? `${activeHours}h` : ''}{activeMins > 0 ? `${activeMins}m` : activeHours > 0 ? '' : '0m'}
                        </span>
-                       <span className="text-muted-foreground/65">active</span>
+                       <span className="text-muted-foreground/65">{t('recap.active')}</span>
                      </>
                    )}
                    {rhythmSegments.length > 0 && (() => {
@@ -1955,7 +1962,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       }
                                       if (e.key === 'Escape') { setInlineInsertTime(null); setInlineInsertText(''); }
                                     }}
-                                    placeholder={lang === 'zh' ? '记录这里发生的事...' : 'What happened here...'}
+                                    placeholder={t('capture.placeholderThen')}
                                     className="flex-1 min-w-0 bg-secondary/50 rounded-lg px-3 py-1.5 text-[14px] focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/30"
                                   />
                                   <button
@@ -1985,7 +1992,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                 >
                                   <div className="flex-1 h-px bg-primary/15 group-hover/insert:bg-primary/25 transition-colors" />
                                   <span className="text-[10px] uppercase tracking-[0.08em] text-primary/35 group-hover/insert:text-primary/55 whitespace-nowrap transition-colors">
-                                    + {lang === 'zh' ? '记录' : 'add'}
+                                    + {t('capture.log')}
                                     {gapMinutes >= 45 && (
                                       <span className="text-muted-foreground/22 ml-1 normal-case tracking-normal">{gapLabel}</span>
                                     )}
@@ -2095,8 +2102,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       >{todo.title}</span>
                                     )}
                                     {isPlanOutline && (
-                                      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive/60 bg-destructive/8 px-1.5 py-0.5 rounded-full flex-shrink-0 ml-auto">
-                                        <X size={8} strokeWidth={2.5} /> {t('recap.missed')}
+                                      <span className="inline-flex items-center text-[10px] font-medium text-muted-foreground/60 bg-foreground/[0.04] px-1.5 py-0.5 rounded-full flex-shrink-0 ml-auto">
+                                        {t('recap.missed')}
                                       </span>
                                     )}
                                     {!isPlanOutline && todo.is_completed && (
@@ -2133,12 +2140,18 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     {!isPlanOutline && (
                                       <button
                                         data-testid="recap-notes-toggle"
-                                        className={RECAP_AUX_ACTION_CLASS}
+                                        className={cn(RECAP_AUX_ACTION_CLASS, !todo.note && '-m-1.5 p-1.5')}
+                                        aria-label={t('recap.notes')}
+                                        aria-expanded={expandedStreamIds.has(todo.id)}
                                         onClick={() => toggleStreamExpand(todo.id)}
                                       >
                                         {expandedStreamIds.has(todo.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                        <span>{todo.note ? 'notes' : 'notes'}</span>
-                                        {todo.note && <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />}
+                                        {todo.note && (
+                                          <>
+                                            <span>{t('recap.notes')}</span>
+                                            <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />
+                                          </>
+                                        )}
                                       </button>
                                     )}
                                   </div>
@@ -2439,12 +2452,18 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       )}
                                       <button
                                         data-testid="recap-notes-toggle"
-                                        className={RECAP_AUX_ACTION_CLASS}
+                                        className={cn(RECAP_AUX_ACTION_CLASS, !detail && '-m-1.5 p-1.5')}
+                                        aria-label={t('recap.notes')}
+                                        aria-expanded={expandedStreamIds.has(moment.id)}
                                         onClick={() => toggleStreamExpand(moment.id)}
                                       >
                                         {expandedStreamIds.has(moment.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                        <span>notes</span>
-                                        {detail && <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />}
+                                        {detail && (
+                                          <>
+                                            <span>{t('recap.notes')}</span>
+                                            <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />
+                                          </>
+                                        )}
                                       </button>
                                     </div>
 
@@ -2567,7 +2586,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   }
                                   if (e.key === 'Escape') { setInlineInsertTime(null); setInlineInsertText(''); }
                                 }}
-                                placeholder={lang === 'zh' ? '记录这里发生的事...' : 'What happened here...'}
+                                placeholder={t('today.placeholder')}
                                 className="flex-1 min-w-0 bg-secondary/50 rounded-lg px-3 py-1.5 text-[14px] focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/30"
                               />
                               <button
@@ -2597,7 +2616,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                             >
                               <div className="flex-1 h-px bg-primary/15 group-hover/insert:bg-primary/25 transition-colors" />
                               <span className="text-[11px] text-primary/40 group-hover/insert:text-primary/60 whitespace-nowrap transition-colors">
-                                + {lang === 'zh' ? '记录' : 'add'}
+                                + {t('capture.log')}
                               </span>
                               <div className="flex-1 h-px bg-primary/15 group-hover/insert:bg-primary/25 transition-colors" />
                             </button>
@@ -2618,6 +2637,17 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               );
             })()}
 
+            {realItemCount > 0 && (
+              <div data-testid="recap-closing" className="mt-5 flex flex-col gap-3">
+                {/* Desktop shows this card in the side column; on phones it closes the day. */}
+                {isMobile && (
+                  <LifeReplay items={timelineItems} lang={lang} dateKey={selectedDateStr} localOnly className="" />
+                )}
+                <p className="text-center text-[12px] text-muted-foreground/60">
+                  {buildRecapClosing(lang, isSelectedToday)}
+                </p>
+              </div>
+            )}
             </>
           );
         })()}

@@ -449,7 +449,9 @@ export function ImportedEventTimeEditor({ event, onUpdate }: { event: ImportedEv
 }
 
 /* ── Life Replay: AI-generated daily narrative ── */
-export function LifeReplay({ items, lang, dateKey }: { items: { type: string; time: Date; endTime?: Date; isPlanOutline?: boolean; data: { title?: string; text?: string | null; emoji?: string | null } }[]; lang: string; dateKey: string }) {
+// localOnly builds the story on-device and never calls the life-replay edge
+// function (used on mobile, where the card is new and shouldn't add AI cost).
+export function LifeReplay({ items, lang, dateKey, localOnly = false, className = 'mb-4' }: { items: { type: string; time: Date; endTime?: Date; isPlanOutline?: boolean; data: { title?: string; text?: string | null; emoji?: string | null } }[]; lang: string; dateKey: string; localOnly?: boolean; className?: string }) {
   const { t } = useLanguage();
   const [story, setStory] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -484,8 +486,13 @@ export function LifeReplay({ items, lang, dateKey }: { items: { type: string; ti
     });
   }, [items]);
 
+  const localStory = useMemo(
+    () => (localOnly ? buildLocalLifeReplay(events, lang) : null),
+    [localOnly, events, lang],
+  );
+
   const generate = useCallback(async () => {
-    if (events.length < 3 || loading) return;
+    if (localOnly || events.length < 3 || loading) return;
     setLoading(true);
     setError(false);
     try {
@@ -505,26 +512,28 @@ export function LifeReplay({ items, lang, dateKey }: { items: { type: string; ti
     } finally {
       setLoading(false);
     }
-  }, [events, lang, loading]);
+  }, [events, lang, loading, localOnly]);
 
   // Auto-generate when there are enough events
   useEffect(() => {
+    if (localOnly) return;
     if (events.length >= 3 && !story && !loading && !error && !autoTriggered.current) {
       autoTriggered.current = true;
       generate();
     }
-  }, [events.length, story, loading, error]);
+  }, [events.length, story, loading, error, localOnly]);
 
   if (events.length < 3) return null;
+  if (localOnly && !localStory) return null;
 
   return (
-    <div className="mb-4 rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.04] to-primary/[0.08] px-3.5 py-3">
+    <div className={cn(className, 'rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.04] to-primary/[0.08] px-3.5 py-3')}>
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[12px]">✨</span>
           <p className="text-[11px] font-medium tracking-wide text-primary/70">{t('recap.lifeReplay')}</p>
         </div>
-        {story && !loading && (
+        {story && !loading && !localOnly && (
           <button onClick={generate} className="rounded px-1 py-0.5 text-[10px] text-muted-foreground/40 transition-colors hover:bg-secondary/50 hover:text-muted-foreground">
             ↻ {lang === 'zh' ? '重新生成' : 'Regenerate'}
           </button>
@@ -538,9 +547,9 @@ export function LifeReplay({ items, lang, dateKey }: { items: { type: string; ti
           </span>
         </div>
       )}
-      {story && !loading && (
+      {(localOnly ? localStory : story && !loading ? story : null) && (
         <p className="text-[12px] leading-[1.55] text-foreground/80 font-light">
-          {story}
+          {localOnly ? localStory : story}
         </p>
       )}
       {error && !loading && (

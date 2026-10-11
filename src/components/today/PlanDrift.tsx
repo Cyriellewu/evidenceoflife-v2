@@ -436,7 +436,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
   const coveredPlannedMin = drift.categories.reduce((s, c) => s + Math.min(c.plannedMin, c.actualMin), 0);
   const planRatio = totalPlannedMin > 0 ? Math.round((coveredPlannedMin / totalPlannedMin) * 100) : null;
   const focusWord = lang === 'zh' ? '专注' : 'focused';
-  const missedLabel = lang === 'zh' ? '错过' : 'missed';
+  const missedLabel = lang === 'zh' ? '项没赶上' : 'skipped';
   const leftWord = lang === 'zh' ? '剩余' : 'left';
 
   // Ambient "X left" — only meaningful when the user is viewing today.
@@ -501,7 +501,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
         {!hasPlan && <span className="flex-1" />}
 
         {drift.totalMissed > 0 && (
-          <span className="inline-flex flex-shrink-0 items-center rounded-full bg-destructive/[0.08] px-1.5 py-0.5 text-[9.5px] font-medium leading-none tabular-nums tracking-[0.02em] text-destructive/60">
+          <span className="inline-flex flex-shrink-0 items-center rounded-full bg-foreground/[0.04] px-1.5 py-0.5 text-[9.5px] font-medium leading-none tabular-nums tracking-[0.02em] text-muted-foreground/60">
             {drift.totalMissed} {missedLabel}
           </span>
         )}

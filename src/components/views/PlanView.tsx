@@ -3634,7 +3634,7 @@ export function PlanView({
         >
           <NotebookPen size={13} strokeWidth={1.85} className="opacity-80" />
           {/* Not "Recap": that label already means "switch to the Recap pane". */}
-          <span>{lang === 'zh' ? '记录' : 'Capture'}</span>
+          <span>{lang === 'zh' ? '记录' : 'Log'}</span>
         </button>
       )}
 
@@ -3746,7 +3746,7 @@ export function PlanView({
                     void addCaptureLinkPreview(pastedUrl);
                   }
                 }}
-                placeholder={lang === 'zh' ? '今天怎么样?有什么想记下的…' : "What's on your mind right now?"}
+                placeholder={lang === 'zh' ? '刚刚做了什么？' : 'What just happened?'}
                 className="min-h-[168px] resize-none border-0 bg-transparent px-4 py-3.5 text-[15px] leading-[1.6] placeholder:text-muted-foreground/45 focus-visible:ring-0"
               />
 

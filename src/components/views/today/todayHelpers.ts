@@ -319,3 +319,17 @@ export function buildLocalLifeReplay(
   if (timeHint) fragments.push(`for about ${timeHint} of active time`);
   return `${fragments.join(', ')} across ${totalMoments} moments today.`;
 }
+
+// Quiet sign-off under the day's recap. Past dates read as "that day".
+export function buildRecapClosing(lang: string, isToday: boolean): string {
+  if (lang === 'zh') return isToday ? '这就是今天——你活过的证据。' : '这就是那一天——你活过的证据。';
+  return isToday ? "That's today. Proof you were here." : 'That was the day. Proof you were here.';
+}
+
+// Empty-today nudge when yesterday has moments. No counts on purpose: it should
+// read as a thread to pick up, not a streak to keep.
+export function buildYesterdayNudge(lang: string): string {
+  return lang === 'zh'
+    ? '昨天留下了痕迹。今天的第一个瞬间是什么？'
+    : "Yesterday left a trail. What's today's first moment?";
+}
