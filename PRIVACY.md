@@ -40,6 +40,14 @@ Evidence of Life is a personal life-logging app. A user's own account may store:
 - **Smart input / geo / link preview**: edge functions may call external
   services to classify text, resolve locations, or fetch link previews. Avoid
   sending sensitive content you do not want processed by those services.
+- **Product analytics**: the hosted build loads Google Analytics and Amplitude
+  (event tracking, click autocapture and Session Replay) from `index.html`.
+  While a real account is signed in, `setAnalyticsPrivacyShield`
+  (`src/lib/analytics.ts`) adds `amp-block` to `<body>` so replays record a
+  blank placeholder, and `data-amp-mask` to `<html>` so autocapture sends
+  `*****` instead of clicked text. The landing page, auth screens and the
+  public demo are still recorded. Self-hosters should remove or replace these
+  snippets.
 
 ## Export & deletion
 
