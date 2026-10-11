@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage, type Lang } from '@/hooks/useLanguage';
 import { trackEvent } from '@/lib/analytics';
 import Index from './Index';
 
@@ -26,12 +26,25 @@ export default function PublicDemo() {
     }
   }, [authReady, loading, isDemoUserReady, enterDemo, isEmbedded]);
 
+  // The demo's sample data is English, so show it in English for this visit
+  // only. Persisting the switch used to flip every later visit (including the
+  // landing page, which embeds this route) to English for good.
+  const langBeforeDemoRef = useRef<Lang | null>(null);
   useEffect(() => {
     if (!authReady || loading) return;
     if (lang !== 'en') {
-      setLang('en');
+      langBeforeDemoRef.current ??= lang;
+      setLang('en', { persist: false });
     }
   }, [authReady, loading, lang, setLang]);
+
+  useEffect(() => () => {
+    const stored = localStorage.getItem('app-language');
+    const restore = stored === 'en' || stored === 'zh' ? stored : langBeforeDemoRef.current;
+    if (restore) setLang(restore, { persist: false });
+    // Runs once on unmount; the persist:false path doesn't read stale state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isReady = useMemo(() => authReady && !loading && isDemoUserReady, [authReady, loading, isDemoUserReady]);
 

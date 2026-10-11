@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/hooks/useAuth';
 
-type Lang = 'zh' | 'en';
+export type Lang = 'zh' | 'en';
 
 const translations: Record<string, Record<Lang, string>> = {
   // Primary nav
@@ -285,12 +286,12 @@ const translations: Record<string, Record<Lang, string>> = {
   'sidenav.more': { zh: '收藏与待办', en: 'Library & upcoming' },
   // Landing — header & hero
   'landing.tagline': { zh: '你真的活过的证据', en: 'Proof you actually lived' },
-  'landing.eyebrow': { zh: '别让你的日子悄悄消失', en: "Don't let your days disappear" },
-  'landing.heroTitle1': { zh: '每一天结束时，', en: 'At the end of the day,' },
-  'landing.heroTitle2': { zh: '都有你真的活过的证据。', en: 'proof you actually lived.' },
+  'landing.eyebrow': { zh: '给 ADHD 和“时间盲”的你', en: 'For ADHD and time-blind days' },
+  'landing.heroTitle1': { zh: '计划了六件事，', en: 'You planned six things.' },
+  'landing.heroTitle2': { zh: '这一天去哪了？', en: 'Where did the day go?' },
   'landing.heroSub': {
-    zh: '你本来就会规划每一天。Evidence of Life 只是安静地留住它周围真正发生的一切——专注时间、照片、地点和笔记——让每一天成为你活过的证据，而不只是被清空的清单。不必写日记，没有连签，也没有动态。',
-    en: 'You already plan your day. Evidence of Life quietly keeps what actually happened around it — focus time, photos, places and notes — so each day becomes proof you lived, not just a checklist you cleared. No journaling chore. No streaks. No feed.',
+    zh: '把计划和真正发生的事放在同一条时间线上：开一个专注计时，它会记下你实际花掉的时间；结束时顺手记一句。时间不再凭空消失，也不用写日记作业。',
+    en: 'See your plan next to what actually happened, on one timeline. Start a focus timer and it records the real time you spent; jot a line when you finish. Time stops vanishing, and there is no journaling homework.',
   },
   // Landing — four phases (shared by stats pills & how-it-works)
   'landing.phase.plan': { zh: '规划', en: 'Plan' },
@@ -337,7 +338,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'landing.mod.habits.title': { zh: '无负担的习惯', en: 'Habits without guilt' },
   'landing.mod.habits.body': { zh: '把可重复的日常作为生活的一部分呈现，而不是让你羞愧的连签机器。', en: 'Keep repeatable routines visible as part of life, not as a streak machine designed to shame you.' },
   'landing.private.title': { zh: '默认私密', en: 'Private by default' },
-  'landing.private.body': { zh: '它被打造成个人的记忆系统，不是社交动态，也不是又一层公开表演。你的证据可随时一键导出为 JSON——即使有一天我们不在了，它仍然属于你。', en: 'Built as a personal memory system, not a social feed and not another public performance layer. Export everything as JSON anytime — even if we disappear, your evidence stays yours.' },
+  'landing.private.body': { zh: '它被打造成个人的记忆系统，不是社交动态，也不是又一层公开表演。你的瞬间可随时一键导出为 JSON——即使有一天我们不在了，它仍然属于你。', en: 'Built as a personal memory system, not a social feed and not another public performance layer. Export your moments as JSON anytime — even if we disappear, your evidence stays yours.' },
   // Landing — product positioning, how-it-works, narrative
   'landing.product.h2': { zh: '为你的每日计划而生的私人记忆层', en: 'A private memory layer for your daily planning' },
   'landing.product.body': {
@@ -363,7 +364,16 @@ const translations: Record<string, Record<Lang, string>> = {
   'landing.cta.createAccount': { zh: '创建免费账号', en: 'Create free account' },
   'landing.cta.exploreDemo': { zh: '体验实时演示', en: 'Explore live demo' },
   'landing.cta.liveDemo': { zh: '实时演示', en: 'Live demo' },
-  'landing.hero.note': { zh: '免费开始 · 没有社交动态 · 演示使用示例数据', en: 'Free to start. No social feed. Live demo with sample data.' },
+  'landing.hero.note': { zh: '免费 · 开源（MIT）· 演示使用示例数据', en: 'Free. Open source (MIT). Live demo with sample data.' },
+  'landing.faq.h2': { zh: '常见问题', en: 'Questions' },
+  'landing.faq.medical.q': { zh: '这是 ADHD 的治疗或诊断工具吗？', en: 'Is this an ADHD treatment or diagnosis tool?' },
+  'landing.faq.medical.a': { zh: '不是。它是一款计划和记录工具，围绕 ADHD 和时间盲的日常感受来设计，但不是医疗或诊断工具，也不需要确诊才能用。', en: "No. It's a planning and logging app designed around how ADHD and time blindness feel day to day. It is not a medical or diagnostic tool, and you don't need a diagnosis to use it." },
+  'landing.faq.free.q': { zh: '要付费吗？', en: 'Does it cost anything?' },
+  'landing.faq.free.a': { zh: '不用。托管版免费使用；代码以 MIT 协议开源，你也可以自己部署。', en: 'No. The hosted app is free, and the code is open source under the MIT license, so you can also host it yourself.' },
+  'landing.faq.data.q': { zh: '谁能看到我的记录？', en: 'Who can see my entries?' },
+  'landing.faq.data.a': { zh: '你的记录属于你的账号，没有社交动态或公开主页。为了改进产品，我们使用产品分析工具（Amplitude，包括会话回放，以及 Google Analytics）；可选的 AI 智能输入会把你输入的文字发送给 AI 服务处理。你可以随时把瞬间导出为 JSON。', en: 'Your entries belong to your account. There is no social feed or public profile. We use product analytics (Amplitude, including session replay, and Google Analytics) to improve the app, and the optional AI smart input sends the text you type to an AI service. You can export your moments as JSON anytime.' },
+  'landing.faq.demo.q': { zh: '可以先试试吗？', en: 'Can I try it first?' },
+  'landing.faq.demo.a': { zh: '可以。实时演示使用示例数据，不需要账号，你在里面做的操作都不会被保存。', en: 'Yes. The live demo uses sample data and needs no account. Nothing you do there is saved.' },
   'landing.demo.caption': { zh: '公开演示 · 示例数据', en: 'Public demo. Sample data.' },
   // Landing — feature pillars
   'landing.pillar.center.title': { zh: '一天的指挥中心', en: 'Daily command center' },
@@ -409,7 +419,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
 interface LanguageContextType {
   lang: Lang;
-  setLang: (lang: Lang) => void;
+  setLang: (lang: Lang, options?: { persist?: boolean }) => void;
   t: (key: string) => string;
 }
 
@@ -434,8 +444,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return (stored === 'en' || stored === 'zh') ? stored : detectSystemLang();
   });
   const { profile, updateProfile } = useProfile();
+  const { isDemo } = useAuth();
 
   useEffect(() => {
+    // The demo profile's language is sample data, not the visitor's choice;
+    // saving it would turn the landing and real app English for good.
+    if (isDemo) return;
     const stored = localStorage.getItem('app-language');
     if (stored === 'en' || stored === 'zh') return;
 
@@ -444,9 +458,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setLangState(next);
       localStorage.setItem('app-language', next);
     }
-  }, [profile?.language]);
+  }, [profile?.language, isDemo]);
 
-  const setLang = useCallback((newLang: Lang) => {
+  const setLang = useCallback((newLang: Lang, options?: { persist?: boolean }) => {
+    // A non-persisted switch only changes this tab's UI (e.g. the English-only
+    // public demo); the saved preference and profile stay untouched.
+    if (options?.persist === false) {
+      setLangState(newLang);
+      return;
+    }
     if (newLang === lang) return;
     setLangState(newLang);
     localStorage.setItem('app-language', newLang);
