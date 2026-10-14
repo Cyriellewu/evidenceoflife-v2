@@ -78,7 +78,7 @@ async function optimizePhotoBlob(blob: Blob): Promise<{ blob: Blob; contentType:
   }
 }
 
-async function uploadPhotoToStorage(userId: string, dataUrl: string): Promise<string | null> {
+async function uploadPhotoToStorage(userId: string, dataUrl: string, folder?: string): Promise<string | null> {
   try {
     if (!dataUrl.startsWith('data:')) return dataUrl;
 
@@ -95,7 +95,7 @@ async function uploadPhotoToStorage(userId: string, dataUrl: string): Promise<st
     const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
     const optimized = await optimizePhotoBlob(new Blob([bytes], { type: mimeType }));
     const { createMomentPhotoObjectPath, uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
-    const objectPath = createMomentPhotoObjectPath(userId, optimized.ext);
+    const objectPath = createMomentPhotoObjectPath(userId, optimized.ext, folder);
 
     for (let attempt = 0; attempt < 3; attempt++) {
       const path = await uploadMomentPhotoObject(
@@ -118,9 +118,9 @@ async function uploadPhotoToStorage(userId: string, dataUrl: string): Promise<st
   }
 }
 
-export async function uploadPhotos(userId: string, photos: string[]): Promise<string[]> {
+export async function uploadPhotos(userId: string, photos: string[], folder?: string): Promise<string[]> {
   if (!photos.length) return [];
-  const results = await Promise.all(photos.map(p => uploadPhotoToStorage(userId, p)));
+  const results = await Promise.all(photos.map(p => uploadPhotoToStorage(userId, p, folder)));
   return results.filter((url): url is string => url !== null);
 }
 
