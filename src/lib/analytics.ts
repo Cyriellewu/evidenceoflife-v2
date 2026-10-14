@@ -319,3 +319,20 @@ export function markFirstActionTracked(userId: string, actionName: string) {
   if (typeof window === 'undefined') return;
   writeStorage(`analytics.first_action.${userId}.${actionName}`, 'true');
 }
+
+// While a real account is signed in, keep its content out of third-party
+// analytics: `amp-block` on <body> makes Session Replay record a blank
+// placeholder (the class is built into the SDK, so remote config can't undo
+// it), and `data-amp-mask` on <html> makes autocapture send "*****" instead of
+// clicked element text (task titles, notes). Applied to <body>/<html> rather
+// than the app root so portalled dialogs and sheets are covered too. Landing,
+// auth and the public demo stay recorded.
+export const REPLAY_BLOCK_CLASS = 'amp-block';
+export const AUTOCAPTURE_MASK_ATTRIBUTE = 'data-amp-mask';
+
+export function setAnalyticsPrivacyShield(enabled: boolean) {
+  if (typeof document === 'undefined') return;
+  document.body?.classList.toggle(REPLAY_BLOCK_CLASS, enabled);
+  if (enabled) document.documentElement.setAttribute(AUTOCAPTURE_MASK_ATTRIBUTE, '');
+  else document.documentElement.removeAttribute(AUTOCAPTURE_MASK_ATTRIBUTE);
+}

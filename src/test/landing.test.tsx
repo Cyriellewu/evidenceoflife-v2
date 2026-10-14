@@ -52,7 +52,7 @@ describe('Landing page positioning', () => {
     localStorage.setItem('app-language', 'en');
     renderLanding();
     expect(screen.getByText(/not a medical or diagnostic tool/)).toBeInTheDocument();
-    expect(screen.getByText(/session replay/)).toBeInTheDocument();
+    expect(screen.getByText(/session replay covers public pages only/i)).toBeInTheDocument();
   });
 
   it('makes no claims the product contradicts', () => {
