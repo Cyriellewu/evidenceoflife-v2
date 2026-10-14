@@ -75,9 +75,9 @@ async function fetchPreview(url: string) {
 }
 
 async function uploadPhoto(file: File, userId: string): Promise<string | null> {
-  const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
+  const { createMomentPhotoObjectPath, uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
   const ext = file.type.split('/')[1] || 'jpg';
-  return uploadMomentPhotoObject(userId, file, file.type || `image/${ext}`, ext);
+  return uploadMomentPhotoObject(userId, file, file.type || `image/${ext}`, ext, createMomentPhotoObjectPath(userId, ext, 'links'));
 }
 
 type DragState = { groupId: string; sectionId: string; linkId: string } | null;
@@ -174,7 +174,9 @@ function SectionCard({
   draggingLink: DragState; setDraggingLink: (v: DragState) => void;
 }) {
   const accent = getAccentStyle(groupIndex);
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
+  // The demo signs in a fake user that can't upload; keep its images local.
+  const cloudUserId = user && !isDemo ? user.id : null;
   const [linkDraft, setLinkDraft] = useState('');
   const [fetchingLink, setFetchingLink] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -198,10 +200,10 @@ function SectionCard({
       e.preventDefault();
       const file = imgItem.getAsFile();
       if (!file) return;
-      if (user) {
+      if (cloudUserId) {
         const localUrl = URL.createObjectURL(file);
         onAddPhoto(localUrl);
-        const uploaded = await uploadPhoto(file, user.id);
+        const uploaded = await uploadPhoto(file, cloudUserId);
         if (uploaded) { onRemovePhoto(localUrl); onAddPhoto(uploaded); URL.revokeObjectURL(localUrl); }
         else onRemovePhoto(localUrl);
       } else {
@@ -214,10 +216,17 @@ function SectionCard({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
+    if (!cloudUserId) {
+      const reader = new FileReader();
+      reader.onload = () => { if (typeof reader.result === 'string') onAddPhoto(reader.result); };
+      reader.readAsDataURL(file);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     const localUrl = URL.createObjectURL(file);
     onAddPhoto(localUrl);
-    const uploaded = await uploadPhoto(file, user.id);
+    const uploaded = await uploadPhoto(file, cloudUserId);
     if (uploaded) { onRemovePhoto(localUrl); onAddPhoto(uploaded); URL.revokeObjectURL(localUrl); }
     else onRemovePhoto(localUrl);
     if (fileInputRef.current) fileInputRef.current.value = '';

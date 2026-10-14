@@ -6,6 +6,7 @@ import { cn, isEnterSubmit } from '@/lib/utils';
 import { normalizeUrl, extractFirstUrl, getDomain as getSiteFallback } from '@/lib/linkUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { StorageImage } from '@/components/StorageImage';
 import { MomentLinkPreview } from '@/types';
 import { validatePhotoFile } from '@/lib/photoValidation';
 import { useProfile } from '@/hooks/useProfile';
@@ -472,7 +473,7 @@ function NoteCard({
                           >
                             <X size={12} />
                           </button>
-                          <img src={image} alt="" loading="lazy" className="h-[100px] w-full object-cover" />
+                          <StorageImage src={image} alt="" className="h-[100px] w-full object-cover" />
                         </div>
                       ))}
                     </div>

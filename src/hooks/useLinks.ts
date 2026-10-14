@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Json } from '@/integrations/supabase/types';
 import { patchProfileSettings } from '@/lib/profileSettings';
+import { stripInlineImages, toCloudImages } from '@/lib/cloudImages';
 
 export interface LinkItem {
   id: string;
@@ -103,6 +104,31 @@ function normalizeGroup(group: Partial<LinkGroup> | LegacyLinkGroup): LinkGroup 
   };
 }
 
+// Section photos in the cloud copy may only be storage paths or URLs: blob:
+// previews die on reload and data: images bloat profiles.settings, which is
+// fetched in full by several hooks.
+export function groupsForCloud(groups: LinkGroup[]): LinkGroup[] {
+  return groups.map(group => ({
+    ...group,
+    sections: group.sections.map(section => ({ ...section, photos: stripInlineImages(section.photos) })),
+  }));
+}
+
+async function uploadLocalGroupPhotos(userId: string, groups: LinkGroup[]): Promise<{ groups: LinkGroup[]; failed: number }> {
+  let failed = 0;
+  const next: LinkGroup[] = [];
+  for (const group of groups) {
+    const sections: LinkSection[] = [];
+    for (const section of group.sections) {
+      const result = await toCloudImages(userId, section.photos, 'links');
+      failed += result.failed;
+      sections.push({ ...section, photos: result.images });
+    }
+    next.push({ ...group, sections });
+  }
+  return { groups: next, failed };
+}
+
 function load(): LinkGroup[] {
   try {
     const currentRaw = localStorage.getItem(STORAGE_KEY);
@@ -185,8 +211,14 @@ export function useLinks() {
           hydratedRef.current = true;
           lastSavedRef.current = JSON.stringify(localGroups);
 
+          // Signed-out photos are data: URLs; upload them first. If any
+          // fail, keep the local copy and skip this cloud write.
+          const { groups: cloudGroups, failed } = await uploadLocalGroupPhotos(user.id, localGroups);
+          if (failed > 0) return;
+          setGroups(cloudGroups);
+          lastSavedRef.current = JSON.stringify(cloudGroups);
           const { settings: nextSettings, error: updateError } = await patchProfileSettings(user.id, {
-            linkHubGroups: localGroups as unknown as Json,
+            linkHubGroups: cloudGroups as unknown as Json,
           });
           if (!updateError && nextSettings) {
             setProfileSettings(nextSettings as Record<string, unknown>);
@@ -222,7 +254,7 @@ export function useLinks() {
 
     const persist = async () => {
       const { settings: nextSettings, error } = await patchProfileSettings(user.id, {
-        linkHubGroups: groups as unknown as Json,
+        linkHubGroups: groupsForCloud(groups) as unknown as Json,
       });
 
       if (error) {

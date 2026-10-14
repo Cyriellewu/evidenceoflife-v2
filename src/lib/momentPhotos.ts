@@ -44,8 +44,11 @@ export function momentPhotoObjectPath(pathOrUrl: string): string | null {
 }
 
 /** Upload a blob and return the storage object path (not a durable public URL). */
-export function createMomentPhotoObjectPath(userId: string, ext = 'png'): string {
-  return `${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+// `folder` groups non-moment images (e.g. 'sticky'); the first path segment
+// must stay the user id, which the bucket's storage policies check.
+export function createMomentPhotoObjectPath(userId: string, ext = 'png', folder?: string): string {
+  const prefix = folder ? `${userId}/${folder}` : userId;
+  return `${prefix}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
 }
 
 export async function uploadMomentPhotoObject(

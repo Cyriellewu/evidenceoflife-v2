@@ -3,6 +3,14 @@ import { MomentLinkPreview } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import { toCloudImages } from '@/lib/cloudImages';
+
+const IMAGE_FOLDER = 'sticky';
+
+function reportFailedImages(failed: number) {
+  if (failed > 0) toast.error(failed > 1 ? `${failed} images could not be uploaded` : 'Image could not be uploaded');
+}
 
 export type StickyCategory = string;
 
@@ -210,6 +218,21 @@ export function useStickyNotes() {
         created_at: note.created_at,
       }));
 
+      // Local (signed-out) notes hold data: images; upload them before the
+      // first cloud write. If any upload fails, keep the local copy so the
+      // migration retries next session instead of losing the image.
+      let failedUploads = 0;
+      const cloudImagesByItem = new Map<string, string[]>();
+      for (const item of localNotes.flatMap(note => note.items)) {
+        const { images, failed } = await toCloudImages(user.id, item.images, IMAGE_FOLDER);
+        failedUploads += failed;
+        cloudImagesByItem.set(item.id, images);
+      }
+      if (failedUploads > 0) {
+        reportFailedImages(failedUploads);
+        return;
+      }
+
       const itemInserts = localNotes.flatMap(note =>
         note.items.map((item, index) => ({
           id: item.id,
@@ -219,7 +242,7 @@ export function useStickyNotes() {
           done: item.done,
           sort_order: index,
           links: (item.links || []) as unknown as Json,
-          images: item.images || [],
+          images: cloudImagesByItem.get(item.id) || [],
         }))
       );
 
@@ -387,6 +410,9 @@ export function useStickyNotes() {
       return;
     }
 
+    const { images: cloudImages, failed } = await toCloudImages(user.id, options?.images, IMAGE_FOLDER);
+    reportFailedImages(failed);
+
     const { data, error } = await supabase
       .from('sticky_note_items')
       .insert({
@@ -396,7 +422,7 @@ export function useStickyNotes() {
         text: trimmed,
         done: false,
         sort_order: nextSortOrder,
-        images: options?.images || [],
+        images: cloudImages,
         links: (options?.links || []) as unknown as Json,
       })
       .select('id, text, done, images, links')
@@ -490,7 +516,13 @@ export function useStickyNotes() {
   const attachItemImage = useCallback(async (noteId: string, itemId: string, image: string) => {
     const item = notes.flatMap(note => note.items).find(it => it.id === itemId);
     const nextImages = [...(item?.images || [])];
-    if (!nextImages.includes(image)) {
+
+    if (user && !isDemo) {
+      const { images: [stored], failed } = await toCloudImages(user.id, [image], IMAGE_FOLDER);
+      reportFailedImages(failed);
+      if (!stored) return;
+      nextImages.push(stored);
+    } else if (!nextImages.includes(image)) {
       nextImages.push(image);
     }
 
