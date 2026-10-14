@@ -9,6 +9,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useDues } from '@/hooks/useDues';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
+import { StorageImage } from '@/components/StorageImage';
 
 type SheetKey = 'notes' | 'dues' | 'habits' | 'links';
 
@@ -428,7 +429,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
             )}
           >
             {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className={cn(expanded || isPanel ? 'h-7 w-7' : 'h-9 w-9', 'rounded-full object-cover')} />
+              <StorageImage src={profile.avatar_url} alt="" className={cn(expanded || isPanel ? 'h-7 w-7' : 'h-9 w-9', 'rounded-full object-cover')} />
             ) : (
               <User size={isPanel ? 17 : 18} className="text-[hsl(var(--text-soft))]" />
             )}

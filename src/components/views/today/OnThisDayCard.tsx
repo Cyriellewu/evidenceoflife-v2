@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Clock3, MapPin, ArrowRight } from 'lucide-react';
 import type { Moment } from '@/types';
 import { useLanguage } from '@/hooks/useLanguage';
+import { StorageImage } from '@/components/StorageImage';
 
 interface OnThisDayCardProps {
   // The full moment history across all dates.
@@ -143,7 +144,7 @@ export function OnThisDayCard({ moments, selectedDate, onRevisit }: OnThisDayCar
 
       <div className="mt-3 flex gap-3">
         {thumb && (
-          <img
+          <StorageImage
             src={thumb}
             alt=""
             className="h-16 w-16 flex-shrink-0 rounded-xl object-cover ring-1 ring-[#e8ddc4]/70 dark:ring-foreground/[0.1]"

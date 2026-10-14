@@ -10,6 +10,7 @@ import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { getActivityAccentColor, getActivityTextColor, getCalendarBlockChrome } from '@/lib/activityColors';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
+import { StorageImage } from '@/components/StorageImage';
 
 const WEEKDAYS_CN = ['日', '一', '二', '三', '四', '五', '六'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -435,7 +436,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
                       >
                         {showPhotoCover && (
                           <>
-                            <img
+                            <StorageImage
                               src={e.photos?.[0]}
                               alt={e.title}
                               className="absolute inset-0 h-full w-full object-cover opacity-25"
@@ -445,7 +446,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
                         )}
                         <div className="relative z-10 flex items-start gap-1">
                           {showPhotoThumb && (
-                            <img
+                            <StorageImage
                               src={e.photos?.[0]}
                               alt={e.title}
                               className="rounded-[6px] object-cover flex-shrink-0 border border-white/60"

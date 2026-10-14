@@ -316,7 +316,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                     className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border border-border/65 bg-primary/8 shadow-[0_14px_36px_-28px_rgba(190,120,82,0.5)]"
                   >
                     {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                      <StorageImage src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <span className="flex h-full w-full items-center justify-center text-[28px]">🌱</span>
                     )}
@@ -375,7 +375,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
             </div>
 
             <div className="group relative min-h-[170px] overflow-hidden border-t border-border/55 lg:border-l lg:border-t-0">
-              <img
+              <StorageImage
                 src={profile?.homepage_image_url || dailyArtwork.imageUrl}
                 alt={profile?.homepage_image_url ? '' : `${dailyArtwork.title} by ${dailyArtwork.artist}`}
                 referrerPolicy="no-referrer"
