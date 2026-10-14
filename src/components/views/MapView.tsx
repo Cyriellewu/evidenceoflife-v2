@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
+import { resolveMomentPhotoUrls } from "@/lib/momentPhotos";
 import { isNewYorkCity, loadNewYorkNeighborhoods, type NeighborhoodCollection } from '@/lib/neighborhoods';
 
 interface MapViewProps {
@@ -950,6 +951,24 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   }, [focusPlace, cities]);
 
   const currentCity = selectedCityIdx >= 0 ? cities[selectedCityIdx] : null;
+  // Map pins are HTML strings, so StorageImage can't sign them: resolve each
+  // cover photo to a signed URL up front (works with a private bucket).
+  const [signedCovers, setSignedCovers] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const covers = [...new Set(allPlaces.map(getPlaceCoverPhoto).filter((c): c is string => !!c))];
+    if (covers.length === 0) return;
+    let cancelled = false;
+    void resolveMomentPhotoUrls(covers).then((urls) => {
+      if (cancelled) return;
+      setSignedCovers(Object.fromEntries(covers.map((cover, i) => [cover, urls[i]])));
+    });
+    return () => { cancelled = true; };
+  }, [allPlaces]);
+  const signedCoverFor = useCallback((place: PlaceInfo | null | undefined): string | null => {
+    const cover = place ? getPlaceCoverPhoto(place) : null;
+    return cover ? signedCovers[cover] || null : null;
+  }, [signedCovers]);
+
   const cityPlaces = useMemo(() => currentCity?.places ?? [], [currentCity]);
   const supportsNeighborhoods = isNewYorkCity(currentCity);
 
@@ -1554,7 +1573,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     displayPlaces.forEach(({ place, renderLat, renderLng }) => {
       const color = categoryColors[place.category] || categoryColors.other;
       const isSelected = selectedPlaceRef.current === place.name;
-      const coverPhoto = getPlaceCoverPhoto(place);
+      const coverPhoto = signedCoverFor(place);
       const size = coverPhoto ? (isSelected ? 52 : 42) : (isSelected ? 16 : 12);
       const icon = L.divIcon({
         className: coverPhoto ? 'map-photo-icon' : 'map-dot-icon',
@@ -1611,7 +1630,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         clearTimeout(primary);
         clearTimeout(fallback);
       };
-  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang, selectedCityIdx, openPlaceDetail, t]);
+  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang, selectedCityIdx, openPlaceDetail, t, signedCoverFor]);
 
   // Lightweight effect: update only marker styling / pan when selectedPlace changes.
   useEffect(() => {
@@ -1624,7 +1643,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         const isSelected = selectedPlace === name;
         const color = categoryColors[entry.category] || categoryColors.other;
         const place = filteredPlaces.find((item) => item.name === name);
-        const coverPhoto = place ? getPlaceCoverPhoto(place) : null;
+        const coverPhoto = signedCoverFor(place);
         const size = coverPhoto ? (isSelected ? 52 : 42) : (isSelected ? 16 : 12);
         const icon = L.divIcon({
           className: coverPhoto ? 'map-photo-icon' : 'map-dot-icon',
@@ -1644,7 +1663,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     } catch (err) {
       // ignore
     }
-  }, [selectedPlace, filteredPlaces, mapPreviewFailed, viewMode]);
+  }, [selectedPlace, filteredPlaces, mapPreviewFailed, viewMode, signedCoverFor]);
 
   const detailContainerRef = useRef<HTMLDivElement>(null);
 
@@ -1697,7 +1716,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
 
         const color = categoryColors[showPlaceDetail.category] || categoryColors.other;
-        const coverPhoto = getPlaceCoverPhoto(showPlaceDetail);
+        const coverPhoto = signedCoverFor(showPlaceDetail);
         const icon = L.divIcon({
           className: coverPhoto ? 'map-photo-icon' : 'map-dot-icon',
           html: coverPhoto ? photoMarkerHtml(coverPhoto, color, true, showPlaceDetail.name) : dotMarkerHtml(color, true),
@@ -1752,7 +1771,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         detailMapRef.current = null;
       }
     };
-  }, [showPlaceDetail]);
+  }, [showPlaceDetail, signedCoverFor]);
 
   const totalPlaces = allPlaces.length;
   const totalVisits = allPlaces.reduce((s, p) => s + p.visits, 0);
@@ -2198,7 +2217,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                           {getPlaceCoverPhoto(showPlaceDetail) ? (
                             <div className="flex w-full items-center gap-4">
                               <div className="h-24 w-24 overflow-hidden rounded-2xl border border-white/80 shadow-sm">
-                                <img
+                                <StorageImage
                                   src={getPlaceCoverPhoto(showPlaceDetail)!}
                                   alt=""
                                   className="h-full w-full object-cover"

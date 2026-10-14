@@ -64,6 +64,7 @@ import {
   loadPlanTimelineRhythmPresetId,
   presetToRhythmPalette,
 } from '@/lib/planTimelineRhythmPresets';
+import { StorageImage } from '@/components/StorageImage';
 
 function isActivelyRunningTodo(todo: Pick<Todo, 'timer_started_at' | 'timer_ended_at'>) {
   if (!todo.timer_started_at || todo.timer_ended_at) return false;
@@ -3676,7 +3677,7 @@ export function PlanView({
                           key={i}
                           className="group/photo relative h-[72px] w-[72px] flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/45 animate-in fade-in slide-in-from-bottom-1 duration-200"
                         >
-                          <img src={url} alt="" className="h-full w-full object-cover" />
+                          <StorageImage src={url} alt="" className="h-full w-full object-cover" />
                           <button
                             type="button"
                             onClick={() => setCapturePhotos(prev => prev.filter((_, idx) => idx !== i))}

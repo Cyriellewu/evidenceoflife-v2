@@ -1769,7 +1769,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             <div className="absolute inset-0 z-10 flex items-center px-3">
               <div className="flex min-w-0 w-full items-center gap-2">
                 {block.photos?.[0] && (
-                  <img
+                  <StorageImage
                     src={block.photos[0]}
                     alt=""
                     className="h-5 w-5 flex-shrink-0 rounded-md border border-background/70 object-cover shadow-sm"
@@ -1802,7 +1802,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             <div className="px-2.5 py-1.5 relative z-10">
               <div className="flex items-center gap-1.5 min-w-0">
                 {block.photos?.[0] && (
-                  <img
+                  <StorageImage
                     src={block.photos[0]}
                     alt=""
                     className="h-7 w-7 flex-shrink-0 rounded-lg border border-background/70 object-cover shadow-sm"
@@ -3844,7 +3844,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             <X size={22} />
           </button>
           <div className="flex max-h-[88vh] max-w-[92vw] flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
-            <img
+            <StorageImage
               src={photoLightbox.photos[photoLightbox.index]}
               alt=""
               className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-2xl"

@@ -1083,7 +1083,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             onDragStart={(e) => e.preventDefault()}
             onMouseDown={(e) => e.preventDefault()}
           >
-            <img
+            <StorageImage
               src={headerImageSrc}
               alt={homepageImageUrl ? 'Home image' : `${dailyArtwork.title} by ${dailyArtwork.artist}`}
               draggable={false}
