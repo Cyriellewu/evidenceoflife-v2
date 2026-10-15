@@ -3,6 +3,7 @@
 ## Summary
 
 <!-- What does this change and why? -->
+<!-- Optional: success metric / how we'll know (event or SQL from docs/metrics) -->
 
 ## Related issue
 

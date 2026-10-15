@@ -1,0 +1,6 @@
+{"persona_id": "P01", "bucket": "planner_graveyard", "lang": "en", "target": "landing.hero", "comprehension": 4, "trust": 3, "would_try": 3, "objection": "Sounds like every planner I already quit.", "confusing_phrases": ["Proof you actually lived"], "restatement": "A planner that also logs what really happened."}
+{"persona_id": "P02", "bucket": "planner_graveyard", "lang": "zh", "target": "landing.hero", "comprehension": 3, "trust": 3, "would_try": 2, "objection": "又一个计划工具。", "confusing_phrases": ["你真的活过的证据"]}
+{"persona_id": "P03", "bucket": "privacy_skeptic", "lang": "en", "target": "landing.faq", "comprehension": 4, "trust": 2, "would_try": 2, "objection": "Analytics and AI input make me hesitate.", "confusing_phrases": ["Session replay covers public pages only", "Proof you actually lived"]}
+{"persona_id": "P04", "bucket": "medical_claim_wary", "lang": "zh", "target": "landing.faq", "comprehension": 5, "trust": 4, "would_try": 3, "objection": "还好明确说了不是医疗工具。", "confusing_phrases": []}
+{"persona_id": "P05", "bucket": "time_blind_student", "lang": "en", "target": "first_run_checklist", "comprehension": 4, "trust": 4, "would_try": 4, "objection": "Not sure what a moment is yet.", "confusing_phrases": ["Log a moment"]}
+not json — this line is intentionally malformed to show skipping
