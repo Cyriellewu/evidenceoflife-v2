@@ -107,6 +107,11 @@ core-loop events are not sent from demo mode.
 | `moment_created` | Any moment created | `has_photo`, `has_location`, `source` (`manual` / `focus_session`) |
 | `timer_started` | A timer is started from a click | `source` (`focus`, `reset`, `add_and_start`, `step`, `moment`, `calendar_event`) |
 | `day_returned` | Signed-in user opens the app on a new local day (per device) | `days_since_last` |
+| `auth_page_viewed` | `/auth` shown, or its sign-in/sign-up mode switched | `auth_mode`, `first_*` |
+| `first_run_guide_shown` | First-run checklist visible to a new account (once per user per device) | `steps_done` |
+| `first_run_step_completed` | A first-run step is first seen done (once per step) | `step` (`task` / `timer` / `moment`), `required` |
+| `first_run_guide_dismissed` | User closes the first-run checklist | `steps_done` |
+| `activation_reached` | Plan item + moment both exist inside the 72h window (once per user per device; SQL remains canonical) | `hours_since_signup` |
 
 `first_*` = first-touch attribution captured once per browser:
 `first_utm_source`, `first_utm_medium`, `first_utm_campaign`, `first_ref`,

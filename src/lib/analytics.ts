@@ -320,6 +320,18 @@ export function markFirstActionTracked(userId: string, actionName: string) {
   writeStorage(`analytics.first_action.${userId}.${actionName}`, 'true');
 }
 
+/** Send `eventName` at most once per user on this device (keyed by `onceKey`). */
+export function trackOncePerUser(
+  userId: string,
+  onceKey: string,
+  eventName: string,
+  properties: AnalyticsProperties = {},
+) {
+  if (hasTrackedFirstAction(userId, onceKey)) return;
+  markFirstActionTracked(userId, onceKey);
+  trackEvent(eventName, properties);
+}
+
 // While a real account is signed in, keep its content out of third-party
 // analytics: `amp-block` on <body> makes Session Replay record a blank
 // placeholder (the class is built into the SDK, so remote config can't undo

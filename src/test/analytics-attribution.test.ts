@@ -189,3 +189,28 @@ describe('amplitude loading', () => {
     expect(sdk.track).toHaveBeenCalledWith('landing_page_view', { page: '/' });
   });
 });
+
+describe('trackOncePerUser', () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    delete window.gtag;
+  });
+
+  it('sends an event once per user and key, even across reloads', async () => {
+    vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST');
+    const a = await loadAnalytics();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    const sent = () => gtag.mock.calls.filter(call => call[0] === 'event' && call[1] === 'activation_reached');
+
+    a.trackOncePerUser('user-1', 'activation_reached', 'activation_reached', { hours_since_signup: 3 });
+    a.trackOncePerUser('user-1', 'activation_reached', 'activation_reached', { hours_since_signup: 4 });
+    const reloaded = await loadAnalytics();
+    reloaded.trackOncePerUser('user-1', 'activation_reached', 'activation_reached');
+    a.trackOncePerUser('user-2', 'activation_reached', 'activation_reached');
+
+    expect(sent()).toHaveLength(2);
+    expect(sent()[0][2]).toEqual({ hours_since_signup: 3 });
+  });
+});

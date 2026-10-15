@@ -68,3 +68,39 @@ export function dismissFirstRunGuide(userId: string | null | undefined) {
     // Storage blocked: the guide simply reappears next session.
   }
 }
+
+export interface FirstRunFunnelEvent {
+  /** Stable once-per-user key, so a reload never double-counts. */
+  onceKey: string;
+  name: 'first_run_guide_shown' | 'first_run_step_completed' | 'activation_reached';
+  properties: Record<string, string | number | boolean>;
+}
+
+/**
+ * Funnel events implied by the current first-run state. The caller sends each
+ * at most once per user; properties never include task or moment content.
+ */
+export function getFirstRunFunnelEvents(params: {
+  steps: FirstRunSteps;
+  guideVisible: boolean;
+  hoursSinceSignup: number | null;
+}): FirstRunFunnelEvent[] {
+  const { steps, guideVisible, hoursSinceSignup } = params;
+  const events: FirstRunFunnelEvent[] = [];
+  if (guideVisible) {
+    events.push({ onceKey: 'first_run_guide_shown', name: 'first_run_guide_shown', properties: { steps_done: steps.doneCount } });
+  }
+  (['task', 'timer', 'moment'] as const).forEach(step => {
+    if (steps[step]) {
+      events.push({ onceKey: `first_run_step_${step}`, name: 'first_run_step_completed', properties: { step, required: step !== 'timer' } });
+    }
+  });
+  if (steps.allRequiredDone) {
+    events.push({
+      onceKey: 'activation_reached',
+      name: 'activation_reached',
+      properties: hoursSinceSignup === null ? {} : { hours_since_signup: hoursSinceSignup },
+    });
+  }
+  return events;
+}
