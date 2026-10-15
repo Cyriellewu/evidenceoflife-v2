@@ -245,6 +245,12 @@ Realistic, non-binding direction (also tracked in [docs/oss/roadmap.md](docs/oss
 - [PRIVACY.md](PRIVACY.md)
 - [LICENSE](LICENSE) — MIT
 
+Product docs:
+
+- [docs/product/product-brief.md](docs/product/product-brief.md) — problem, audience, success metrics, current funnel
+- [docs/product/brand-position.md](docs/product/brand-position.md) — positioning, shipped vocabulary, words to avoid
+- [docs/product/voice-and-tone.md](docs/product/voice-and-tone.md) — rules for in-app copy (zh/en)
+
 ## Deployment
 
 The app is a static SPA (`vercel.json` rewrites to `index.html`). Build with `npm run build` and host `dist/`. Deploy Supabase edge functions separately with the Supabase CLI.
