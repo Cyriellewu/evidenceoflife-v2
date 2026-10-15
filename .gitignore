@@ -44,7 +44,9 @@ openclaw-*.md
 # Maintainer / agent scratch (not part of the product surface)
 .agent-handoff/
 .agents/
-.claude/
+.claude/*
+# Shared subagent role definitions (see AGENTS.md) are tracked.
+!.claude/agents/
 Scratchpad/
 tasks.md
 loop.sh

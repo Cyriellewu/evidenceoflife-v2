@@ -38,11 +38,59 @@ npm run build
 
 ## Development workflow for agents
 
-1. **Plan briefly** — list files to touch and risk (auth/data/UI).
-2. **Smallest diff** — one logical change; no drive-by refactors.
-3. **Preserve demo mode** — `/demo-app` and `isDemo` guards must keep working without a real backend where they already do.
-4. **Commits** — Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `security:`).
-5. **PRs** — one concern per PR; fill `.github/PULL_REQUEST_TEMPLATE.md`.
+The owner wants work **planned before it is done, criticised before it ships,
+and split across agents with distinct responsibilities**. Follow this every
+time; it applies to Claude Code, Codex, Cursor, and any other agent.
+
+### 1. Plan before acting
+
+Before the first edit, write a short plan (in the reply or PR description):
+goal, files to touch, risk class (data/egress, auth, UI, docs), what will
+*not* change, and how it will be verified. Reuse existing helpers before
+adding new code. Prefer cutting or merging a feature over adding one.
+
+### 2. Size gate
+
+- **Small** (typo, one-liner, docs-only): plan inline, no subagents.
+- **Non-trivial** (2+ files, or anything touching data fetching, Supabase,
+  auth, storage, the Plan timeline, or navigation): run the review loop below.
+
+### 3. Review loop (one role per subagent)
+
+Claude Code role definitions live in `.claude/agents/`. Subagents do not talk
+to each other directly: the orchestrator (main agent) relays findings between
+them and makes the call.
+
+1. **Planner** (`planner`) — maps the code, proposes the smallest diff.
+2. **Critics, in parallel**, each attacking the plan from one lens:
+   - `critic-data` — Supabase egress and query shape, write safety, RLS/auth
+     boundaries, production data. Never `select('*')` on tables with
+     blob-like columns (the `visits.photos` base64 incident exhausted the
+     free egress quota).
+   - `critic-ux` — design tokens, consistent type scale, timeline colour rules
+     (`.github/copilot-instructions.md`), demo chrome never covering UI, no
+     duplicated features or labels.
+   - `critic-tests` — which unit/e2e tests and selectors the change affects
+     (e2e waits for the visible "Public demo" text on `/demo-app`).
+3. **Orchestrator** — merges findings, resolves conflicts, and records the
+   decision *and what was rejected and why*.
+4. **Implementer** — the main agent only (one writer, no conflicting edits);
+   makes exactly the agreed change.
+5. **Verifier** (`verifier`) — runs the required checks, plus before/after
+   `/demo-app` screenshots for UI changes, and reports failures verbatim.
+
+### 4. Critical by default
+
+- Re-read your own diff adversarially before every push: what would break CI,
+  cost quota, or regress design?
+- Never claim success without command output; say what was not verified.
+- Ask the owner before any data-mutating operation on production Supabase.
+- Smallest diff, one logical change, no drive-by refactors.
+- **Preserve demo mode** — `/demo-app` and `isDemo` guards must keep working
+  without a real backend where they already do.
+- **Commits** — Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`,
+  `ci:`, `security:`).
+- **PRs** — one concern per PR; fill `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ## Design notes (do not regress)
 
