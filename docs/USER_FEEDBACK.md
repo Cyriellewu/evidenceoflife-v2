@@ -52,3 +52,12 @@ Each feedback issue aims to capture:
 - **Release included** — where it shipped.
 
 This turns informal input into visible, verifiable product evidence over time.
+
+## Research kit
+
+Templates for running structured sessions and feeding results into the loop above:
+
+- [Interview guide](research/interview-guide.md) — problem interviews and a 30-minute usability script tied to activation.
+- [Interview snapshot template](research/interview-snapshot-template.md) — one-page notes per session.
+- [Session synthesis template](research/session-synthesis-template.md) — turn 3–5 sessions into `user-feedback` issues.
+- [Consent form](research/consent-form.md) — plain-language consent for participants.
