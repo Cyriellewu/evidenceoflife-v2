@@ -47,10 +47,11 @@ openclaw-*.md
 .claude/*
 # Shared subagent role definitions (see AGENTS.md) are tracked.
 !.claude/agents/
+# Shared Claude Code skills are tracked too.
+!.claude/skills/
 Scratchpad/
 tasks.md
 loop.sh
-CLAUDE.md
 
 # Playwright
 test-results/
