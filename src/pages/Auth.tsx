@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,11 @@ export default function Auth() {
 
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Fills the funnel gap between landing_cta_clicked and sign_up_clicked.
+  useEffect(() => {
+    trackEvent('auth_page_viewed', { auth_mode: isLogin ? 'login' : 'signup', ...getAttribution() });
+  }, [isLogin]);
 
   const withTimeout = async <T,>(
     promise: Promise<T>,

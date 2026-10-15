@@ -12,7 +12,8 @@ import { SheetSwitcher } from '@/components/sheet/SheetSwitcher';
 import { MobileNavChrome } from '@/components/MobileNavChrome';
 import { PlanPaneSwitcher, writePlanMobilePane } from '@/components/PlanPaneSwitcher';
 import { useAuth } from '@/hooks/useAuth';
-import { dismissFirstRunGuide, getFirstRunSteps, isFirstRunAccount, isFirstRunGuideDismissed } from '@/lib/firstRun';
+import { dismissFirstRunGuide, getFirstRunFunnelEvents, getFirstRunSteps, isFirstRunAccount, isFirstRunGuideDismissed } from '@/lib/firstRun';
+import { trackEvent, trackOncePerUser } from '@/lib/analytics';
 import { TodayView } from '@/components/views/TodayView';
 import { PlanView } from '@/components/views/PlanView';
 
@@ -195,9 +196,21 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const showFirstRunGuide = isFirstRun && !guideDismissed;
   const firstRunSteps = useMemo(() => getFirstRunSteps(todos, moments.length), [todos, moments.length]);
   const handleDismissFirstRunGuide = useCallback(() => {
+    trackEvent('first_run_guide_dismissed', { steps_done: firstRunSteps.doneCount });
     dismissFirstRunGuide(user?.id);
     setGuideDismissed(true);
-  }, [user?.id]);
+  }, [user?.id, firstRunSteps.doneCount]);
+
+  // Funnel events for the first-run window (once per user, never in demo:
+  // isFirstRun is false there). SQL in docs/metrics stays the source of truth.
+  useEffect(() => {
+    if (!isFirstRun || !user?.id) return;
+    const created = Date.parse(user.created_at ?? '');
+    const hoursSinceSignup = Number.isFinite(created) ? Math.round((Date.now() - created) / 3_600_000) : null;
+    for (const event of getFirstRunFunnelEvents({ steps: firstRunSteps, guideVisible: showFirstRunGuide, hoursSinceSignup })) {
+      trackOncePerUser(user.id, event.onceKey, event.name, event.properties);
+    }
+  }, [isFirstRun, user?.id, user?.created_at, firstRunSteps, showFirstRunGuide]);
 
   // A first-run phone user must see the list pane (where the guide lives), even
   // if this device last used the timeline pane for another account.
