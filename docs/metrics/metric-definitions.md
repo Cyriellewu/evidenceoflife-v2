@@ -118,3 +118,8 @@ core-loop events are not sent from demo mode.
 `first_landing_path` (pathname only), `first_referrer_host` (host only,
 cross-origin only). SQL over `created_at` stays the source of truth for
 activation and retention; events explain *where* people drop off.
+
+## Related
+
+- [Prioritized backlog](../product/prioritization.md)
+- [Growth plan](../growth/growth-plan.md)
