@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -1628,6 +1628,25 @@ export function PlanView({
   // squeezes both columns until titles and blocks are unreadable. The switcher
   // lives in MobileNavChrome (Chat|Work-style top pill); we only keep state here.
   const isMobile = useIsMobile();
+  // Desktop: size the split so its bottom lands where the fixed composer
+  // sits (16px above the viewport edge), instead of a fixed guess at the
+  // header height that let the timeline run past the bottom of the window.
+  const splitRef = useRef<HTMLDivElement>(null);
+  const [splitTop, setSplitTop] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (isMobile) return;
+    const measure = () => {
+      const el = splitRef.current;
+      if (!el) return;
+      const scroller = el.closest('main');
+      const top = el.getBoundingClientRect().top + (scroller?.scrollTop ?? 0);
+      setSplitTop(Math.round(top));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [isMobile]);
+  const desktopSplitHeight = splitTop != null ? `calc(100dvh - ${splitTop + 16}px)` : 'calc(100vh - 180px)';
   const [mobilePane, setMobilePaneState] = useState<PlanMobilePane>(() => readPlanMobilePane());
   const showListPane = !isMobile || mobilePane === 'list';
   const showTimelinePane = !isMobile || mobilePane === 'timeline';
@@ -3064,8 +3083,9 @@ export function PlanView({
       {/* Main split layout — full-width single pane on mobile.
           Tasks|Timeline switcher lives in MobileNavChrome (top center). */}
       <div
+        ref={splitRef}
         className={cn('flex gap-0', isMobile ? 'flex-col' : 'flex-row')}
-        style={{ minHeight: isMobile ? 'calc(100dvh - 220px)' : 'calc(100vh - 180px)' }}
+        style={isMobile ? { minHeight: 'calc(100dvh - 220px)' } : { height: desktopSplitHeight }}
       >
         {/* Task list */}
         <div
@@ -3075,7 +3095,7 @@ export function PlanView({
             isMobile ? 'w-full border-r-0' : 'flex-1 border-r border-border/20',
             !showListPane && 'hidden',
           )}
-          style={{ maxHeight: isMobile ? 'calc(100dvh - 220px)' : 'calc(100vh - 180px)' }}
+          style={{ maxHeight: isMobile ? 'calc(100dvh - 220px)' : desktopSplitHeight }}
         >
           <div className="flex-1 overflow-y-auto min-h-0">
           <div
@@ -3108,19 +3128,9 @@ export function PlanView({
               {/* Empty state — when no active tasks, invite the first action rather
                   than leaving the column a black void next to a busy timeline. */}
               {!firstRunGuide && mainListTodos.filter(t => !t.is_completed).length === 0 && (
-                <div className="flex flex-col items-center justify-center gap-3.5 px-6 py-20 text-center animate-fade-in">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.08] text-primary/80">
-                    <NotebookPen size={22} strokeWidth={1.8} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-[14px] font-medium text-foreground/85">
-                      {lang === 'zh' ? '今天还是一张白纸' : "Today's a blank page"}
-                    </p>
-                    <p className="mx-auto max-w-[230px] text-[12.5px] leading-relaxed text-muted-foreground/70">
-                      {lang === 'zh' ? '在下面加个任务，或从时间轴拖一件事进来。' : 'Add a task below, or drag one onto the timeline.'}
-                    </p>
-                  </div>
-                </div>
+                <p className="px-1 pb-2 pt-1 text-[13px] text-muted-foreground/70">
+                  {lang === 'zh' ? '今天还没有任务。在下面写一件，或拖到右边的时间轴上。' : 'Nothing planned yet. Type one below, or drag it onto the timeline.'}
+                </p>
               )}
               {/* Flat list mode */}
               {listMode === 'flat' ? (
@@ -3201,8 +3211,8 @@ export function PlanView({
                         className="flex items-center gap-2 min-w-0"
                       >
                         <seg.Icon size={14} strokeWidth={1.9} className="opacity-80 text-muted-foreground/80" />
-                        <span className="text-[13px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{seg.label}</span>
-                        <span className="text-[12px] tabular-nums text-muted-foreground/55 font-normal">{seg.todos.length}</span>
+                        <span className="text-[14px] font-semibold tracking-[-0.01em] text-foreground/70">{seg.label}</span>
+                        {seg.todos.length > 0 && <span className="text-[12px] tabular-nums text-muted-foreground/55 font-normal">{seg.todos.length}</span>}
                         {collapsedSegments.has(seg.id)
                           ? <ChevronRight size={14} className="text-muted-foreground/55" />
                           : <ChevronDown size={14} className="text-muted-foreground/55" />}
@@ -3312,7 +3322,7 @@ export function PlanView({
                   <div className="flex items-center px-0.5 py-1.5">
                     <button onClick={() => setArchiveCollapsed(v => !v)} className="flex items-center gap-1.5 flex-1 min-w-0">
                       <Check size={11} className="text-muted-foreground/40 shrink-0" />
-                      <span className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-[0.12em]">{tLang('plan.done') || 'Done'}</span>
+                      <span className="text-[12px] font-semibold text-muted-foreground/60">{tLang('plan.done') || 'Done'}</span>
                       <span className="text-[11px] text-muted-foreground/35">{archivedTodos.length}</span>
                       {archiveCollapsed ? <ChevronRight size={11} className="text-muted-foreground/30" /> : <ChevronDown size={11} className="text-muted-foreground/30" />}
                     </button>
