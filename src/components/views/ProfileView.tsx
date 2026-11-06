@@ -31,6 +31,8 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
+import { PasswordSetting } from '@/components/PasswordSetting';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { getMomentDisplayTags } from '@/lib/momentTags';
@@ -76,6 +78,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const { dues } = useDues();
   const [showLifeCalendar, setShowLifeCalendar] = useState(false);
   const { lang, setLang, t } = useLanguage();
+  const { user: authUser, isDemo } = useAuth();
   const dailyArtwork = useMemo(() => getDailyArtwork(new Date()), []);
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
@@ -466,6 +469,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                           <button onClick={() => setLang('en')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>EN</button>
                         </div>
                         <GoogleCalendarButton />
+                        {!isDemo && authUser && <PasswordSetting lang={lang} email={authUser.email} />}
                       </div>
                     </div>
                   </div>
