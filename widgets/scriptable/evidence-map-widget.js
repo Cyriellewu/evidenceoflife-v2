@@ -4,21 +4,16 @@
 // category (🍚 food, ☕️ coffee, 🌳 outdoors, 🏛 culture, 📍 other), and in New
 // York the neighbourhoods you've been to in the same colours as the app.
 //
-// Setup (once):
-//   1. Paste your project URL and publishable key below (the same public values
-//      the web app ships with; never a service-role key).
-//   2. Run the script inside Scriptable: it asks for your email, emails you a
-//      6-digit code, and keeps its own sign-in in the iOS Keychain.
-//   3. Add a Scriptable widget (large is the intended size) and pick this script.
-//
-// It reads only your own places (row-level security), with one small query per
-// refresh, and caches map tiles on the device.
+// Setup:
+//   1. In the app, open Map and tap "Copy to widget".
+//   2. Run this script once inside Scriptable (it saves the copied places).
+//   3. Add a large Scriptable widget and pick this script.
+// To update after new places: copy again in the app and re-run the script.
+// No sign-in, no network calls for your data; only map tiles (and NYC area
+// boundaries) are downloaded and cached on the phone.
 
-const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
-const SUPABASE_KEY = 'YOUR-PUBLISHABLE-KEY';
 const APP_URL = 'https://evilife.vercel.app/';
 
-const KEYCHAIN_REFRESH = 'evidence-of-life.widget.refresh-token';
 const CACHE_PLACES = 'evidence-of-life-places.json';
 const NEARBY_KM = 25;
 const TILE_DAYS = 14;
@@ -29,75 +24,43 @@ const fm = FileManager.local();
 const cacheDir = fm.joinPath(fm.cacheDirectory(), 'evidence-of-life-widget');
 if (!fm.fileExists(cacheDir)) fm.createDirectory(cacheDir, true);
 
-// ---------- auth (its own session; email one-time code) ----------
+// ---------- data (copied from the app; no sign-in) ----------
+//
+// In the app: Map → "Copy to widget". Then run this script once in Scriptable:
+// it reads the clipboard, saves your places on the phone, and the widget uses
+// that copy until you copy again.
 
-async function authRequest(path, body) {
-  const req = new Request(`${SUPABASE_URL}/auth/v1/${path}`);
-  req.method = 'POST';
-  req.headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
-  req.body = JSON.stringify(body);
-  const json = await req.loadJSON();
-  if (req.response.statusCode >= 400) throw new Error(json.msg || json.error_description || json.error || 'Sign-in failed');
-  return json;
-}
+const PAYLOAD_KIND = 'evidence-of-life/widget-places';
 
-async function ask(title, message, placeholder, keyboard) {
-  const a = new Alert();
-  a.title = title;
-  a.message = message;
-  const field = a.addTextField(placeholder);
-  if (keyboard === 'email') field.setEmailAddressKeyboard();
-  if (keyboard === 'number') field.setNumberPadKeyboard();
-  a.addAction('OK');
-  a.addCancelAction('Cancel');
-  if ((await a.presentAlert()) === -1) return null;
-  return a.textFieldValue(0).trim();
-}
-
-async function signIn() {
-  const email = await ask('Evidence of Life', 'Sign in with the email you use in the app.', 'you@example.com', 'email');
-  if (!email) return null;
-  await authRequest('otp', { email, create_user: false });
-  const code = await ask('Check your email', `Enter the code sent to ${email}.`, '123456', 'number');
-  if (!code) return null;
-  const session = await authRequest('verify', { type: 'email', email, token: code });
-  Keychain.set(KEYCHAIN_REFRESH, session.refresh_token);
-  return session.access_token;
-}
-
-async function accessToken() {
-  if (Keychain.contains(KEYCHAIN_REFRESH)) {
-    try {
-      const session = await authRequest('token?grant_type=refresh_token', { refresh_token: Keychain.get(KEYCHAIN_REFRESH) });
-      Keychain.set(KEYCHAIN_REFRESH, session.refresh_token);
-      return session.access_token;
-    } catch (e) {
-      Keychain.remove(KEYCHAIN_REFRESH);
-    }
+function readClipboard() {
+  try {
+    const text = Pasteboard.paste();
+    if (!text) return null;
+    const json = JSON.parse(text);
+    if (!json || json.kind !== PAYLOAD_KIND || !Array.isArray(json.places)) return null;
+    return json.places
+      .map(p => ({ name: p.name, category: p.category, lat: Number(p.lat), lng: Number(p.lng) }))
+      .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  } catch (e) {
+    return null;
   }
-  return config.runsInWidget ? null : signIn();
 }
-
-// ---------- data ----------
 
 async function loadPlaces() {
   const cachePath = fm.joinPath(cacheDir, CACHE_PLACES);
-  try {
-    const token = await accessToken();
-    if (!token) throw new Error('signed out');
-    const req = new Request(`${SUPABASE_URL}/rest/v1/places?select=name,category,lat,lng`);
-    req.headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` };
-    const rows = await req.loadJSON();
-    if (!Array.isArray(rows)) throw new Error('bad response');
-    const places = rows
-      .map(r => ({ name: r.name, category: r.category, lat: Number(r.lat), lng: Number(r.lng) }))
-      .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-    fm.writeString(cachePath, JSON.stringify(places));
-    return { places, signedIn: true };
-  } catch (e) {
-    const cached = fm.fileExists(cachePath) ? JSON.parse(fm.readString(cachePath)) : [];
-    return { places: cached, signedIn: cached.length > 0 };
+  if (!config.runsInWidget) {
+    const fresh = readClipboard();
+    if (fresh) {
+      fm.writeString(cachePath, JSON.stringify(fresh));
+      const a = new Alert();
+      a.title = 'Evidence of Life';
+      a.message = `Saved ${fresh.length} places for the widget.`;
+      a.addAction('OK');
+      await a.presentAlert();
+    }
   }
+  const places = fm.fileExists(cachePath) ? JSON.parse(fm.readString(cachePath)) : [];
+  return { places, signedIn: places.length > 0 };
 }
 
 async function here() {
@@ -156,8 +119,28 @@ async function tile(z, x, y, dark) {
 const NTA_URL = 'https://data.cityofnewyork.us/resource/9nt8-h7nd.geojson'
   + '?$select=ntaname,simplify_preserve_topology(the_geom,0.0002)%20as%20the_geom'
   + '&$where=ntatype%3D%270%27&$limit=500';
-// Same palette, in the same order, as categoryColors in MapView.
-const AREA_COLORS = ['#ef4444', '#8b5a2b', '#22c55e', '#8b5cf6', '#c9a88c'];
+// Same muted palette as the app's Map view.
+const AREA_COLORS = ['#d97757', '#7a9c6e', '#9e7bb5', '#a1734a', '#5d8fb3', '#c9a24a'];
+
+/** Neighbouring areas (sharing a boundary vertex) never get the same colour. */
+function areaColorIndexes(areas) {
+  const keys = areas.map(a => {
+    const set = new Set();
+    for (const poly of a.polygons) for (const [lng, lat] of poly[0] || []) set.add(`${lng.toFixed(4)},${lat.toFixed(4)}`);
+    return set;
+  });
+  const colors = [];
+  areas.forEach((_, i) => {
+    const taken = new Set();
+    for (let j = 0; j < i; j++) {
+      for (const k of keys[i]) { if (keys[j].has(k)) { taken.add(colors[j]); break; } }
+    }
+    let c = 0;
+    while (taken.has(c) && c < AREA_COLORS.length - 1) c++;
+    colors.push(c);
+  });
+  return colors;
+}
 
 const inNYC = c => c.lat >= 40.48 && c.lat <= 40.93 && c.lng >= -74.28 && c.lng <= -73.67;
 
@@ -235,8 +218,9 @@ async function drawMap(places, center, w, h, dark, areas) {
   }
 
   // Coloured area washes under the markers, one colour per area.
+  const colorIdx = areaColorIndexes(areas);
   areas.forEach((area, i) => {
-    const color = new Color(AREA_COLORS[i % AREA_COLORS.length], 0.26);
+    const color = new Color(AREA_COLORS[colorIdx[i]], 0.26);
     for (const poly of area.polygons) {
       const ring = poly[0];
       if (!ring || ring.length < 3) continue;
@@ -289,7 +273,7 @@ async function main() {
   const { places, signedIn } = await loadPlaces();
   if (!signedIn) {
     widget.backgroundColor = new Color(dark ? '#1f2124' : '#f3f0e8');
-    message(widget, 'Open Scriptable and run this script once to sign in.');
+    message(widget, 'In Evidence of Life, open Map and tap “Copy to widget”, then run this script once in Scriptable.');
     return widget;
   }
 
