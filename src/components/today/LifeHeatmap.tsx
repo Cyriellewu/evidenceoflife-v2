@@ -7,9 +7,11 @@ interface LifeHeatmapProps {
   allMoments: Moment[];
   allTodos?: Todo[];
   mode?: 'activity' | 'focus';
+  /** Hide the built-in title row when the parent already titles the card. */
+  showHeader?: boolean;
 }
 
-export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHeatmapProps) {
+export function LifeHeatmap({ allMoments, allTodos, mode = 'activity', showHeader = true }: LifeHeatmapProps) {
   const { weeks, maxVal, totalDays } = useMemo(() => {
     const today = new Date();
     // Go back ~26 weeks (half year)
@@ -113,15 +115,15 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
   }, [weeks]);
 
   return (
-    <div className="mb-6 min-w-0">
-      <div className="flex items-baseline justify-between gap-3 mb-2">
+    <div className="min-w-0">
+      {showHeader && <div className="flex items-baseline justify-between gap-3 mb-2">
         <p className="text-[12px] font-medium text-muted-foreground/70">
           Life heatmap
         </p>
         <p className="text-[11px] tabular-nums text-muted-foreground/60">
           {totalDays} active days
         </p>
-      </div>
+      </div>}
 
       <div ref={scrollRef} className="overflow-x-auto no-scrollbar">
         <div className="w-max">
