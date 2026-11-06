@@ -198,6 +198,20 @@ export function useDues() {
 
   const addDue = useCallback(async (title: string, dueDate?: string, habitCategory?: string, showInRecapDaily = false): Promise<string | null> => {
     if (!user) return null;
+    if (isDemo) {
+      // The public demo has no backend: keep new items in memory only.
+      const id = crypto.randomUUID();
+      const local = {
+        id, title, date: dueDate ? '_due_' + dueDate : '_due_none', time_segment: 'anytime', progress: 0,
+        is_completed: false, due_date: dueDate || null, sort_order: 0, created_at: new Date().toISOString(),
+        timer_started_at: null, timer_ended_at: null, timer_seconds: 0, tags: [], plan_started_at: null, plan_ended_at: null,
+        habit_category: habitCategory || null, show_in_recap_daily: showInRecapDaily,
+        totalSessions: 0, totalSeconds: 0, maxProgress: 0, links: [], totalCount: 0, photos: [], steps: [],
+        targetCount: 1, dailyCounts: {}, currentStreak: 0,
+      } as DueWithStats;
+      setDues(prev => [local, ...prev]);
+      return id;
+    }
     const addKey = JSON.stringify([title.trim(), dueDate || null, habitCategory || null, showInRecapDaily]);
     if (pendingAddsRef.current.has(addKey)) return null;
     pendingAddsRef.current.add(addKey);
@@ -226,7 +240,7 @@ export function useDues() {
     } finally {
       pendingAddsRef.current.delete(addKey);
     }
-  }, [user, fetchDues]);
+  }, [user, isDemo, fetchDues]);
 
   const addToToday = useCallback(async (masterId: string, stepTitle?: string) => {
     if (!user) return;
@@ -256,14 +270,19 @@ export function useDues() {
   }, [user, dues, fetchDues]);
 
   const deleteDue = useCallback(async (id: string) => {
+    if (isDemo) { setDues(prev => prev.filter(t => t.id !== id)); return; }
     await supabase.from('todos').delete().eq('parent_due_id', id);
     const { error } = await supabase.from('todos').delete().eq('id', id);
     if (!error) {
       setDues(prev => prev.filter(t => t.id !== id));
     }
-  }, []);
+  }, [isDemo]);
 
   const updateDue = useCallback(async (id: string, updates: { title?: string; due_date?: string | null; links?: DueLink[]; is_completed?: boolean; photos?: string[]; habit_category?: string | null; show_in_recap_daily?: boolean; sort_order?: number; progress?: number }) => {
+    if (isDemo) {
+      setDues(prev => prev.map(d => (d.id === id ? { ...d, ...updates } as DueWithStats : d)));
+      return;
+    }
     const existing = dues.find(d => d.id === id);
     const updatePayload: TodoUpdate = {};
     const localPatch: Partial<DueWithStats> = {};
@@ -322,7 +341,7 @@ export function useDues() {
     if (!error) {
       setDues(prev => prev.map(d => d.id === id ? { ...d, ...localPatch } : d));
     }
-  }, [dues]);
+  }, [dues, isDemo]);
 
   const addStep = useCallback(async (masterId: string, title: string) => {
     if (!user) return;

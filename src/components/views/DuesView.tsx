@@ -15,6 +15,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { parseDateFromText as parseDateFromTextShared } from '@/lib/parseDateFromText';
 import { parseQuickDue } from '@/lib/quickDue';
+import { deadlineBucket, type DeadlineBucket } from '@/lib/deadlineDisplay';
+import { DeadlineRow } from '@/components/views/dues/DeadlineRow';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
 import {
@@ -71,6 +73,7 @@ export function DuesView({
   // empty panel still shows what you finished.
   const [completedCollapsed, setCompletedCollapsed] = useState<boolean | null>(null);
   const [lastAdded, setLastAdded] = useState<{ title: string; due: string } | null>(null);
+  const [expandedDeadlineId, setExpandedDeadlineId] = useState<string | null>(null);
   const [upcomingCollapsed, setUpcomingCollapsed] = useState(false);
   const [noDateCollapsed, setNoDateCollapsed] = useState(false);
   const [focusedDueId, setFocusedDueId] = useState<string | null>(null);
@@ -449,6 +452,20 @@ export function DuesView({
   const viewTitle = lockedMode ? (isDeadlineMode ? 'Deadlines' : 'Habits') : 'Commitments';
 
   const noDateDeadlines = activeDeadlines.filter(d => !d.due_date);
+  const deadlineGroups = (() => {
+    const labels: Record<DeadlineBucket, string> = lang === 'zh'
+      ? { today: '今天', week: '本周', later: '之后', none: '没有日期' }
+      : { today: 'Today', week: 'This week', later: 'Later', none: 'No date' };
+    const sorted = [...activeDeadlines].sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'));
+    return (['today', 'week', 'later', 'none'] as DeadlineBucket[])
+      .map(key => ({ key, label: labels[key], items: sorted.filter(d => deadlineBucket(d.due_date) === key) }))
+      .filter(g => g.items.length > 0);
+  })();
+  const deadlineStats = {
+    today: activeDeadlines.filter(d => deadlineBucket(d.due_date) === 'today').length,
+    week: activeDeadlines.filter(d => deadlineBucket(d.due_date) === 'week').length,
+    done: completedDues.length,
+  };
 
   const todayUrgent = activeDeadlines.filter(d => {
     if (!d.due_date) return false;
@@ -549,6 +566,21 @@ export function DuesView({
         </p>
       )}
 
+      {isDeadlineMode && lockedMode && (deadlineStats.today + deadlineStats.week + deadlineStats.done > 0) && (
+        <div className="mb-5 grid grid-cols-3 gap-2.5">
+          {[
+            { n: deadlineStats.today, label: lang === 'zh' ? '今天到期' : 'Due today', cls: deadlineStats.today ? 'text-[hsl(var(--deadline))]' : 'text-foreground' },
+            { n: deadlineStats.week, label: lang === 'zh' ? '本周' : 'This week', cls: 'text-foreground' },
+            { n: deadlineStats.done, label: lang === 'zh' ? '已完成' : 'Done', cls: 'text-[hsl(var(--habit))]' },
+          ].map(stat => (
+            <div key={stat.label} className="rounded-2xl bg-card px-3.5 py-3 ring-1 ring-border/50">
+              <p className={cn('text-[24px] font-black leading-none', stat.cls)}>{stat.n}</p>
+              <p className="mt-1.5 text-[12px] font-semibold text-muted-foreground">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {!hasFutureCommitments && lockedMode && !lastAdded && (
         <p className="mb-6 px-1 text-[13px] text-muted-foreground">
           {isDeadlineMode
@@ -630,7 +662,7 @@ export function DuesView({
               void handleAddPendingLink(pastedUrl);
             }
           }}
-          className="static order-first mb-4 mt-1"
+          className="static order-first mb-4 mt-1 max-w-none"
           leading={
             <Popover open={showPlusMenu} onOpenChange={setShowPlusMenu}>
               <PopoverTrigger asChild>
@@ -805,74 +837,36 @@ export function DuesView({
       <div className="mb-8">
         {isDeadlineMode ? (
           <div className="min-w-0">
-          {/* Today / Urgent */}
-          {todayUrgent.length > 0 && (
-            <div className="mb-5">
-              <h2 className="text-[12px] text-muted-foreground/62 uppercase tracking-[0.16em] mb-2.5 flex items-center gap-2" >
-                <Target size={14} />
-                {t('dues.todayUrgent')}
-              </h2>
-              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
-                {todayUrgent.map(due => (
-                  <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
-                    onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                    dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
-                    onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
-                    onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
+          {deadlineGroups.map(group => (
+            <section key={group.key} className="mb-5">
+              <h3 className="mb-2 flex items-baseline gap-2 px-1 text-[17px] font-extrabold text-foreground">
+                {group.label}
+                <span className="text-[13px] font-semibold text-muted-foreground">{group.items.length}</span>
+              </h3>
+              <div className="divide-y divide-border/60 overflow-hidden rounded-[18px] bg-card shadow-[0_1px_2px_hsl(var(--foreground)/0.04)] ring-1 ring-border/50">
+                {group.items.map(due => (
+                  <div key={due.id}>
+                    <DeadlineRow
+                      due={due}
+                      lang={lang}
+                      expanded={expandedDeadlineId === due.id}
+                      onToggleExpand={() => setExpandedDeadlineId(expandedDeadlineId === due.id ? null : due.id)}
+                      onComplete={() => { void updateDue(due.id, { is_completed: true }); }}
+                    />
+                    {expandedDeadlineId === due.id && (
+                      <div className="px-2 pb-2">
+                        <DueCard due={due} onUpdate={updateDue} onDelete={deleteDue}
+                          onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
+                          dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
+                          onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
+                          onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Upcoming */}
-          {upcoming.length > 0 && (
-            <div className="mb-5">
-              <button onClick={() => setUpcomingCollapsed(!upcomingCollapsed)}
-                className="w-full flex items-center justify-between text-[12px] text-muted-foreground/62 uppercase tracking-[0.16em] mb-2.5 hover:text-muted-foreground transition-colors" >
-                <span className="flex items-center gap-2">
-                  <Calendar size={14} />
-                  {t('dues.upcoming')} ({upcoming.length})
-                </span>
-                {upcomingCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-              </button>
-              {!upcomingCollapsed && (
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
-                  {upcoming.map(due => (
-                    <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
-                      onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
-                      onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
-                      onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* No date yet */}
-          {noDateDeadlines.length > 0 && (
-            <div className="mb-5">
-              <button onClick={() => setNoDateCollapsed(!noDateCollapsed)}
-                className="w-full flex items-center justify-between text-[12px] text-muted-foreground/62 uppercase tracking-[0.16em] mb-2.5 hover:text-muted-foreground transition-colors">
-                <span className="flex items-center gap-2">
-                  <Calendar size={14} />
-                  No date ({noDateDeadlines.length})
-                </span>
-                {noDateCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-              </button>
-              {!noDateCollapsed && (
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
-                  {noDateDeadlines.map(due => (
-                    <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
-                      onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                      dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
-                      onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
-                      onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+            </section>
+          ))}
           </div>
         ) : activeHabits.length > 0 ? (
           <div
