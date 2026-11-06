@@ -7,6 +7,8 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 beforeEach(() => {
   vi.resetModules();
+  // Signed URLs now persist per device; each test starts from an empty cache.
+  localStorage.clear();
   createSignedUrl.mockReset();
   vi.useFakeTimers();
 });
@@ -33,7 +35,11 @@ describe('photo request reuse', () => {
     createSignedUrl.mockResolvedValueOnce({ data: { signedUrl: 'first' }, error: null })
       .mockResolvedValueOnce({ data: { signedUrl: 'renewed' }, error: null });
     await resolveMomentPhotoUrl('user/photo.png');
-    vi.advanceTimersByTime(59 * 60 * 1000);
+    // Still the same link a few hours later (cache hit across reloads)...
+    vi.advanceTimersByTime(6 * 60 * 60 * 1000);
+    expect(await resolveMomentPhotoUrl('user/photo.png')).toBe('first');
+    // ...and renewed shortly before the 12 h signature runs out.
+    vi.advanceTimersByTime(5 * 60 * 60 * 1000 + 51 * 60 * 1000);
     expect(await resolveMomentPhotoUrl('user/photo.png')).toBe('renewed');
     expect(createSignedUrl).toHaveBeenCalledTimes(2);
   });
