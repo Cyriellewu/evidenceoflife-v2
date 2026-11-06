@@ -2055,10 +2055,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   className="w-full py-1 flex items-center gap-2 opacity-0 group-hover/insert:opacity-100 transition-opacity duration-200"
                                 >
                                   <div className="flex-1 h-px bg-primary/15 group-hover/insert:bg-primary/25 transition-colors" />
-                                  <span className="text-[10px] uppercase tracking-[0.08em] text-primary/35 group-hover/insert:text-primary/55 whitespace-nowrap transition-colors">
-                                    + {t('capture.log')}
+                                  {/* A gap with nothing logged — an invitation to fill it in, not a
+                                      duration that was recorded. Say so, so "1h 13m" isn't read as time spent. */}
+                                  <span className="text-[11px] text-primary/45 group-hover/insert:text-primary/65 whitespace-nowrap transition-colors">
+                                    + {lang === 'zh' ? '补记' : 'Fill in'}
                                     {gapMinutes >= 45 && (
-                                      <span className="text-muted-foreground/22 ml-1 normal-case tracking-normal">{gapLabel}</span>
+                                      <span className="ml-1 text-muted-foreground/45">
+                                        {lang === 'zh' ? `· 中间空了 ${gapLabel}` : `· ${gapLabel} unlogged`}
+                                      </span>
                                     )}
                                   </span>
                                   <div className="flex-1 h-px bg-primary/15 group-hover/insert:bg-primary/25 transition-colors" />
