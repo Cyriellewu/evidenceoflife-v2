@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Menu, X } from 'lucide-react';
 import { TabType } from '@/types';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -22,7 +22,7 @@ interface MobileNavChromeProps {
 /**
  * Phone chrome patterned after ChatGPT / GenAI drawers:
  * - Narrow left drawer (not a near-full-screen white sheet)
- * - Soft gray panel with brand logo, dense nav
+ * - Light panel with brand logo, dense nav; swipe from the left edge to open
  * - Sits above composers so "Add a task" never floats on top of the menu
  */
 export function MobileNavChrome({
@@ -34,6 +34,40 @@ export function MobileNavChrome({
   centerSlot,
 }: MobileNavChromeProps) {
   const { lang } = useLanguage();
+
+  // Swipe right from the left edge opens the drawer (phones only; the chrome is md:hidden).
+  useEffect(() => {
+    if (open) return;
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      tracking = e.touches.length === 1 && t.clientX <= 24 && window.innerWidth < 768;
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!tracking) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = Math.abs(t.clientY - startY);
+      if (dy > 40) { tracking = false; return; }
+      if (dx > 56 && dx > dy * 1.5) {
+        tracking = false;
+        onOpenChange(true);
+      }
+    };
+    const onEnd = () => { tracking = false; };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    };
+  }, [open, onOpenChange]);
 
   return (
     <>
@@ -69,9 +103,9 @@ export function MobileNavChrome({
           expandable={false}
           overlayClassName="!z-[210]"
           className={cn(
-            '!z-[220] w-[min(70vw,228px)] gap-0 border-r border-black/10 p-0 shadow-[8px_0_32px_-12px_rgba(0,0,0,0.32)] sm:max-w-[228px] sm:rounded-none',
-            // Deeper warm gray — less blank white than surface-contrast / #eceae6.
-            'bg-[#cfcbc4] dark:border-white/10 dark:bg-[hsl(220_9%_11%)]',
+            '!z-[220] w-[min(74vw,260px)] gap-0 border-r border-border/50 p-0 shadow-[12px_0_40px_-20px_hsl(var(--foreground)/0.25)] sm:max-w-[260px] sm:rounded-none',
+            // Plain app background, like an iOS sidebar — light, not a heavy wash.
+            'bg-background',
             '[&>div.absolute]:hidden',
           )}
         >
@@ -79,11 +113,11 @@ export function MobileNavChrome({
             {lang === 'zh' ? '导航' : 'Navigation'}
           </SheetTitle>
           <div className="flex h-full flex-col">
-            <div className="relative border-b border-black/[0.06] px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] dark:border-white/[0.08]">
+            <div className="relative px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="absolute right-2 top-[max(0.55rem,env(safe-area-inset-top))] flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.06]"
+                className="absolute right-2 top-[max(0.55rem,env(safe-area-inset-top))] flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
                 aria-label={lang === 'zh' ? '关闭' : 'Close'}
               >
                 <X size={16} />
@@ -92,9 +126,9 @@ export function MobileNavChrome({
                 <BrandLogo
                   variant="mark"
                   alt="Evidence of life"
-                  className="h-12 w-12 flex-shrink-0"
+                  className="h-9 w-9 flex-shrink-0"
                 />
-                <span className="font-brand min-w-0 flex-1 text-[24px] font-medium leading-[1.05] tracking-tight text-foreground">
+                <span className="font-brand min-w-0 flex-1 truncate text-[19px] font-medium leading-none tracking-tight text-foreground">
                   Evidence of life
                 </span>
               </div>
