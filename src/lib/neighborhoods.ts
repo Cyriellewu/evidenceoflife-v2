@@ -182,3 +182,45 @@ export function visitedAreas(
     })
     .sort((a, b) => b.placeCount - a.placeCount);
 }
+
+function areaBounds(area: VisitedArea) {
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  for (const f of area.features) {
+    for (const polygon of f.geometry.coordinates as Ring[][]) {
+      for (const [lng, lat] of polygon[0] ?? []) {
+        minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+        minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+      }
+    }
+  }
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+/** Do two areas share a border point? (Neighbouring NTAs share vertices.) */
+function touches(a: VisitedArea, b: VisitedArea): boolean {
+  const ba = areaBounds(a);
+  const bb = areaBounds(b);
+  const eps = 1e-4;
+  if (ba.minLat > bb.maxLat + eps || bb.minLat > ba.maxLat + eps || ba.minLng > bb.maxLng + eps || bb.minLng > ba.maxLng + eps) return false;
+  const key = (lng: number, lat: number) => `${lng.toFixed(4)},${lat.toFixed(4)}`;
+  const pts = new Set<string>();
+  for (const f of a.features) for (const polygon of f.geometry.coordinates as Ring[][]) for (const [lng, lat] of polygon[0] ?? []) pts.add(key(lng, lat));
+  for (const f of b.features) for (const polygon of f.geometry.coordinates as Ring[][]) for (const [lng, lat] of polygon[0] ?? []) if (pts.has(key(lng, lat))) return true;
+  return false;
+}
+
+/**
+ * A colour index per area such that areas sharing a border never get the same
+ * colour (greedy map colouring, most-visited first).
+ */
+export function areaColorIndexes(areas: VisitedArea[], paletteSize: number): number[] {
+  const colors: number[] = [];
+  areas.forEach((area, i) => {
+    const taken = new Set<number>();
+    for (let j = 0; j < i; j++) if (touches(area, areas[j])) taken.add(colors[j]);
+    let c = 0;
+    while (taken.has(c) && c < paletteSize - 1) c++;
+    colors.push(c);
+  });
+  return colors;
+}

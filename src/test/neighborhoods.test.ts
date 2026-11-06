@@ -72,3 +72,25 @@ describe('everyday areas', () => {
     expect(areas[0].anchor).toEqual([1, 0.5]);
   });
 });
+
+import { areaColorIndexes } from '@/lib/neighborhoods';
+
+describe('area colours', () => {
+  it('never gives neighbouring areas the same colour', () => {
+    const blocks = {
+      type: 'FeatureCollection',
+      features: [0, 1, 2, 3, 4, 5].map(i => ({
+        type: 'Feature',
+        properties: { ntaname: `Area ${i}`, boroname: 'Manhattan', ntatype: '0' },
+        geometry: { type: 'MultiPolygon', coordinates: [square(0, i)] },
+      })),
+    } as unknown as NeighborhoodCollection;
+    // Six stacked squares, each touching the next; one visit in each.
+    const areas = visitedAreas(blocks, [0, 1, 2, 3, 4, 5].map(i => ({ lng: 0.5, lat: i + 0.5 })));
+    const byName = new Map(areas.map((a, i) => [a.name, i]));
+    const colors = areaColorIndexes(areas, 5);
+    for (let i = 0; i < 5; i++) {
+      expect(colors[byName.get(`Area ${i}`)!]).not.toBe(colors[byName.get(`Area ${i + 1}`)!]);
+    }
+  });
+});

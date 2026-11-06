@@ -144,3 +144,18 @@ export function CityLandmark({ landmark, className }: { landmark: LandmarkKey; c
     </svg>
   );
 }
+
+/** The Life Map mark: a muted globe with a dotted route and a pin, same postcard style. */
+export function LifeMapMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} aria-hidden>
+      <rect width="48" height="48" fill={IVORY} />
+      <circle cx="24" cy="25" r="14" fill="#9DB7C9" />
+      <path d="M14.5 19c3-1.5 5.5-.5 7 1.8 1.2 1.9-.4 4-2.6 4.4-2.6.5-3.2 3-5.6 2.6-1.6-.3-2.5-2.2-2.3-4 .2-1.9 1.6-3.8 3.5-4.8z" fill="#8FAF84" />
+      <path d="M27 30.5c2.2-1.6 5.2-1.2 6.8.4 1.1 1.1.4 3.1-1.4 4.4-1.9 1.4-4.6 1.8-5.8.6-1-1-.9-4.2.4-5.4z" fill="#8FAF84" />
+      <path d="M15 33 Q22 24 30 21" stroke="#5E6B78" strokeWidth="1.1" strokeDasharray="1.6 2" strokeLinecap="round" fill="none" />
+      <path d="M33 11.5a3.6 3.6 0 0 1 3.6 3.6c0 2.7-3.6 6.4-3.6 6.4s-3.6-3.7-3.6-6.4a3.6 3.6 0 0 1 3.6-3.6z" fill="#D97757" />
+      <circle cx="33" cy="15.1" r="1.3" fill={IVORY} />
+    </svg>
+  );
+}
