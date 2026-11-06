@@ -28,3 +28,8 @@ verify_jwt = false
 
 [functions.life-replay]
 verify_jwt = false
+
+# Home-screen widget: browser calls carry a user JWT (mint/revoke keys);
+# widget calls carry x-widget-token, checked against hashed keys in the function.
+[functions.widget-api]
+verify_jwt = false
