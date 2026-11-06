@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, Component, type Erro
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X, Image as ImageIcon, MapPinned, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
-import { buildWidgetPayload } from '@/lib/widgetExport';
+import { buildWidgetKeyPayload, copyAsync } from '@/lib/widgetExport';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
@@ -1852,27 +1852,28 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 <span><strong className="font-semibold tabular-nums text-foreground/72">{totalVisits}</strong> {lang === 'zh' ? '次访问' : (totalVisits === 1 ? 'visit' : 'visits')}</span>
               </p>
             </div>
-            {totalPlaces > 0 && (
-              <Button
+            <Button
                 type="button"
                 variant="ghost"
                 onClick={async () => {
                   try {
-                    await navigator.clipboard.writeText(buildWidgetPayload(
-                      allPlaces.map(p => ({ lat: Number(p.lat), lng: Number(p.lng), category: resolveCategory(p), name: p.name })),
-                    ));
-                    toast.success(lang === 'zh' ? '已复制。打开 Scriptable 运行一次小组件脚本即可。' : 'Copied. Run the widget script once in Scriptable.');
+                    await copyAsync(async () => {
+                      const { supabase } = await import('@/integrations/supabase/client');
+                      const { data, error } = await supabase.functions.invoke('widget-api', { body: { action: 'create-token' } });
+                      if (error || !data?.token) throw error ?? new Error('no token');
+                      return buildWidgetKeyPayload(data.token, import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+                    });
+                    toast.success(lang === 'zh' ? '小组件钥匙已复制。打开 Scriptable 运行一次脚本即可连上。' : 'Widget key copied. Run the script once in Scriptable to connect.');
                   } catch {
-                    toast.error(lang === 'zh' ? '复制失败，请再试一次' : 'Could not copy, try again');
+                    toast.error(lang === 'zh' ? '没能生成钥匙，请再试一次' : 'Could not create a widget key, try again');
                   }
                 }}
                 className="h-8 flex-shrink-0 gap-1.5 rounded-full border border-border/55 px-3 text-[12px] font-medium text-muted-foreground hover:text-foreground"
-                title={lang === 'zh' ? '把地点复制给 iPhone 桌面小组件' : 'Copy your places for the iPhone home-screen widget'}
+                title={lang === 'zh' ? '连接 iPhone 桌面小组件' : 'Connect the iPhone home-screen widget'}
               >
                 <Smartphone size={13} />
-                {lang === 'zh' ? '复制到小组件' : 'Copy to widget'}
+                {lang === 'zh' ? '连接小组件' : 'Connect widget'}
               </Button>
-            )}
           </div>
         </header>
       )}
