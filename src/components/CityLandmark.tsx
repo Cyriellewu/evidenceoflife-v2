@@ -1,8 +1,9 @@
-import type { SVGProps } from 'react';
+import type { ReactNode } from 'react';
 
-// Line-drawn landmarks for the "Visited cities" cards, drawn on the same 24px
-// grid and stroke as the lucide icons used everywhere else, so they sit in the
-// same tile and pick up the card's accent colour via currentColor.
+// Small editorial "postcards" for the Visited cities cards: a flat ivory panel
+// and a few muted colour blocks that recall each city's landmark, rather than
+// a literal drawing. Colours are taken from the landmarks themselves
+// (verdigris Liberty, Temple of Heaven blue and red, Golden Gate orange…).
 
 type LandmarkKey =
   | 'new-york'
@@ -14,76 +15,88 @@ type LandmarkKey =
   | 'san-francisco'
   | 'tokyo';
 
-const PATHS: Record<LandmarkKey, string[]> = {
-  // Statue of Liberty: torch, crowned head, robe, pedestal.
-  'new-york': [
-    'M16.2 2.6c.9.9.9 1.9 0 2.6-.9-.7-.9-1.7 0-2.6z',
-    'M13.4 10.4 16.2 5.6',
-    'M11 9.6a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2z',
-    'M9.2 6.6 8.3 5.4M11 6.2V4.8M12.8 6.6l.9-1.2',
-    'M9.6 10.4 8.2 18h5.6l-1.4-7.6z',
-    'M7 18h8v2.6H7zM5.5 20.6h11',
-  ],
-  // Temple of Heaven: three round roofs on a terrace.
-  beijing: [
-    'M12 2.5V4',
-    'M8.2 6.8c1.7-1.9 5.9-1.9 7.6 0z',
-    'M9.6 6.8v1.6M14.4 6.8v1.6',
-    'M6.6 10.2c2.1-2.3 8.7-2.3 10.8 0z',
-    'M8.4 10.2v1.8M15.6 10.2v1.8',
-    'M5 14c2.6-2.5 11.4-2.5 14 0z',
-    'M7.2 14v2.3M10.4 14v2.3M13.6 14v2.3M16.8 14v2.3',
-    'M4.6 16.3h14.8l1.1 3H3.5z',
-  ],
-  // Oriental Pearl Tower: two spheres on a mast with splayed legs.
-  shanghai: [
-    'M12 2v3.8',
-    'M12 10.6a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8z',
-    'M12 10.6v3.2M12 17v4',
-    'M12 17a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2z',
-    'M10.2 10 7.8 21M13.8 10l2.4 11M7 21h10',
-  ],
-  // Hungarian Parliament: central dome and spire between long wings.
-  budapest: [
-    'M12 2.5V5',
-    'M9.5 9a2.5 3.6 0 0 1 5 0',
-    'M9 9h6v3H9z',
-    'M3 12h18v7H3z',
-    'M5 12V9.6l1-1 1 1V12M17 12V9.6l1-1 1 1V12',
-    'M6 15.5v1.5M9 15.5v1.5M12 15v2M15 15.5v1.5M18 15.5v1.5',
-    'M2 19h20',
-  ],
-  // Eiffel Tower.
-  paris: [
-    'M12 2.5v2',
-    'M10.9 4.5h2.2l1.3 6.5H9.6z',
-    'M8.8 11h6.4',
-    'M9.4 11 6.8 20.5M14.6 11l2.6 9.5',
-    'M8.2 15.5h7.6',
-    'M10 20.5a2 2 0 0 1 4 0',
-  ],
-  // Big Ben.
-  london: [
-    'M12 2.5 10 7.5h4z',
-    'M9.2 7.5h5.6',
-    'M10 7.5v13.5M14 7.5v13.5',
-    'M12 13.6a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2z',
-    'M10 16h4M8 21h8',
-  ],
-  // Golden Gate Bridge.
-  'san-francisco': [
-    'M7 20V5M17 20V5',
-    'M6 7.5h2M16 7.5h2',
-    'M2 9.5c2.2 0 3.6-2.2 5-4.5 2.6 6.4 7.4 6.4 10 0 1.4 2.3 2.8 4.5 5 4.5',
-    'M2 15h20',
-    'M10 10v5M12 10.6V15M14 10v5',
-  ],
-  // Mount Fuji.
-  tokyo: [
-    'M3 19.5 9.6 8h4.8L21 19.5z',
-    'M9.6 8l1.6 2.2 .8-1 .8 1 1.6-2.2',
-    'M17.5 5.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
-  ],
+const IVORY = '#F3F0E8';
+
+const ART: Record<LandmarkKey, ReactNode> = {
+  // Statue of Liberty: verdigris figure, amber torch, stone pedestal, harbour line.
+  'new-york': (
+    <>
+      <path d="M21.5 15.5 Q24 14 26.5 15.5 L28 31 H20 Z" fill="#7FA79A" />
+      <path d="M26 17 L30.5 9.5" stroke="#7FA79A" strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="31" cy="8.2" r="1.9" fill="#D9A441" />
+      <circle cx="24" cy="13" r="2.4" fill="#7FA79A" />
+      <rect x="18.5" y="31" width="11" height="5" rx="0.8" fill="#BCAE97" />
+      <path d="M9 38.5 H39" stroke="#5E6B78" strokeWidth="1" strokeLinecap="round" />
+    </>
+  ),
+  // Temple of Heaven: three stacked blue roofs, red drums, gold finial, white terrace.
+  beijing: (
+    <>
+      <circle cx="24" cy="10.2" r="1.4" fill="#C9A24A" />
+      <path d="M17.5 16 Q24 10 30.5 16 Z" fill="#3F5A7A" />
+      <rect x="19" y="16" width="10" height="2.4" fill="#A8453A" />
+      <path d="M14.5 22.5 Q24 15.5 33.5 22.5 Z" fill="#3F5A7A" />
+      <rect x="16.5" y="22.5" width="15" height="2.6" fill="#A8453A" />
+      <path d="M11.5 29.5 Q24 21.5 36.5 29.5 Z" fill="#3F5A7A" />
+      <rect x="14" y="29.5" width="20" height="3" fill="#A8453A" />
+      <path d="M10 35 H38 M12 38 H36" stroke="#CFC6B4" strokeWidth="1.6" strokeLinecap="round" />
+    </>
+  ),
+  // Oriental Pearl Tower: two pink pearls on a mast, Huangpu river below.
+  shanghai: (
+    <>
+      <path d="M24 6 V36" stroke="#6E6A74" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="24" cy="15" r="4.6" fill="#C46A86" />
+      <circle cx="24" cy="27" r="3" fill="#C46A86" />
+      <path d="M20.5 18.5 L16 37 M27.5 18.5 L32 37" stroke="#9E98A2" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M8 39 Q24 37 40 39" stroke="#7E9BB3" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+    </>
+  ),
+  // Parliament: long cream façade, red dome, Danube in front.
+  budapest: (
+    <>
+      <path d="M19 22 Q24 12 29 22 Z" fill="#9E4A3C" />
+      <path d="M24 12.5 V8" stroke="#9E4A3C" strokeWidth="1.2" strokeLinecap="round" />
+      <rect x="8" y="22" width="32" height="9" rx="0.6" fill="#D8C7A6" />
+      <path d="M11 22 V18.5 M37 22 V18.5" stroke="#9E4A3C" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M8 35 H40" stroke="#6F8FA8" strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  // Eiffel Tower: bronze taper with the arch as negative space.
+  paris: (
+    <>
+      <path d="M22.6 7 H25.4 L33 38 H27.5 Q24 30 20.5 38 H15 Z" fill="#8A6A52" />
+      <path d="M18.5 24 H29.5" stroke={IVORY} strokeWidth="1.4" />
+      <circle cx="35" cy="11" r="2.2" fill="#D9B48A" />
+    </>
+  ),
+  // Big Ben: tall stone tower, gold clock face.
+  london: (
+    <>
+      <path d="M24 6 L27 13 H21 Z" fill="#6C6458" />
+      <rect x="20.5" y="13" width="7" height="25" fill="#C2A77F" />
+      <circle cx="24" cy="18.5" r="2.4" fill="#E2C46B" />
+      <path d="M12 38.5 H36" stroke="#7E8C96" strokeWidth="1" strokeLinecap="round" />
+    </>
+  ),
+  // Golden Gate: two International Orange towers, sagging cable, fog band.
+  'san-francisco': (
+    <>
+      <rect x="6" y="27" width="36" height="5" fill="#E3E0DA" />
+      <rect x="15" y="12" width="2.6" height="24" fill="#C0533A" />
+      <rect x="30.4" y="12" width="2.6" height="24" fill="#C0533A" />
+      <path d="M6 22 Q11 20 16.3 12.5 Q24 27 31.7 12.5 Q37 20 42 22" stroke="#C0533A" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <path d="M6 30 H42" stroke="#C0533A" strokeWidth="1.6" strokeLinecap="round" />
+    </>
+  ),
+  // Mount Fuji: blue-grey cone, snow cap, red sun.
+  tokyo: (
+    <>
+      <circle cx="33" cy="13" r="4" fill="#C8553D" />
+      <path d="M7 37 L20 17 H28 L41 37 Z" fill="#5F7690" />
+      <path d="M20 17 H28 L30.5 21 L27 19.8 L24 22 L21 19.8 L17.5 21 Z" fill="#FFFFFF" />
+    </>
+  ),
 };
 
 const ALIASES: Record<string, LandmarkKey> = {
@@ -122,21 +135,12 @@ export function landmarkFor(cityName: string | null | undefined): LandmarkKey | 
   return ALIASES[key] ?? null;
 }
 
-export function CityLandmark({ landmark, size = 22, ...props }: { landmark: LandmarkKey; size?: number } & SVGProps<SVGSVGElement>) {
+/** A square ivory postcard; the caller sets its size and corner radius. */
+export function CityLandmark({ landmark, className }: { landmark: LandmarkKey; className?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      {PATHS[landmark].map(d => <path key={d} d={d} />)}
+    <svg viewBox="0 0 48 48" className={className} aria-hidden>
+      <rect width="48" height="48" fill={IVORY} />
+      {ART[landmark]}
     </svg>
   );
 }
