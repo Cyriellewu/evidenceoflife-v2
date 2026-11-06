@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { addDays, differenceInDays, format, isSaturday, isSunday, nextMonday, nextSaturday, parseISO } from 'date-fns';
+import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
 import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ChevronDown, ChevronUp, Mic } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
 import {
@@ -116,7 +117,7 @@ export function DuesView({
 
 
   const uploadPhotoFile = useCallback(async (file: File): Promise<string | null> => {
-    if (!user || file.size > 5 * 1024 * 1024) return null;
+    if (!user || file.size > MAX_PHOTO_PICK_BYTES) return null;
     const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
     const ext = file.type.split('/')[1] || file.name.split('.').pop() || 'jpg';
     return uploadMomentPhotoObject(user.id, file, file.type || `image/${ext}`, ext);
