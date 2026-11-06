@@ -326,6 +326,63 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const todayMoments = getMomentsForDate(format(today, 'yyyy-MM-dd'));
   // The demo is pinned to 2026-04-08 (Index.tsx demoFixedDate), so treat that as "today" there.
   const isSelectedToday = isDemo ? selectedDateStr === '2026-04-08' : isToday(selectedDate);
+
+  // Recap composer: as soon as you start a moment for today, attach where you
+  // are (snapping to a place you've logged within 60 m so names stay
+  // consistent). Tap the chip to change it, × to drop it; once dropped it stays
+  // off for this draft.
+  const autoLocDismissedRef = useRef(false);
+  const autoLocBusyRef = useRef(false);
+  const [locationAutoFilled, setLocationAutoFilled] = useState(false);
+  const composing = Boolean(text.trim() || selectedPhotos.length > 0);
+  useEffect(() => {
+    if (!composing || !isSelectedToday || selectedLocation || autoLocDismissedRef.current || autoLocBusyRef.current) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    try { if (sessionStorage.getItem('capture-geo-denied') === '1') return; } catch { /* private mode */ }
+    autoLocBusyRef.current = true;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [{ getGeoPosition, classifyGeoError }, { reversePlace }, { capturePlaceOptions }] = await Promise.all([
+          import('@/lib/geolocation'), import('@/lib/geoClient'), import('@/lib/capturePlace'),
+        ]);
+        let here: { lat: number; lng: number };
+        try {
+          here = await getGeoPosition({ force: false, allowCache: true });
+        } catch (err) {
+          if (classifyGeoError(err) === 'permission') {
+            try { sessionStorage.setItem('capture-geo-denied', '1'); } catch { /* ignore */ }
+          }
+          return;
+        }
+        let reverse: { name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' } | null = null;
+        try {
+          const place = await reversePlace({ lat: here.lat, lng: here.lng, lang });
+          reverse = { name: place.name || (lang === 'zh' ? '当前位置' : 'Current location'), lat: place.lat, lng: place.lng, category: (place.category || 'other') as 'other' };
+        } catch {
+          reverse = { name: lang === 'zh' ? '当前位置' : 'Current location', lat: here.lat, lng: here.lng, category: 'other' };
+        }
+        const known = (historyMoments ?? [])
+          .filter(m => m.location && Number.isFinite(m.location.lat) && Number.isFinite(m.location.lng))
+          .map(m => ({ name: m.location!.name, lat: m.location!.lat, lng: m.location!.lng, category: m.location!.category }));
+        const { chosen } = capturePlaceOptions(here, known, reverse);
+        if (cancelled || !chosen || autoLocDismissedRef.current) return;
+        setSelectedLocation(prev => prev ?? chosen);
+        setLocationAutoFilled(true);
+      } finally {
+        autoLocBusyRef.current = false;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [composing, isSelectedToday, selectedLocation, historyMoments, lang]);
+
+  // A new draft starts fresh: allow auto-location again after a send/clear.
+  useEffect(() => {
+    if (!composing && !selectedLocation) {
+      autoLocDismissedRef.current = false;
+      setLocationAutoFilled(false);
+    }
+  }, [composing, selectedLocation]);
   const hasYesterdayMoments = getMomentsForDate(format(subDays(today, 1), 'yyyy-MM-dd')).length > 0;
   const recapHabits = useMemo(
     () => dues.filter(due => due.habit_category !== null && due.show_in_recap_daily && !due.is_completed),
@@ -1231,10 +1288,25 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           {/* Selected location badge */}
           {selectedLocation && (
             <div className="flex flex-wrap gap-2 px-3 pt-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[hsl(var(--surface-inset))] rounded-full text-sm animate-fade-in">
-                <MapPin size={12} className="text-[hsl(var(--text-soft))]" />
-                <span className="truncate max-w-[150px]">{selectedLocation.name}</span>
-                <button onClick={() => setSelectedLocation(null)} className="text-muted-foreground hover:text-foreground">
+              <div className="flex items-center gap-1 rounded-full bg-[hsl(var(--surface-inset))] pl-2.5 pr-1 text-[13px] animate-fade-in">
+                <button
+                  type="button"
+                  onClick={() => setLocationOpen(true)}
+                  className="flex min-w-0 items-center gap-1.5 py-1"
+                  title={lang === 'zh' ? '换个地点' : 'Change place'}
+                >
+                  <MapPin size={12} className="flex-shrink-0 text-primary/80" />
+                  <span className="max-w-[60vw] truncate sm:max-w-[220px]">{selectedLocation.name}</span>
+                  {locationAutoFilled && (
+                    <span className="flex-shrink-0 text-[11px] text-muted-foreground">{lang === 'zh' ? '· 当前位置' : '· here'}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { autoLocDismissedRef.current = true; setLocationAutoFilled(false); setSelectedLocation(null); }}
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+                  aria-label={lang === 'zh' ? '去掉地点' : 'Remove place'}
+                >
                   <X size={12} />
                 </button>
               </div>
@@ -1313,7 +1385,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 {locationOpen && (
                   <LocationPopover
                     presentation="sheet"
-                    onSelect={(loc) => { setSelectedLocation(loc); setLocationOpen(false); }}
+                    onSelect={(loc) => { setSelectedLocation(loc); setLocationAutoFilled(false); setLocationOpen(false); }}
                     onClose={() => setLocationOpen(false)}
                   />
                 )}
@@ -1344,7 +1416,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                   <PopoverContent className="w-80 p-0 bg-transparent border-0 shadow-none z-50" align="end" side="top">
                     <LocationPopover
                       presentation="popover"
-                      onSelect={(loc) => { setSelectedLocation(loc); setLocationOpen(false); }}
+                      onSelect={(loc) => { setSelectedLocation(loc); setLocationAutoFilled(false); setLocationOpen(false); }}
                       onClose={() => setLocationOpen(false)}
                     />
                   </PopoverContent>
