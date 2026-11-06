@@ -33,7 +33,7 @@ test.describe('synthetic demo', () => {
     await page.getByTestId('recap-photo-action').click();
     const chooser = await picker;
     await expect(page.getByTestId('recap-photo-sheet')).toHaveCount(0);
-    await chooser.setFiles({ name: 'too-large.png', mimeType: 'image/png', buffer: Buffer.alloc(6 * 1024 * 1024) });
+    await chooser.setFiles({ name: 'too-large.png', mimeType: 'image/png', buffer: Buffer.alloc(26 * 1024 * 1024) });
     await expect(page.getByText(/File too large/)).toBeVisible();
     expect(await chooser.element().inputValue()).toBe('');
     const nextPicker = page.waitForEvent('filechooser');

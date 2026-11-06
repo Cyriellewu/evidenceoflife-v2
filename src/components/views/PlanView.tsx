@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
 import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, isEnterSubmit, isImeComposing } from '@/lib/utils';
@@ -2762,7 +2763,7 @@ export function PlanView({
   const floatingTimers = activeTimerTodos.filter(t => t.id !== showOverlayForId)
     .map(t => ({ id: t.id, title: t.title, elapsed: getElapsed(t), isPaused: pausedTimers.has(t.id) }));
   const uploadCapturePhoto = useCallback(async (file: File): Promise<string | null> => {
-    if (!user || file.size > 5 * 1024 * 1024) return null;
+    if (!user || file.size > MAX_PHOTO_PICK_BYTES) return null;
     const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
     const ext = file.type.split('/')[1] || file.name.split('.').pop() || 'jpg';
     return uploadMomentPhotoObject(user.id, file, file.type || `image/${ext}`, ext);

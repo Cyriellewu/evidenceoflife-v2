@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseISO } from 'date-fns';
+import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
 import { Plus, Calendar, Trash2, CalendarPlus, Check, Pencil, X, Link, Target, Camera, Bell, BellOff, Mail, ChevronDown } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
 import {
@@ -206,7 +207,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
     const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
     const newPhotos = [...(due.photos || [])];
     for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) continue;
+      if (file.size > MAX_PHOTO_PICK_BYTES) continue;
       const ext = file.name.split('.').pop() || 'jpg';
       const path = await uploadMomentPhotoObject(user.id, file, file.type || `image/${ext}`, ext);
       if (path) newPhotos.push(path);

@@ -90,6 +90,7 @@ export function createMomentPhotoObjectPath(userId: string, ext = 'png', folder?
 }
 
 const SHRINK_MAX_EDGE = 1600;
+const MAX_STORED_PHOTO_BYTES = 8 * 1024 * 1024;
 const SHRINK_MIN_BYTES = 450 * 1024;
 
 /** Downscale large raster photos to a JPEG; null when not worth it or unsupported. */
@@ -128,6 +129,12 @@ export async function uploadMomentPhotoObject(
     blob = shrunk;
     contentType = 'image/jpeg';
     ext = 'jpg';
+  }
+  // If the browser couldn't downscale it (e.g. a format it can't decode), don't
+  // store a huge original that every later view would download in full.
+  if (blob.size > MAX_STORED_PHOTO_BYTES) {
+    console.error('Photo too large to store without downscaling:', blob.size);
+    return null;
   }
   const path = objectPath || createMomentPhotoObjectPath(userId, ext);
   const { error } = await supabase.storage
