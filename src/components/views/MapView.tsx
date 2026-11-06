@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
+import { CityLandmark, landmarkFor } from "@/components/CityLandmark";
 import { resolveMomentPhotoUrls } from "@/lib/momentPhotos";
 import { isNewYorkCity, loadNewYorkNeighborhoods, localizedAreaName, visitedAreas, type NeighborhoodCollection } from '@/lib/neighborhoods';
 
@@ -2063,6 +2064,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 const dominantCategory = breakdown[0]?.[0] ?? 'other';
                 const accent = categoryColors[dominantCategory] ?? LIFE_MAP_COLOR;
                 const DominantIcon = getCategoryIcon(dominantCategory);
+                const landmark = landmarkFor(city.cityName);
                 return (
                   <div
                     key={i}
@@ -2075,12 +2077,19 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     style={{ animationDelay: `${i * 60}ms` }}
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
-                        style={{ backgroundColor: `${accent}24`, color: accent }}
-                      >
-                        <DominantIcon size={18} />
-                      </div>
+                      {landmark ? (
+                        <CityLandmark
+                          landmark={landmark}
+                          className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/40 transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+                          style={{ backgroundColor: `${accent}24`, color: accent }}
+                        >
+                          <DominantIcon size={18} />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm">{city.cityName || `Area ${i + 1}`}</p>
                         <p className="text-[11px] text-muted-foreground/60 mt-0.5">
