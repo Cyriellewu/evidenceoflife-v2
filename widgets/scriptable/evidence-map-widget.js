@@ -12,7 +12,8 @@
 // No sign-in, no network calls for your data; only map tiles (and NYC area
 // boundaries) are downloaded and cached on the phone.
 
-const APP_URL = 'https://evilife.vercel.app/';
+// Tapping the widget opens a one-tap photo + location capture in the app.
+const APP_URL = 'https://evilife.vercel.app/app?capture=1';
 
 const CACHE_PLACES = 'evidence-of-life-places.json';
 const NEARBY_KM = 25;

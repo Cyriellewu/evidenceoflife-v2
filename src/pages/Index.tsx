@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef, Component, type ErrorInfo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { QuickCapture } from '@/components/QuickCapture';
 import { toast } from 'sonner';
 import { useDues } from '@/hooks/useDues';
 import { DueNotifications } from '@/components/DueNotifications';
@@ -113,7 +114,7 @@ function AppSideSheet({
 }
 
 const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, lang } = useLanguage();
   const isEmbeddedDemo = searchParams.get('embed') === '1';
   const forcedDemoStep = searchParams.get('demoStep');
@@ -440,7 +441,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     });
     // Auto-create visit in places system when moment has location
     if (newMoment && data.location && data.location.lat && data.location.lng) {
-      placesData.recordVisitFromMoment(data.location, selectedDateStr, newMoment.id, newMoment.photos);
+      placesData.recordVisitFromMoment(data.location, data.date ?? selectedDateStr, newMoment.id, newMoment.photos);
     }
     return newMoment;
   }, [addMoment, selectedDateStr, placesData]);
@@ -504,9 +505,40 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     setActiveTab('today');
   }, []);
 
+
+  // Home-screen widget opens /app?capture=1: straight to photo + location.
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(() => searchParams.get('capture') === '1');
+  const uploadQuickCapturePhoto = useCallback(async (file: File): Promise<string | null> => {
+    if (isDemo || !user) return URL.createObjectURL(file);
+    if (file.size > 15 * 1024 * 1024) return null;
+    const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');
+    const ext = file.type.split('/')[1] || file.name.split('.').pop() || 'jpg';
+    return uploadMomentPhotoObject(user.id, file, file.type || `image/${ext}`, ext);
+  }, [isDemo, user]);
+  const closeQuickCapture = useCallback(() => {
+    setQuickCaptureOpen(false);
+    if (searchParams.has('capture')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('capture');
+      setSearchParams(next, { replace: true });
+    }
+    setActiveSheet(null);
+    setActiveTab('today');
+    setTodayMode('recap');
+    setSelectedDate(new Date());
+  }, [searchParams, setSearchParams]);
+
   return (
     <div className="h-screen bg-background flex overflow-hidden">
-      <div className="flex flex-1 h-full min-h-0">
+      {quickCaptureOpen && (
+        <QuickCapture
+          lang={lang}
+          uploadPhoto={uploadQuickCapturePhoto}
+          onSave={(data) => handleAddMoment({ ...data, date: format(new Date(), 'yyyy-MM-dd') })}
+          onClose={closeQuickCapture}
+        />
+      )}
+      <div className="flex min-w-0 flex-1 h-full min-h-0">
         <AppSectionErrorBoundary label="SideNav">
           <SideNav
             activeTab={activeTab}

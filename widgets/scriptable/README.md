@@ -10,7 +10,7 @@ This is a large home-screen widget that shows the map around where you are. It m
 | 🏛 | Culture |
 | 📍 | Other |
 
-In New York, each everyday area you have been to, such as Upper West Side or Midtown, is shaded in its own colour, like the app's Map view. Neighbouring areas never share a colour. Tapping the widget opens the app.
+In New York, each everyday area you have been to, such as Upper West Side or Midtown, is shaded in its own colour, like the app's Map view. Neighbouring areas never share a colour. Tapping the widget opens a one-tap capture in the app: take a photo, your location fills in, save — it lands in today's Recap and on the Map.
 
 ## Setup
 
