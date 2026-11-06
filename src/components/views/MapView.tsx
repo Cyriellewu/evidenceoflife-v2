@@ -13,9 +13,9 @@ import { Button } from '@/components/ui/button';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
-import { CityLandmark, landmarkFor } from "@/components/CityLandmark";
+import { CityLandmark, LifeMapMark, landmarkFor } from "@/components/CityLandmark";
 import { resolveMomentPhotoUrls } from "@/lib/momentPhotos";
-import { isNewYorkCity, loadNewYorkNeighborhoods, localizedAreaName, visitedAreas, type NeighborhoodCollection } from '@/lib/neighborhoods';
+import { isNewYorkCity, loadNewYorkNeighborhoods, areaColorIndexes, localizedAreaName, visitedAreas, type NeighborhoodCollection } from '@/lib/neighborhoods';
 
 interface MapViewProps {
   moments: Moment[];
@@ -1450,7 +1450,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     // One canvas for all areas: far smoother to pan and zoom than ~dozens of SVG paths.
     const renderer = L.canvas({ padding: 0.5, pane: 'neighborhoods' });
     // Each area gets its own colour from the map's existing muted category palette.
-    const areaPalette = Object.values(categoryColors);
+    // Muted editorial accents (the chip palette), not the saturated marker colours.
+    const areaPalette = ['#d97757', '#7a9c6e', '#9e7bb5', '#a1734a', '#5d8fb3', '#c9a24a'];
+    const areaColors = areaColorIndexes(areas, areaPalette.length);
     areas.forEach((area, areaIndex) => {
       const label = localizedAreaName(area.name, lang);
       const countText = lang === 'zh' ? `去过 ${area.placeCount} 个地方` : `${area.placeCount} place${area.placeCount === 1 ? '' : 's'}`;
@@ -1458,7 +1460,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       // works here even though GeoJSONOptions doesn't type it.
       const shape = L.geoJSON({ type: 'FeatureCollection', features: area.features } as NeighborhoodCollection, {
         renderer,
-        style: { stroke: false, fillColor: areaPalette[areaIndex % areaPalette.length], fillOpacity: 0.26 },
+        style: { stroke: false, fillColor: areaPalette[areaColors[areaIndex]], fillOpacity: 0.26 },
       } as L.GeoJSONOptions & { renderer: L.Renderer });
       shape.bindPopup(
         `<div style="font-family:inherit;padding:2px 1px;">` +
@@ -1832,10 +1834,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       ) : (
         <header className="flex-shrink-0 px-5 pb-3 pt-3 sm:pb-4 sm:pt-4">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/[0.07] text-primary shadow-[0_5px_18px_-12px_hsl(var(--primary)/0.8)]">
-              <MapPinned size={17} strokeWidth={1.9} />
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-background bg-primary" />
-            </div>
+            <LifeMapMark className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/40" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3">
                 <h1 className="truncate font-display text-[22px] font-semibold leading-none tracking-[-0.035em] text-foreground sm:text-[24px]">
@@ -1862,46 +1861,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {viewMode === 'city' && (
         <div className="px-5 pb-2">
           <div className="flex items-center gap-2">
-            {searchExpanded || placeQuery ? (
-              <div
-                className={cn(
-                  "flex flex-1 items-center gap-2 rounded-full border bg-[hsl(var(--surface-soft))] pl-3.5 pr-1.5 py-1.5 transition-[box-shadow,border-color] focus-within:border-primary/45 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.10)]",
-                  placeQuery ? "border-primary/35" : "border-border/55"
-                )}
-              >
-                <Search size={15} strokeWidth={2.1} className={cn(
-                  "flex-shrink-0 transition-colors",
-                  placeQuery ? "text-primary" : "text-muted-foreground/70"
-                )} />
-                <input
-                  value={placeQuery}
-                  onChange={(e) => setPlaceQuery(e.target.value)}
-                  placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/55 focus:outline-none"
-                  aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      setPlaceQuery('');
-                      setSearchExpanded(false);
-                    }
-                  }}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setPlaceQuery('');
-                    setSearchExpanded(false);
-                  }}
-                  className="h-7 w-7 flex-shrink-0 rounded-full text-muted-foreground/70 hover:text-foreground"
-                  aria-label={lang === 'zh' ? '关闭搜索' : 'Close search'}
-                >
-                  <X size={14} />
-                </Button>
-              </div>
-            ) : (
-              <>
+            <>
                 <div className="-mx-1 flex flex-1 items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
                   {categoryKeys
                     .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
@@ -1948,7 +1908,45 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       );
                     })}
                 </div>
-                {cityPlaces.length > 4 && (
+                {(searchExpanded || placeQuery) ? (
+                <div
+                  className={cn(
+                    "flex h-8 w-44 flex-shrink-0 items-center gap-1.5 rounded-full border bg-transparent pl-2.5 pr-1 transition-[width,border-color] focus-within:border-primary/45 sm:w-56",
+                    placeQuery ? "border-primary/35" : "border-border/55"
+                  )}
+                >
+                  <Search size={13} strokeWidth={2.1} className={cn(
+                    "flex-shrink-0 transition-colors",
+                    placeQuery ? "text-primary" : "text-muted-foreground/70"
+                  )} />
+                  <input
+                    value={placeQuery}
+                    onChange={(e) => setPlaceQuery(e.target.value)}
+                    placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
+                    className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 focus:outline-none"
+                    aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setPlaceQuery('');
+                        setSearchExpanded(false);
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setPlaceQuery('');
+                      setSearchExpanded(false);
+                    }}
+                    className="h-6 w-6 flex-shrink-0 rounded-full text-muted-foreground/70 hover:text-foreground"
+                    aria-label={lang === 'zh' ? '关闭搜索' : 'Close search'}
+                  >
+                    <X size={12} />
+                  </Button>
+                </div>
+                ) : cityPlaces.length > 4 && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -1980,8 +1978,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     {neighborhoodsFailed && <span aria-label={lang === 'zh' ? '街区数据不可用' : 'Neighborhood data unavailable'}>!</span>}
                   </Button>
                 )}
-              </>
-            )}
+            </>
           </div>
         </div>
       )}
