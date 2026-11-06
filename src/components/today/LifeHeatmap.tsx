@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { format, subDays, startOfWeek, addDays, getDay } from 'date-fns';
 import { Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
@@ -7,9 +7,11 @@ interface LifeHeatmapProps {
   allMoments: Moment[];
   allTodos?: Todo[];
   mode?: 'activity' | 'focus';
+  /** Hide the built-in title row when the parent already titles the card. */
+  showHeader?: boolean;
 }
 
-export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHeatmapProps) {
+export function LifeHeatmap({ allMoments, allTodos, mode = 'activity', showHeader = true }: LifeHeatmapProps) {
   const { weeks, maxVal, totalDays } = useMemo(() => {
     const today = new Date();
     // Go back ~26 weeks (half year)
@@ -70,7 +72,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
   }, [allMoments, allTodos, mode]);
 
   const getColor = (value: number): string => {
-    if (value === 0) return '#F2F2F7';
+    if (value === 0) return 'hsl(var(--muted))';
     const intensity = maxVal > 0 ? value / maxVal : 0;
     if (intensity < 0.25) return '#C7E8CA';
     if (intensity < 0.5) return '#7BC67E';
@@ -102,73 +104,81 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
 
   const CELL = 10;
   const GAP = 2;
+  const LABEL_W = 18;
+
+  // On a phone the half-year grid is wider than the card: let it scroll
+  // sideways and start at the most recent week.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [weeks]);
 
   return (
-    <div className="mb-6">
-      <div className="flex items-baseline justify-between mb-2">
-        <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: '#8E8E93' }}>
-          Life Heatmap
+    <div className="min-w-0">
+      {showHeader && <div className="flex items-baseline justify-between gap-3 mb-2">
+        <p className="text-[12px] font-medium text-muted-foreground/70">
+          Life heatmap
         </p>
-        <p className="text-[10px] tabular-nums" style={{ color: '#636366' }}>
+        <p className="text-[11px] tabular-nums text-muted-foreground/60">
           {totalDays} active days
         </p>
-      </div>
+      </div>}
 
-      {/* Month labels */}
-      <div className="relative mb-0.5" style={{ paddingLeft: 32 }}>
-        {monthLabels.map((ml, i) => {
-          const nextIdx = monthLabels[i + 1]?.weekIdx ?? weeks.length;
-          const width = (nextIdx - ml.weekIdx) * (CELL + GAP);
-          return (
-            <span
-              key={i}
-              className="text-[9px] tabular-nums absolute"
-              style={{
-                color: 'hsl(var(--muted-foreground) / 0.5)',
-                left: 32 + ml.weekIdx * (CELL + GAP),
-              }}
-            >
-              {ml.label}
-            </span>
-          );
-        })}
-        <span className="invisible text-[9px]">X</span>
-      </div>
+      <div ref={scrollRef} className="overflow-x-auto no-scrollbar">
+        <div className="w-max">
+          {/* Month labels */}
+          <div className="relative h-3" style={{ marginLeft: LABEL_W }}>
+            {monthLabels.map((ml, i) => (
+              <span
+                key={i}
+                className="text-[9px] tabular-nums absolute top-0"
+                style={{
+                  color: 'hsl(var(--muted-foreground) / 0.5)',
+                  left: ml.weekIdx * (CELL + GAP),
+                }}
+              >
+                {ml.label}
+              </span>
+            ))}
+          </div>
 
-      <div className="flex gap-0 mt-3 overflow-x-auto" style={{ paddingLeft: 16 }}>
-        {/* Day labels */}
-        <div className="flex flex-col flex-shrink-0 mr-1" style={{ gap: GAP }}>
-          {['', 'M', '', 'W', '', 'F', ''].map((label, i) => (
-            <div key={i} className="flex items-center justify-end" style={{ height: CELL, width: 14 }}>
-              <span className="text-[8px] tabular-nums" style={{ color: '#AEAEB2' }}>{label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Grid */}
-        <div className="flex" style={{ gap: GAP }}>
-          {weeks.map((week, wi) => (
-            <div key={wi} className="flex flex-col" style={{ gap: GAP }}>
-              {week.map((day, di) => (
-                <div
-                  key={di}
-                  className="rounded-[2px] cursor-default"
-                  style={{
-                    width: CELL,
-                    height: CELL,
-                    backgroundColor: getColor(day.value),
-                  }}
-                  title={getTooltip(day)}
-                />
+          <div className="flex mt-1.5">
+            {/* Day labels */}
+            <div className="flex flex-col flex-shrink-0" style={{ gap: GAP, width: LABEL_W }}>
+              {['', 'M', '', 'W', '', 'F', ''].map((label, i) => (
+                <div key={i} className="flex items-center" style={{ height: CELL }}>
+                  <span className="text-[8px] tabular-nums text-muted-foreground/50">{label}</span>
+                </div>
               ))}
             </div>
-          ))}
+
+            {/* Grid */}
+            <div className="flex" style={{ gap: GAP }}>
+              {weeks.map((week, wi) => (
+                <div key={wi} className="flex flex-col" style={{ gap: GAP }}>
+                  {week.map((day, di) => (
+                    <div
+                      key={di}
+                      className="rounded-[2px] cursor-default"
+                      style={{
+                        width: CELL,
+                        height: CELL,
+                        backgroundColor: getColor(day.value),
+                      }}
+                      title={getTooltip(day)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-1 mt-2" style={{ paddingLeft: 32 }}>
-        <span className="text-[9px]" style={{ color: '#AEAEB2' }}>Less</span>
+      <div className="flex items-center gap-1 mt-2" style={{ paddingLeft: LABEL_W }}>
+        <span className="text-[9px] text-muted-foreground/50">Less</span>
         {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
           <div
             key={i}
@@ -176,7 +186,7 @@ export function LifeHeatmap({ allMoments, allTodos, mode = 'activity' }: LifeHea
             style={{ width: CELL, height: CELL, backgroundColor: getColor(v * (maxVal || 1)) }}
           />
         ))}
-        <span className="text-[9px]" style={{ color: '#AEAEB2' }}>More</span>
+        <span className="text-[9px] text-muted-foreground/50">More</span>
       </div>
     </div>
   );

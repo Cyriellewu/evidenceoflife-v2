@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyRound, Loader2 } from 'lucide-react';
+import { ChevronRight, KeyRound, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
  * iOS browser layer, so the session often lands in Safari instead of the app
  * and the app looks signed out. Email + password signs in inside the app.
  */
-export function PasswordSetting({ lang, email }: { lang: string; email?: string | null }) {
+export function PasswordSetting({ lang, email, variant = 'pill' }: { lang: string; email?: string | null; variant?: 'pill' | 'row' }) {
   const zh = lang.startsWith('zh');
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
@@ -40,6 +40,20 @@ export function PasswordSetting({ lang, email }: { lang: string; email?: string 
     }
   };
 
+  if (!open && variant === 'row') {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-[48px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-secondary/40"
+      >
+        <KeyRound size={17} className="flex-shrink-0 text-muted-foreground" />
+        <span className="flex-1 text-[15px] text-foreground">{zh ? '设置登录密码' : 'Set a password'}</span>
+        <ChevronRight size={16} className="text-muted-foreground/50" />
+      </button>
+    );
+  }
+
   if (!open) {
     return (
       <button
@@ -54,7 +68,7 @@ export function PasswordSetting({ lang, email }: { lang: string; email?: string 
   }
 
   return (
-    <div className="w-full rounded-2xl border border-border/60 bg-background p-3.5">
+    <div className={variant === 'row' ? 'w-full px-4 py-3.5' : 'w-full rounded-2xl border border-border/60 bg-background p-3.5'}>
       <p className="text-[13px] font-semibold text-foreground">{zh ? '设置登录密码' : 'Set a password'}</p>
       <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
         {zh
