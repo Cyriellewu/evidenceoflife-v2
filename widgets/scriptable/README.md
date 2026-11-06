@@ -10,6 +10,8 @@ This is a home-screen widget that shows the map around where you are. Each place
 | 🏛 | Culture |
 | 📍 | Other |
 
+In New York, the everyday areas you have been to (Upper West Side, Midtown…) are washed in a different colour each, like the app's Map view. The NYC Open Data boundaries are downloaded once and cached for 30 days.
+
 It uses the same light or dark gray base map as the app's Map view. Tapping the widget opens the app.
 
 ## Setup
@@ -17,7 +19,7 @@ It uses the same light or dark gray base map as the app's Map view. Tapping the 
 1. **Enable sign-in codes.** In the Supabase dashboard, go to **Authentication → Email Templates → Magic Link** and add `{{ .Token }}` to the email body, for example `Your code: {{ .Token }}`. The widget signs in with that 6-digit code. It can't follow a link.
 2. **Create the script.** Make a new script in [Scriptable](https://scriptable.app) and paste in `evidence-map-widget.js`. Then fill in `SUPABASE_URL` and `SUPABASE_KEY` with the project URL and **publishable (anon) key**, the same public values as `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`. Never use a service-role key here.
 3. **Sign in once.** Run the script inside Scriptable. Enter your email and then the code you receive. The widget gets its own session, stored in the iOS Keychain, so it never shares or rotates the web app's session.
-4. **Add the widget.** Add a Scriptable widget (medium or large) to the home screen, edit it, and choose this script.
+4. **Add the widget.** Add a Scriptable widget (large is the intended size) to the home screen, edit it, and choose this script.
 
 ## What it reads
 

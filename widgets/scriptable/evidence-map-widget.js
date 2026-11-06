@@ -1,14 +1,15 @@
 // Evidence of Life — "my city" map widget for Scriptable (iOS).
 //
 // Shows the map around where you are, with the places you've logged marked by
-// category (🍚 food, ☕️ coffee, 🌳 outdoors, 🏛 culture, 📍 other).
+// category (🍚 food, ☕️ coffee, 🌳 outdoors, 🏛 culture, 📍 other), and in New
+// York the neighbourhoods you've been to in the same colours as the app.
 //
 // Setup (once):
 //   1. Paste your project URL and publishable key below (the same public values
 //      the web app ships with; never a service-role key).
 //   2. Run the script inside Scriptable: it asks for your email, emails you a
 //      6-digit code, and keeps its own sign-in in the iOS Keychain.
-//   3. Add a Scriptable widget (medium or large) and pick this script.
+//   3. Add a Scriptable widget (large is the intended size) and pick this script.
 //
 // It reads only your own places (row-level security), with one small query per
 // refresh, and caches map tiles on the device.
@@ -150,13 +151,63 @@ async function tile(z, x, y, dark) {
   }
 }
 
+// ---------- NYC areas (same coloured blocks as the app's Map view) ----------
+
+const NTA_URL = 'https://data.cityofnewyork.us/resource/9nt8-h7nd.geojson'
+  + '?$select=ntaname,simplify_preserve_topology(the_geom,0.0002)%20as%20the_geom'
+  + '&$where=ntatype%3D%270%27&$limit=500';
+// Same palette, in the same order, as categoryColors in MapView.
+const AREA_COLORS = ['#ef4444', '#8b5a2b', '#22c55e', '#8b5cf6', '#c9a88c'];
+
+const inNYC = c => c.lat >= 40.48 && c.lat <= 40.93 && c.lng >= -74.28 && c.lng <= -73.67;
+
+async function loadNeighborhoods() {
+  const path = fm.joinPath(cacheDir, 'nyc-nta.json');
+  if (fm.fileExists(path) && (Date.now() - fm.modificationDate(path).getTime()) < 30 * 864e5) {
+    return JSON.parse(fm.readString(path));
+  }
+  try {
+    const json = await new Request(NTA_URL).loadJSON();
+    fm.writeString(path, JSON.stringify(json));
+    return json;
+  } catch (e) {
+    return fm.fileExists(path) ? JSON.parse(fm.readString(path)) : null;
+  }
+}
+
+function inRing(lng, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** Visited neighborhoods folded into everyday areas, most-visited first. */
+function visitedAreas(collection, places) {
+  const areas = new Map();
+  for (const f of (collection && collection.features) || []) {
+    if (!f.geometry || f.geometry.type !== 'MultiPolygon') continue;
+    const count = places.filter(p => f.geometry.coordinates.some(poly => poly[0] && inRing(p.lng, p.lat, poly[0]))).length;
+    if (!count) continue;
+    const name = String(f.properties.ntaname || '').split(' (')[0].split('-')[0].trim();
+    const area = areas.get(name) || { count: 0, polygons: [] };
+    area.count += count;
+    area.polygons.push(...f.geometry.coordinates);
+    areas.set(name, area);
+  }
+  return [...areas.values()].sort((a, b) => b.count - a.count);
+}
+
 // ---------- drawing ----------
 
-async function drawMap(places, center, w, h, dark) {
+async function drawMap(places, center, w, h, dark, areas) {
   const scale = 2;
   const W = w * scale;
   const H = h * scale;
-  const pad = 22 * scale;
+  const pad = 28 * scale;
   // The view spans W/2 x H/2 world pixels because tiles are drawn at 2x.
   const z = places.length > 1 ? fitZoom(places, W / 2, H / 2, pad / 2) : 14;
   const cx = worldX(center.lng, z);
@@ -183,8 +234,26 @@ async function drawMap(places, center, w, h, dark) {
     }
   }
 
-  const marker = 30 * scale;
-  const font = Font.systemFont(15 * scale);
+  // Coloured area washes under the markers, one colour per area.
+  areas.forEach((area, i) => {
+    const color = new Color(AREA_COLORS[i % AREA_COLORS.length], 0.26);
+    for (const poly of area.polygons) {
+      const ring = poly[0];
+      if (!ring || ring.length < 3) continue;
+      const path = new Path();
+      ring.forEach(([lng, lat], k) => {
+        const pt = new Point((worldX(lng, z) - left) * 2, (worldY(lat, z) - top) * 2);
+        if (k === 0) path.move(pt); else path.addLine(pt);
+      });
+      path.closeSubpath();
+      ctx.addPath(path);
+      ctx.setFillColor(color);
+      ctx.fillPath();
+    }
+  });
+
+  const marker = 24 * scale;
+  const font = Font.systemFont(13 * scale);
   ctx.setTextAlignedCenter();
   ctx.setFont(font);
   for (const p of places) {
@@ -196,7 +265,7 @@ async function drawMap(places, center, w, h, dark) {
     ctx.fillEllipse(new Rect(r.x, r.y + 2 * scale, marker, marker));
     ctx.setFillColor(new Color(dark ? '#2b2d31' : '#ffffff'));
     ctx.fillEllipse(r);
-    ctx.drawTextInRect(EMOJI[p.category] || EMOJI.other, new Rect(r.x, r.y + 5 * scale, marker, marker));
+    ctx.drawTextInRect(EMOJI[p.category] || EMOJI.other, new Rect(r.x, r.y + 3.5 * scale, marker, marker));
   }
   return ctx.getImage();
 }
@@ -208,8 +277,9 @@ function message(widget, text) {
 }
 
 async function main() {
-  const family = config.widgetFamily || 'medium';
-  const size = family === 'large' ? new Size(338, 354) : family === 'small' ? new Size(158, 158) : new Size(338, 158);
+  const family = config.widgetFamily || 'large';
+  const SIZES = { small: new Size(170, 170), medium: new Size(364, 170), large: new Size(364, 382), extraLarge: new Size(715, 330) };
+  const size = SIZES[family] || SIZES.large;
   const dark = Device.isUsingDarkAppearance();
   const widget = new ListWidget();
   widget.url = APP_URL;
@@ -233,10 +303,14 @@ async function main() {
     return widget;
   }
 
-  // Centre on the places you've been near here (or on you if they're spread out).
-  const lat = nearby.reduce((s, p) => s + p.lat, 0) / nearby.length;
-  const lng = nearby.reduce((s, p) => s + p.lng, 0) / nearby.length;
-  widget.backgroundImage = await drawMap(nearby, { lat, lng }, size.width, size.height, dark);
+  // Centre on the middle of the places' bounding box, which is what the zoom
+  // was fitted to, so outlying places stay inside the frame.
+  const lats = nearby.map(p => p.lat);
+  const lngs = nearby.map(p => p.lng);
+  const lat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const lng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+  const areas = inNYC({ lat, lng }) ? visitedAreas(await loadNeighborhoods(), nearby) : [];
+  widget.backgroundImage = await drawMap(nearby, { lat, lng }, size.width, size.height, dark, areas);
 
   let city = '';
   if (loc) {
@@ -245,11 +319,12 @@ async function main() {
       city = (geo[0] && (geo[0].locality || geo[0].administrativeArea)) || '';
     } catch (e) { /* label is optional */ }
   }
+  if (!city) return widget;
   const label = widget.addStack();
   label.backgroundColor = new Color(dark ? '#1f2124' : '#ffffff', 0.86);
   label.cornerRadius = 9;
   label.setPadding(4, 8, 4, 8);
-  const title = label.addText(city ? `${city} · ${nearby.length}` : `${nearby.length} places`);
+  const title = label.addText(city);
   title.font = Font.semiboldSystemFont(12);
   title.textColor = new Color(dark ? '#f2f2f2' : '#1b1b1b');
   widget.addSpacer();
@@ -260,6 +335,6 @@ const widget = await main();
 if (config.runsInWidget) {
   Script.setWidget(widget);
 } else {
-  await widget.presentMedium();
+  await widget.presentLarge();
 }
 Script.complete();
