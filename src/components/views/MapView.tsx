@@ -1865,16 +1865,26 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         </>
       ) : (
         <header className="flex-shrink-0 px-5 pb-3 pt-3 sm:pb-4 sm:pt-4">
+          {/* Phones: "Life Map" goes in the top bar's empty centre; only stats stay here. */}
+          {mobileNavSlot && createPortal(
+            <div className="flex min-w-0 items-center gap-2">
+              <LifeMapMark className="h-6 w-6 flex-shrink-0 overflow-hidden rounded-md" />
+              <span className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
+                {lang === 'zh' ? '生活足迹' : 'Life Map'}
+              </span>
+            </div>,
+            mobileNavSlot,
+          )}
           <div className="flex items-center gap-3">
-            <LifeMapMark className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/40" />
+            <LifeMapMark className={cn('h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/40', mobileNavSlot && 'hidden')} />
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3">
+              <div className={cn('flex items-center gap-3', mobileNavSlot && 'hidden')}>
                 <h1 className="truncate font-display text-[22px] font-semibold leading-none tracking-[-0.035em] text-foreground sm:text-[24px]">
                   {lang === 'zh' ? '生活足迹' : 'Life Map'}
                 </h1>
                 <span className="h-px min-w-6 flex-1 bg-gradient-to-r from-border/65 to-transparent" />
               </div>
-              <p className="mt-1.5 flex items-center gap-2 text-[11px] font-medium text-muted-foreground/60 sm:text-[12px]">
+              <p className={cn('flex items-center gap-2 whitespace-nowrap text-[11px] font-medium text-muted-foreground/60 sm:text-[12px]', mobileNavSlot ? 'text-[13px]' : 'mt-1.5')}>
                 <span><strong className="font-semibold tabular-nums text-foreground/72">{cities.length}</strong> {lang === 'zh' ? '座城市' : (cities.length === 1 ? 'city' : 'cities')}</span>
                 <span className="h-1 w-1 rounded-full bg-primary/45" />
                 <span><strong className="font-semibold tabular-nums text-foreground/72">{totalPlaces}</strong> {lang === 'zh' ? '个地点' : t('map.places').toLowerCase()}</span>
@@ -1898,11 +1908,15 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     toast.error(lang === 'zh' ? '没能生成钥匙，请再试一次' : 'Could not create a widget key, try again');
                   }
                 }}
-                className="h-8 flex-shrink-0 gap-1.5 rounded-full border border-border/55 px-3 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+                className={cn(
+                  'h-8 flex-shrink-0 gap-1.5 rounded-full border border-border/55 text-[12px] font-medium text-muted-foreground hover:text-foreground',
+                  mobileNavSlot ? 'w-8 px-0' : 'px-3',
+                )}
                 title={lang === 'zh' ? '连接 iPhone 桌面小组件' : 'Connect the iPhone home-screen widget'}
+                aria-label={lang === 'zh' ? '连接小组件' : 'Connect widget'}
               >
                 <Smartphone size={13} />
-                {lang === 'zh' ? '连接小组件' : 'Connect widget'}
+                {!mobileNavSlot && (lang === 'zh' ? '连接小组件' : 'Connect widget')}
               </Button>
           </div>
         </header>
