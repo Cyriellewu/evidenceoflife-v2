@@ -2302,7 +2302,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                   {editDetailText === null && (
                                     <button
                                       onClick={() => setEditDetailText('')}
-                                      className="text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                                      className="self-start text-[13px] text-muted-foreground/70 hover:text-foreground transition-colors"
                                     >
                                       + {lang === 'zh' ? '添加详情' : 'Add details'}
                                     </button>

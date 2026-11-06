@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
-import { Check, Clock3, X } from 'lucide-react';
+import { Check, Clock, Clock3, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Moment, TodayMode } from '@/types';
@@ -366,10 +366,11 @@ export function MomentTimeEditor({ moment, onEditMoment }: { moment: Moment; onE
   if (moment.timer_started_at && moment.timer_ended_at) {
     return (
       <span
-        className="inline-flex items-center text-sm tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full bg-secondary/40 px-2.5 text-[12px] tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
         onClick={handleStartEdit}
       >
-        🕐 {format(parseISO(moment.timer_started_at), 'HH:mm')} → {format(parseISO(moment.timer_ended_at), 'HH:mm')}
+        <Clock size={13} className="flex-shrink-0" />
+        {format(parseISO(moment.timer_started_at), 'HH:mm')} → {format(parseISO(moment.timer_ended_at), 'HH:mm')}
         {moment.timer_seconds != null && moment.timer_seconds > 0 && ` (${Math.floor(moment.timer_seconds / 60)}m)`}
       </span>
     );
@@ -378,10 +379,11 @@ export function MomentTimeEditor({ moment, onEditMoment }: { moment: Moment; onE
   if (moment.timer_started_at && !moment.timer_ended_at) {
     return (
       <span
-        className="inline-flex items-center text-sm tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full bg-secondary/40 px-2.5 text-[12px] tabular-nums text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
         onClick={handleStartEdit}
       >
-        🕐 {format(parseISO(moment.timer_started_at), 'HH:mm')}
+        <Clock size={13} className="flex-shrink-0" />
+        {format(parseISO(moment.timer_started_at), 'HH:mm')}
       </span>
     );
   }
