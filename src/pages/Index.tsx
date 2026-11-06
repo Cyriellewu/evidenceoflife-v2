@@ -102,7 +102,7 @@ function AppSideSheet({
         // Stay below the hamburger drawer (z-210/220).
         overlayClassName="!z-[190]"
         className={cn(
-          '!z-[200] flex h-full w-full flex-col overflow-hidden p-0 border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl',
+          '!z-[200] flex h-full w-full flex-col overflow-hidden p-0 border-border/60 bg-background shadow-[0_24px_70px_hsl(var(--foreground)/0.14)]',
           maxWidthClass,
         )}
       >

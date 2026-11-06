@@ -114,7 +114,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // Dues
   'dues.title': { zh: 'Dues & 习惯', en: 'Deadlines & Habits' },
   'dues.subtitle': { zh: '追踪 dues、习惯并积累进度', en: 'Track deadlines, habits & accumulate progress' },
-  'dues.deadlinePlaceholder': { zh: '什么事要到期？', en: "What's due?" },
+  'dues.deadlinePlaceholder': { zh: '加个截止任务，比如「周五交论文」', en: 'Add a deadline, e.g. “essay due Friday”' },
   'dues.habitPlaceholder': { zh: '新习惯或项目...', en: 'New habit or project...' },
   'dues.deadline': { zh: '📅 Due', en: '📅 Deadline' },
   'dues.habit': { zh: '🔄 习惯', en: '🔄 Habit' },
