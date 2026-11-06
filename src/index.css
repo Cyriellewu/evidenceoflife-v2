@@ -1015,3 +1015,16 @@
   .spotlight::before,
   .spotlight::after { transition: none; opacity: 0 !important; }
 }
+
+
+/* iOS Safari zooms the whole page when a focused field is under 16px, which
+   made editing jumpy and threw sheets off screen. Keep phone inputs at 16px. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}

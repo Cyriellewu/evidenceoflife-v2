@@ -273,10 +273,8 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
 
     const searchField = (
       <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-2.5">
-        {isSearching
-          ? <Loader2 size={15} className="flex-shrink-0 animate-spin text-muted-foreground/50" />
-          : <Search size={15} className="flex-shrink-0 text-muted-foreground/50" />
-        }
+        {/* One loading indicator only: the results area shows progress. */}
+        <Search size={15} className="flex-shrink-0 text-muted-foreground/50" />
         <input
           type="search"
           inputMode="search"
@@ -362,8 +360,8 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         disabled={isGettingLocation}
         className="flex w-full items-center justify-center gap-2 rounded-full border border-border/55 bg-[hsl(var(--surface-contrast))] px-3 py-3 text-[15px] font-medium text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))] disabled:opacity-60 active:scale-[0.99]"
       >
-        {isGettingLocation ? <Loader2 size={15} className="animate-spin" /> : <Navigation size={15} className="text-primary" />}
-        {useCurrentLabel}
+        <Navigation size={15} className="text-primary" />
+        {isGettingLocation ? (lang === 'zh' ? '正在定位…' : 'Locating…') : useCurrentLabel}
       </button>
     );
 
