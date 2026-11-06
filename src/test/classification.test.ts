@@ -43,3 +43,17 @@ describe('inferWorkType', () => {
     expect(inferWorkType({ title: '' })).toBe('shallow');
   });
 });
+
+import { autoClassifyTag as classifyForWords } from '@/lib/autoTag';
+
+describe('autoClassifyTag word boundaries', () => {
+  it('does not read "trip" inside "stripe"', () => {
+    expect(classifyForWords('Do 4 of the stripe tech screen')).toBe('work');
+  });
+  it('still matches whole words, plurals and Chinese', () => {
+    expect(classifyForWords('book flights to Boston')).toBe('travel');
+    expect(classifyForWords('plan the trip')).toBe('travel');
+    expect(classifyForWords('订机票')).toBe('travel');
+    expect(classifyForWords('brunch with Amy')).not.toBe('health');
+  });
+});

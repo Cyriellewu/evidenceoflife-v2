@@ -33,6 +33,19 @@ function compactTitle(title: string): string {
   return normalizeTitle(title).replace(/\s+/g, '');
 }
 
+const LATIN = /^[a-z0-9 ]+$/;
+
+// English keywords must match whole words ("trip" must not fire on
+// "stripe", "run" not on "brunch"); a trailing s/es plural is allowed.
+// CJK keywords have no spaces between words, so they stay substring matches.
+function matchesWord(normalized: string, word: string): boolean {
+  const escaped = word.replace(/\s+/g, '\\s+');
+  return new RegExp(`(?<![a-z0-9])${escaped}(?:e?s)?(?![a-z0-9])`).test(normalized);
+}
+
+/** Wrap an alternation so its Latin alternatives only match whole words. */
+const W = (alternatives: string) => `(?<![a-z0-9])(?:${alternatives})(?![a-z0-9])`;
+
 const RULES: Rule[] = [
   { tag: 'study', pattern: '作业', weight: 10 },
   { tag: 'study', pattern: '写作业', weight: 12 },
@@ -80,6 +93,9 @@ const RULES: Rule[] = [
   { tag: 'work', pattern: 'project', weight: 8 },
   { tag: 'work', pattern: 'startup', weight: 7 },
   { tag: 'work', pattern: 'interview prep', weight: 12 },
+  { tag: 'work', pattern: 'interview', weight: 9 },
+  { tag: 'work', pattern: 'tech screen', weight: 12 },
+  { tag: 'work', pattern: 'phone screen', weight: 12 },
   { tag: 'work', pattern: 'prepare for interview', weight: 12 },
   { tag: 'work', pattern: 'oa', weight: 7 },
   { tag: 'work', pattern: 'leetcode', weight: 8 },
@@ -243,20 +259,20 @@ const RULES: Rule[] = [
 ];
 
 const BOOST_RULES: Array<{ when: RegExp; boosts: Partial<Record<Category, number>> }> = [
-  { when: /(写|做|finish|complete).*(作业|assignment|homework|essay|paper)/i, boosts: { study: 8 } },
-  { when: /(aml|nlp|machine learning|deep learning|course|quiz|exam|midterm|final)/i, boosts: { study: 10 } },
-  { when: /(dental|dentist|therapy|therapist|counseling|counselling|psychiatrist|adhd)/i, boosts: { health: 10 } },
-  { when: /(linkedin|headshot|handshake|vmock|recruiter)/i, boosts: { work: 10 } },
-  { when: /(prepare|prep|practice).*(interview|oa)/i, boosts: { work: 10 } },
-  { when: /(投|投递|apply|application|submit).*(job|intern|internship|resume|cv|snowflake|amazon|meta|google|tiktok|bytedance)/i, boosts: { work: 10 } },
-  { when: /(password|account|visa|form|bank|面签|填表|开户|改密码)/i, boosts: { admin: 8 } },
-  { when: /(meeting|class|seminar|office hour|appointment|开会|上课|讲座|预约)/i, boosts: { event: 8 } },
-  { when: /(call|phone|networking|coffee chat|friend|打电话|聊天|聚会)/i, boosts: { social: 8 } },
-  { when: /(budget|bill|repay|credit card|记账|还款|预算|报税)/i, boosts: { finance: 8 } },
-  { when: /(flight|hotel|trip|travel|itinerary|订票|行程|机票|酒店)/i, boosts: { travel: 8 } },
-  { when: /(shopping|buy|purchase|amazon|taobao|逛街|买衣服|下单)/i, boosts: { shopping: 8 } },
-  { when: /(grocery|cook|clean|laundry|买菜|做饭|打扫|洗衣)/i, boosts: { life: 8 } },
-  { when: /(gym|run|running|workout|yoga|doctor|健身|跑步|锻炼|看医生)/i, boosts: { health: 8 } },
+  { when: new RegExp(`${W('写|做|finish|complete')}.*${W('作业|assignment|homework|essay|paper')}`, 'i'), boosts: { study: 8 } },
+  { when: new RegExp(`${W('aml|nlp|machine learning|deep learning|course|quiz|exam|midterm|final')}`, 'i'), boosts: { study: 10 } },
+  { when: new RegExp(`${W('dental|dentist|therapy|therapist|counseling|counselling|psychiatrist|adhd')}`, 'i'), boosts: { health: 10 } },
+  { when: new RegExp(`${W('linkedin|headshot|handshake|vmock|recruiter')}`, 'i'), boosts: { work: 10 } },
+  { when: new RegExp(`${W('prepare|prep|practice')}.*${W('interview|oa')}`, 'i'), boosts: { work: 10 } },
+  { when: new RegExp(`${W('投|投递|apply|application|submit')}.*${W('job|intern|internship|resume|cv|snowflake|amazon|meta|google|tiktok|bytedance')}`, 'i'), boosts: { work: 10 } },
+  { when: new RegExp(`${W('password|account|visa|form|bank|面签|填表|开户|改密码')}`, 'i'), boosts: { admin: 8 } },
+  { when: new RegExp(`${W('meeting|class|seminar|office hour|appointment|开会|上课|讲座|预约')}`, 'i'), boosts: { event: 8 } },
+  { when: new RegExp(`${W('call|phone|networking|coffee chat|friend|打电话|聊天|聚会')}`, 'i'), boosts: { social: 8 } },
+  { when: new RegExp(`${W('budget|bill|repay|credit card|记账|还款|预算|报税')}`, 'i'), boosts: { finance: 8 } },
+  { when: new RegExp(`${W('flight|hotel|trip|travel|itinerary|订票|行程|机票|酒店')}`, 'i'), boosts: { travel: 8 } },
+  { when: new RegExp(`${W('shopping|buy|purchase|amazon|taobao|逛街|买衣服|下单')}`, 'i'), boosts: { shopping: 8 } },
+  { when: new RegExp(`${W('grocery|cook|clean|laundry|买菜|做饭|打扫|洗衣')}`, 'i'), boosts: { life: 8 } },
+  { when: new RegExp(`${W('gym|run|running|workout|yoga|doctor|健身|跑步|锻炼|看医生')}`, 'i'), boosts: { health: 8 } },
 ];
 
 export function autoClassifyTag(title: string): Category | undefined {
@@ -279,13 +295,15 @@ export function autoClassifyTag(title: string): Category | undefined {
 
   for (const rule of RULES) {
     const matched = typeof rule.pattern === 'string'
-      ? normalized.includes(rule.pattern) || compact.includes(rule.pattern.replace(/\s+/g, ''))
+      ? LATIN.test(rule.pattern)
+        ? matchesWord(normalized, rule.pattern)
+        : normalized.includes(rule.pattern) || compact.includes(rule.pattern.replace(/\s+/g, ''))
       : rule.pattern.test(title) || rule.pattern.test(normalized);
     if (matched) scores[rule.tag] += rule.weight;
   }
 
   for (const boost of BOOST_RULES) {
-    if (!boost.when.test(title) && !boost.when.test(normalized) && !boost.when.test(compact)) continue;
+    if (!boost.when.test(normalized)) continue;
     for (const [tag, value] of Object.entries(boost.boosts) as Array<[Category, number]>) {
       scores[tag] += value;
     }
