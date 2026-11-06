@@ -456,6 +456,8 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                   e.stopPropagation();
                   setShowProfileHoverCard(false);
                   await signOut();
+                  const { clearPhotoUrlCache } = await import('@/lib/momentPhotos');
+                  clearPhotoUrlCache();
                   navigate('/', { replace: true });
                 }}
                 className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
