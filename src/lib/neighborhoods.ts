@@ -4,6 +4,8 @@ export interface NeighborhoodProperties {
   ntaname: string;
   boroname: string;
   ntatype: string;
+  /** Set by visitedNeighborhoods: how many of the user's places fall inside. */
+  placeCount?: number;
 }
 
 export type NeighborhoodCollection = FeatureCollection<MultiPolygon, NeighborhoodProperties>;
@@ -58,4 +60,39 @@ export async function loadNewYorkNeighborhoods(): Promise<NeighborhoodCollection
   }
 
   return nycNeighborhoodsPromise;
+}
+
+type Ring = number[][];
+
+/** Ray casting on one ring of [lng, lat] pairs. */
+function inRing(lng: number, lat: number, ring: Ring): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** Point in a MultiPolygon (outer ring in, holes out). */
+export function multiPolygonContains(coords: Ring[][], lng: number, lat: number): boolean {
+  return coords.some(([outer, ...holes]) => outer && inRing(lng, lat, outer) && !holes.some(h => inRing(lng, lat, h)));
+}
+
+/**
+ * Only the neighborhoods the user has actually been to, with how many places
+ * fall in each. The map shows these instead of every NYC boundary.
+ */
+export function visitedNeighborhoods(
+  collection: NeighborhoodCollection,
+  points: Array<{ lat: number; lng: number }>,
+): NeighborhoodCollection {
+  const features = collection.features
+    .map(feature => {
+      const count = points.filter(p => multiPolygonContains(feature.geometry.coordinates as Ring[][], p.lng, p.lat)).length;
+      return { ...feature, properties: { ...feature.properties, placeCount: count } };
+    })
+    .filter(feature => (feature.properties.placeCount ?? 0) > 0);
+  return { ...collection, features };
 }

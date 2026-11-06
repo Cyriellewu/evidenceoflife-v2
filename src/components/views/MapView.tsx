@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
 import { resolveMomentPhotoUrls } from "@/lib/momentPhotos";
-import { isNewYorkCity, loadNewYorkNeighborhoods, type NeighborhoodCollection } from '@/lib/neighborhoods';
+import { isNewYorkCity, loadNewYorkNeighborhoods, visitedNeighborhoods, type NeighborhoodCollection } from '@/lib/neighborhoods';
 
 interface MapViewProps {
   moments: Moment[];
@@ -1408,8 +1408,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
   }, [cities, viewMode, maxCityVisits, lang, worldZoom, mapPreviewFailed]);
 
-  // NYC learning layer: official DCP Neighborhood Tabulation Areas sit below
-  // visit pins, with labels appearing from zoom 12 onward to avoid clutter.
+  // NYC neighborhoods you've been to: only the official DCP Neighborhood
+  // Tabulation Areas that contain one of your places are drawn (soft fill +
+  // name), so the map answers "which areas have I been to" without outlining
+  // every one of NYC's ~200 neighborhoods.
   useEffect(() => {
     const map = mapRef.current;
     if (MAP_SAFE_MODE || mapPreviewFailed || !map || viewMode !== 'city') return;
@@ -1427,18 +1429,21 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
     const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
     const lineColor = primary ? `hsl(${primary})` : LIFE_MAP_COLOR;
-    const layer = L.geoJSON(neighborhoods, {
+    const visited = visitedNeighborhoods(neighborhoods, allPlaces.map(p => ({ lat: p.lat, lng: p.lng })));
+    if (visited.features.length === 0) return;
+    const layer = L.geoJSON(visited, {
       style: {
         pane: 'neighborhoods',
         color: lineColor,
-        weight: 1.1,
-        opacity: 0.5,
+        weight: 1.4,
+        opacity: 0.55,
         fillColor: lineColor,
-        fillOpacity: 0.025,
+        fillOpacity: 0.12,
       },
       onEachFeature: (feature, featureLayer) => {
         const name = feature.properties?.ntaname;
         const borough = feature.properties?.boroname;
+        const placeCount = feature.properties?.placeCount ?? 0;
         if (!name) return;
 
         featureLayer.bindTooltip(escapeHtml(name), {
@@ -1450,21 +1455,23 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         featureLayer.bindPopup(
           `<div style="font-family:inherit;padding:2px 1px;">` +
           `<p style="font-weight:650;font-size:13px;margin:0;">${escapeHtml(name)}</p>` +
-          `<p style="color:#888;font-size:11px;margin:2px 0 0;">${escapeHtml(borough || 'New York City')} · NYC NTA</p>` +
+          `<p style="color:#888;font-size:11px;margin:2px 0 0;">${escapeHtml(borough || 'New York City')} · ${lang === 'zh' ? `去过 ${placeCount} 个地方` : `${placeCount} place${placeCount === 1 ? '' : 's'}`}</p>` +
           `</div>`,
           { className: 'map-popup-minimal' },
         );
         featureLayer.on('mouseover', () => {
-          (featureLayer as L.Path).setStyle({ weight: 1.8, opacity: 0.85, fillOpacity: 0.08 });
+          (featureLayer as L.Path).setStyle({ weight: 2, opacity: 0.85, fillOpacity: 0.2 });
         });
         featureLayer.on('mouseout', () => {
-          (featureLayer as L.Path).setStyle({ weight: 1.1, opacity: 0.5, fillOpacity: 0.025 });
+          (featureLayer as L.Path).setStyle({ weight: 1.4, opacity: 0.55, fillOpacity: 0.12 });
         });
       },
     }).addTo(map);
 
     const syncLabels = () => {
-      const showLabels = map.getZoom() >= 12;
+      // Only a handful of visited areas are drawn, so names can show from
+      // borough zoom; below that they would overlap.
+      const showLabels = map.getZoom() >= 11;
       layer.eachLayer((featureLayer) => {
         if (!featureLayer.getTooltip()) return;
         if (showLabels) featureLayer.openTooltip();
@@ -1483,7 +1490,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       layer.remove();
       if (neighborhoodLayerRef.current === layer) neighborhoodLayerRef.current = null;
     };
-  }, [mapPreviewFailed, neighborhoods, neighborhoodsVisible, supportsNeighborhoods, viewMode]);
+  }, [mapPreviewFailed, neighborhoods, neighborhoodsVisible, supportsNeighborhoods, viewMode, allPlaces, lang]);
 
   // Render city view: individual place markers with glow
   useEffect(() => {
@@ -1947,10 +1954,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                         ? 'border-primary/35 bg-primary/10 text-primary'
                         : 'border-border/55 text-muted-foreground/75',
                     )}
-                    title={lang === 'zh' ? '显示纽约街区边界和名称' : 'Show NYC neighborhood boundaries and names'}
+                    title={lang === 'zh' ? '显示你去过的纽约街区' : 'Show the NYC neighborhoods you have been to'}
                   >
                     <MapPinned size={13} />
-                    <span className="hidden sm:inline">{lang === 'zh' ? '街区' : 'Neighborhoods'}</span>
+                    <span className="hidden sm:inline">{lang === 'zh' ? '去过的街区' : 'My neighborhoods'}</span>
                     {neighborhoodsLoading && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
                     {neighborhoodsFailed && <span aria-label={lang === 'zh' ? '街区数据不可用' : 'Neighborhood data unavailable'}>!</span>}
                   </Button>
