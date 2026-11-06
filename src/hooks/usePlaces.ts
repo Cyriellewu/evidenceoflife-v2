@@ -249,7 +249,11 @@ export function usePlaces() {
       const { data: geoData } = await supabase.functions.invoke('geo', {
         body: { type: 'reverse', lat: location.lat, lng: location.lng },
       });
-      const cityName = geoData?.city || 'Unknown';
+      // If reverse geocoding fails, file the place under a city we already
+      // know nearby (same metro) instead of creating an "Unknown" city.
+      const nearbyCity = cities.find(c => c.name && !/^unknown$/i.test(c.name)
+        && Math.abs(c.lat - location.lat) < 0.3 && Math.abs(c.lng - location.lng) < 0.3);
+      const cityName = geoData?.city || nearbyCity?.name || 'Unknown';
       const cityLat = location.lat; // approximate city center
       const cityLng = location.lng;
 
@@ -264,7 +268,7 @@ export function usePlaces() {
     } catch (err) {
       console.warn('Failed to sync visit from moment:', err);
     }
-  }, [user, isDemo, findOrCreateCity, findOrCreatePlace, createVisit, fetchAll]);
+  }, [user, isDemo, cities, findOrCreateCity, findOrCreatePlace, createVisit, fetchAll]);
 
   // Backwards-compatible name for callers that create a brand new moment.
   const recordVisitFromMoment = useCallback(async (

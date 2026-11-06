@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { CityWithPlaces } from '@/hooks/usePlaces';
 import { StorageImage } from "@/components/StorageImage";
 import { resolveMomentPhotoUrls } from "@/lib/momentPhotos";
-import { isNewYorkCity, loadNewYorkNeighborhoods, type NeighborhoodCollection } from '@/lib/neighborhoods';
+import { isNewYorkCity, loadNewYorkNeighborhoods, localizedAreaName, visitedAreas, type NeighborhoodCollection } from '@/lib/neighborhoods';
 
 interface MapViewProps {
   moments: Moment[];
@@ -102,6 +102,9 @@ const MUNICIPALITY_DISTRICTS: { name: { zh: string; en: string }; districts: str
     districts: ['万州', '涪陵', '渝中', '大渡口', '江北', '沙坪坝', '九龙坡', '南岸', '北碚', '綦江', '大足', '渝北', '巴南', '黔江', '长寿', '江津', '合川', '永川', '南川', '璧山', '铜梁', '潼南', '荣昌', '开州', '梁平', '武隆'],
   },
 ];
+
+// Saved when reverse geocoding failed; treat it like no name at all.
+const isPlaceholderCityName = (name?: string) => !name || /^(unknown|未知)$/i.test(name.trim());
 
 const normalizeMunicipalityDistrict = (name: string, isZh: boolean): string => {
   if (!name) return name;
@@ -726,7 +729,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         city.places.forEach(p => {
           // Map place coords to their parent city name
           const key = `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
-          if (!knownCityNames.has(key)) {
+          // "Unknown" rows come from a failed reverse geocode when the place
+          // was saved; never let one name a whole city cluster.
+          if (!knownCityNames.has(key) && !isPlaceholderCityName(city.name)) {
             knownCityNames.set(key, city.name);
           }
         });
@@ -735,15 +740,22 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
     initialCities.forEach((c, i) => {
       // Try to find a matching city name from structured data
-      let resolvedName = '';
+      // Majority vote across the cluster's places, so one odd row (a
+      // district name, a duplicate) can't rename a city of 30 places.
+      const votes = new Map<string, number>();
       for (const p of c.places) {
-        const key = `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
-        const cityName = knownCityNames.get(key);
-        if (cityName) { resolvedName = cityName; break; }
+        const cityName = knownCityNames.get(`${p.lat.toFixed(3)},${p.lng.toFixed(3)}`);
+        if (cityName) votes.set(cityName, (votes.get(cityName) ?? 0) + 1);
       }
+      let resolvedName = '';
+      let bestVotes = 0;
+      votes.forEach((count, cityName) => {
+        if (count > bestVotes) { resolvedName = cityName; bestVotes = count; }
+      });
       // Also check placesData cities by proximity
       if (!resolvedName && structuredCities) {
         for (const dbCity of structuredCities) {
+          if (isPlaceholderCityName(dbCity.name)) continue;
           const dist = haversineKm(c.centerLat, c.centerLng, dbCity.lat, dbCity.lng);
           if (dist < 30) { resolvedName = dbCity.name; break; }
         }
@@ -763,7 +775,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         // a raw administrative district (e.g. "海淀区" / "Haidian District"), so
         // the card shows the municipality ("北京市" / "Beijing") instead.
         const isRawDistrict = (name?: string) => !!name && (/区$/.test(name) || /\bDistrict$/i.test(name));
-        const needsResolve = (name?: string) => !name || name.startsWith('Area ') || isRawDistrict(name);
+        const needsResolve = (name?: string) => !name || name.startsWith('Area ') || isPlaceholderCityName(name) || isRawDistrict(name);
         // `resolved` starts as a shallow copy of initialCities and is the
         // authoritative naming source for the boundary/reclassify steps below.
         // Previously step 2 read from initialCities directly, so any city whose
@@ -1408,8 +1420,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
   }, [cities, viewMode, maxCityVisits, lang, worldZoom, mapPreviewFailed]);
 
-  // NYC learning layer: official DCP Neighborhood Tabulation Areas sit below
-  // visit pins, with labels appearing from zoom 12 onward to avoid clutter.
+  // NYC neighborhoods you've been to: only the official DCP Neighborhood
+  // Tabulation Areas that contain one of your places are drawn (soft fill +
+  // name), so the map answers "which areas have I been to" without outlining
+  // every one of NYC's ~200 neighborhoods.
   useEffect(() => {
     const map = mapRef.current;
     if (MAP_SAFE_MODE || mapPreviewFailed || !map || viewMode !== 'city') return;
@@ -1426,56 +1440,40 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     }
 
     const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-    const lineColor = primary ? `hsl(${primary})` : LIFE_MAP_COLOR;
-    const layer = L.geoJSON(neighborhoods, {
-      style: {
-        pane: 'neighborhoods',
-        color: lineColor,
-        weight: 1.1,
-        opacity: 0.5,
-        fillColor: lineColor,
-        fillOpacity: 0.025,
-      },
-      onEachFeature: (feature, featureLayer) => {
-        const name = feature.properties?.ntaname;
-        const borough = feature.properties?.boroname;
-        if (!name) return;
+    const fillColor = primary ? `hsl(${primary})` : LIFE_MAP_COLOR;
+    const areas = visitedAreas(neighborhoods, allPlaces.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) })));
+    if (areas.length === 0) return;
 
-        featureLayer.bindTooltip(escapeHtml(name), {
-          permanent: true,
-          direction: 'center',
-          className: 'neighborhood-label',
-          opacity: 1,
-        });
-        featureLayer.bindPopup(
-          `<div style="font-family:inherit;padding:2px 1px;">` +
-          `<p style="font-weight:650;font-size:13px;margin:0;">${escapeHtml(name)}</p>` +
-          `<p style="color:#888;font-size:11px;margin:2px 0 0;">${escapeHtml(borough || 'New York City')} · NYC NTA</p>` +
-          `</div>`,
-          { className: 'map-popup-minimal' },
-        );
-        featureLayer.on('mouseover', () => {
-          (featureLayer as L.Path).setStyle({ weight: 1.8, opacity: 0.85, fillOpacity: 0.08 });
-        });
-        featureLayer.on('mouseout', () => {
-          (featureLayer as L.Path).setStyle({ weight: 1.1, opacity: 0.5, fillOpacity: 0.025 });
-        });
-      },
-    }).addTo(map);
+    // One soft wash per everyday area ("Upper West Side"), no inner borders,
+    // and a single name label — not every official tabulation block.
+    const layer = L.featureGroup();
+    for (const area of areas) {
+      const label = localizedAreaName(area.name, lang);
+      const countText = lang === 'zh' ? `去过 ${area.placeCount} 个地方` : `${area.placeCount} place${area.placeCount === 1 ? '' : 's'}`;
+      const shape = L.geoJSON({ type: 'FeatureCollection', features: area.features } as NeighborhoodCollection, {
+        style: { pane: 'neighborhoods', stroke: false, fillColor, fillOpacity: 0.16 },
+      });
+      shape.bindPopup(
+        `<div style="font-family:inherit;padding:2px 1px;">` +
+        `<p style="font-weight:650;font-size:13px;margin:0;">${escapeHtml(label)}</p>` +
+        `<p style="color:#888;font-size:11px;margin:2px 0 0;">${escapeHtml(area.borough || 'New York City')} · ${countText}</p>` +
+        `</div>`,
+        { className: 'map-popup-minimal' },
+      );
+      layer.addLayer(shape);
+      layer.addLayer(L.marker(area.anchor, {
+        pane: 'neighborhoods',
+        interactive: false,
+        keyboard: false,
+        icon: L.divIcon({ className: 'neighborhood-area-label', html: `<span>${escapeHtml(label)}</span>`, iconSize: [0, 0] }),
+      }));
+    }
+    layer.addTo(map);
 
     const syncLabels = () => {
-      const showLabels = map.getZoom() >= 12;
-      layer.eachLayer((featureLayer) => {
-        if (!featureLayer.getTooltip()) return;
-        if (showLabels) featureLayer.openTooltip();
-        else featureLayer.closeTooltip();
-      });
+      // Area names only once the city fills the screen; below that they collide.
+      map.getContainer().classList.toggle('hide-area-labels', map.getZoom() < 11);
     };
-
-    neighborhoodLayerRef.current = layer;
-    map.attributionControl.addAttribution('<a href="https://data.cityofnewyork.us/d/9nt8-h7nd">NYC Planning NTA 2020</a>');
-    map.on('zoomend', syncLabels);
-    syncLabels();
 
     return () => {
       map.off('zoomend', syncLabels);
@@ -1483,7 +1481,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       layer.remove();
       if (neighborhoodLayerRef.current === layer) neighborhoodLayerRef.current = null;
     };
-  }, [mapPreviewFailed, neighborhoods, neighborhoodsVisible, supportsNeighborhoods, viewMode]);
+  }, [mapPreviewFailed, neighborhoods, neighborhoodsVisible, supportsNeighborhoods, viewMode, allPlaces, lang]);
 
   // Render city view: individual place markers with glow
   useEffect(() => {
@@ -1947,10 +1945,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                         ? 'border-primary/35 bg-primary/10 text-primary'
                         : 'border-border/55 text-muted-foreground/75',
                     )}
-                    title={lang === 'zh' ? '显示纽约街区边界和名称' : 'Show NYC neighborhood boundaries and names'}
+                    title={lang === 'zh' ? '显示你去过的纽约街区' : 'Show the NYC neighborhoods you have been to'}
                   >
                     <MapPinned size={13} />
-                    <span className="hidden sm:inline">{lang === 'zh' ? '街区' : 'Neighborhoods'}</span>
+                    <span className="hidden sm:inline">{lang === 'zh' ? '去过的街区' : 'My neighborhoods'}</span>
                     {neighborhoodsLoading && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
                     {neighborhoodsFailed && <span aria-label={lang === 'zh' ? '街区数据不可用' : 'Neighborhood data unavailable'}>!</span>}
                   </Button>
