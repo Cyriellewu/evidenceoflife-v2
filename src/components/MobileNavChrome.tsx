@@ -55,7 +55,8 @@ export function MobileNavChrome({
           >
             <Menu size={18} strokeWidth={1.9} />
           </button>
-          <div className="flex min-w-0 items-center justify-center">
+          {/* Pages without a centerSlot (e.g. Map) may portal a compact title here. */}
+          <div id="mobile-nav-center" className="flex min-w-0 items-center justify-center">
             {centerSlot}
           </div>
           <div aria-hidden className="h-8 w-8" />

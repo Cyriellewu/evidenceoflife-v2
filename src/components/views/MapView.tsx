@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, Component, type Erro
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X, Image as ImageIcon, MapPinned, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
+import { createPortal } from 'react-dom';
 import { buildWidgetKeyPayload, copyAsync } from '@/lib/widgetExport';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -561,6 +562,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const [viewMode, setViewMode] = useState<ViewMode>('world');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [placeQuery, setPlaceQuery] = useState('');
+  // Phone top bar (MobileNavChrome) exposes an empty centre slot to portal into.
+  const [mobileNavSlot, setMobileNavSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = document.getElementById('mobile-nav-center');
+    // Only use it while the top bar is actually shown (it is md:hidden).
+    setMobileNavSlot(el && el.offsetParent !== null ? el : null);
+  }, []);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const selectedPlaceRef = useRef<string | null>(selectedPlace);
@@ -1809,8 +1817,29 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     <div className="flex-1 flex flex-col pb-6">
       {/* Header */}
       {viewMode === 'city' ? (
+        <>
+        {/* Phones: the city title lives in the top bar's empty centre, so the map starts higher. */}
+        {mobileNavSlot && createPortal(
+          <div className="flex min-w-0 max-w-[70vw] items-center gap-1">
+            <button
+              type="button"
+              onClick={() => { setViewMode('world'); }}
+              aria-label="Back to world view"
+              className="-ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-foreground/80"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
+              {currentCity?.cityName || t('map.places')}
+            </span>
+            <span className="ml-1 flex-shrink-0 text-[12px] tabular-nums text-muted-foreground">
+              {cityPlaces.length}
+            </span>
+          </div>,
+          mobileNavSlot,
+        )}
         <PageHeader
-          className="px-5 pb-2 pt-2 sm:pb-3 sm:pt-3"
+          className={cn('px-5 pb-2 pt-2 sm:pb-3 sm:pt-3', mobileNavSlot && 'hidden')}
           leading={
             <Button
               variant="ghost"
@@ -1833,18 +1862,29 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             </span>
           }
         />
+        </>
       ) : (
         <header className="flex-shrink-0 px-5 pb-3 pt-3 sm:pb-4 sm:pt-4">
+          {/* Phones: "Life Map" goes in the top bar's empty centre; only stats stay here. */}
+          {mobileNavSlot && createPortal(
+            <div className="flex min-w-0 items-center gap-2">
+              <LifeMapMark className="h-6 w-6 flex-shrink-0 overflow-hidden rounded-md" />
+              <span className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
+                {lang === 'zh' ? '生活足迹' : 'Life Map'}
+              </span>
+            </div>,
+            mobileNavSlot,
+          )}
           <div className="flex items-center gap-3">
-            <LifeMapMark className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/40" />
+            <LifeMapMark className={cn('h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/40', mobileNavSlot && 'hidden')} />
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3">
+              <div className={cn('flex items-center gap-3', mobileNavSlot && 'hidden')}>
                 <h1 className="truncate font-display text-[22px] font-semibold leading-none tracking-[-0.035em] text-foreground sm:text-[24px]">
                   {lang === 'zh' ? '生活足迹' : 'Life Map'}
                 </h1>
                 <span className="h-px min-w-6 flex-1 bg-gradient-to-r from-border/65 to-transparent" />
               </div>
-              <p className="mt-1.5 flex items-center gap-2 text-[11px] font-medium text-muted-foreground/60 sm:text-[12px]">
+              <p className={cn('flex items-center gap-2 whitespace-nowrap text-[11px] font-medium text-muted-foreground/60 sm:text-[12px]', mobileNavSlot ? 'text-[13px]' : 'mt-1.5')}>
                 <span><strong className="font-semibold tabular-nums text-foreground/72">{cities.length}</strong> {lang === 'zh' ? '座城市' : (cities.length === 1 ? 'city' : 'cities')}</span>
                 <span className="h-1 w-1 rounded-full bg-primary/45" />
                 <span><strong className="font-semibold tabular-nums text-foreground/72">{totalPlaces}</strong> {lang === 'zh' ? '个地点' : t('map.places').toLowerCase()}</span>
@@ -1868,11 +1908,15 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     toast.error(lang === 'zh' ? '没能生成钥匙，请再试一次' : 'Could not create a widget key, try again');
                   }
                 }}
-                className="h-8 flex-shrink-0 gap-1.5 rounded-full border border-border/55 px-3 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+                className={cn(
+                  'h-8 flex-shrink-0 gap-1.5 rounded-full border border-border/55 text-[12px] font-medium text-muted-foreground hover:text-foreground',
+                  mobileNavSlot ? 'w-8 px-0' : 'px-3',
+                )}
                 title={lang === 'zh' ? '连接 iPhone 桌面小组件' : 'Connect the iPhone home-screen widget'}
+                aria-label={lang === 'zh' ? '连接小组件' : 'Connect widget'}
               >
                 <Smartphone size={13} />
-                {lang === 'zh' ? '连接小组件' : 'Connect widget'}
+                {!mobileNavSlot && (lang === 'zh' ? '连接小组件' : 'Connect widget')}
               </Button>
           </div>
         </header>
