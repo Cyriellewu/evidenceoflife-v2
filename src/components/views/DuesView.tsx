@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { addDays, differenceInDays, format, isSaturday, isSunday, nextMonday, nextSaturday, parseISO } from 'date-fns';
 import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ChevronDown, ChevronUp, Mic } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
 import {
@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { parseDateFromText as parseDateFromTextShared } from '@/lib/parseDateFromText';
+import { parseQuickDue } from '@/lib/quickDue';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
 import {
@@ -66,7 +67,10 @@ export function DuesView({
   const [pendingPhotos, setPendingPhotos] = useState<string[]>([]);
   const [addingPendingLink, setAddingPendingLink] = useState(false);
   const { user } = useAuth();
-  const [completedCollapsed, setCompletedCollapsed] = useState(true);
+  // null = not chosen yet: completed stays open while nothing is active, so an
+  // empty panel still shows what you finished.
+  const [completedCollapsed, setCompletedCollapsed] = useState<boolean | null>(null);
+  const [lastAdded, setLastAdded] = useState<{ title: string; due: string } | null>(null);
   const [upcomingCollapsed, setUpcomingCollapsed] = useState(false);
   const [noDateCollapsed, setNoDateCollapsed] = useState(false);
   const [focusedDueId, setFocusedDueId] = useState<string | null>(null);
@@ -373,12 +377,13 @@ export function DuesView({
     let finalTitle = title.trim();
     let finalDueDate = dueDate || '';
 
-    // Auto-parse date from title if no manual due date set
-    if (inputMode === 'deadline' && !finalDueDate) {
-      const { cleanTitle, parsedDate } = parseDateFromTitle(finalTitle);
-      if (parsedDate) {
-        finalTitle = cleanTitle;
-        finalDueDate = parsedDate;
+    // Quick add: "周五交论文" / "pay rent tomorrow 5pm" -> title + due date.
+    // A chip the user tapped wins over the date read from the text.
+    if (inputMode === 'deadline') {
+      const quick = parseQuickDue(finalTitle);
+      if (quick.date) {
+        finalTitle = quick.title;
+        if (!finalDueDate) finalDueDate = `${quick.date}T${quick.time}`;
       }
     }
 
@@ -404,6 +409,10 @@ export function DuesView({
         if (pendingLinks.length > 0) await updateDue(newDueId, { links: pendingLinks });
         if (pendingPhotos.length > 0) await updateDue(newDueId, { photos: pendingPhotos });
       }
+    }
+    if (inputMode === 'deadline') {
+      setLastAdded({ title: finalTitle, due: finalDueDate });
+      window.setTimeout(() => setLastAdded(null), 4000);
     }
     setTitle(''); setDueDate(''); setDueDateDraft(getDefaultDueDateDraft()); setHabitCategory('');
     setPendingLinks([]); setPendingPhotos([]); setShowPlusMenu(false);
@@ -436,6 +445,7 @@ export function DuesView({
     ? (isDeadlineMode ? activeDeadlines.length : activeHabits.length)
     : activeDues.length;
   const hasFutureCommitments = visibleActiveCount > 0;
+  const completedIsCollapsed = completedCollapsed ?? hasFutureCommitments;
   const viewTitle = lockedMode ? (isDeadlineMode ? 'Deadlines' : 'Habits') : 'Commitments';
 
   const noDateDeadlines = activeDeadlines.filter(d => !d.due_date);
@@ -477,16 +487,6 @@ export function DuesView({
             isDeadlineMode
               ? (lang === 'zh' ? '保留有期限的任务,按期推进。' : 'Time-bound tasks. Pull the next one into Today.')
               : (lang === 'zh' ? '可重复的小事,逐日累计。' : 'Repeatable practices that build up over time.')
-          }
-          secondaryRow={
-            <div className={cn(
-              'inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold',
-              isDeadlineMode
-                ? 'bg-[hsl(var(--deadline)/0.10)] text-[hsl(var(--deadline))]'
-                : 'bg-[hsl(var(--habit)/0.10)] text-[hsl(var(--habit))]',
-            )}>
-              {visibleActiveCount} {lang === 'zh' ? '进行中' : 'active'}
-            </div>
           }
         />
       )}
@@ -542,21 +542,19 @@ export function DuesView({
         </div>
       )}
 
-      {!hasFutureCommitments && lockedMode && (
-        <SheetEmptyState
-          className="mt-8"
-          icon={isDeadlineMode ? <Clock size={20} /> : <Repeat size={20} />}
-          title={
-            isDeadlineMode
-              ? (lang === 'zh' ? '还没有截止任务' : 'No deadlines yet')
-              : (lang === 'zh' ? '还没有习惯' : 'No habits yet')
-          }
-          hint={
-            isDeadlineMode
-              ? (lang === 'zh' ? '在下方输入任务名,可选添加日期。' : 'Type a task below. Add a date if it matters.')
-              : (lang === 'zh' ? '在下方输入想坚持的小事,比如「跑步」。' : 'Type something repeatable below, like “run”.')
-          }
-        />
+      {lastAdded && isDeadlineMode && (
+        <p role="status" className="mb-3 px-1 text-[13px] font-medium text-[hsl(var(--deadline))]">
+          {lang === 'zh' ? `已添加「${lastAdded.title}」` : `Added “${lastAdded.title}”`}
+          {lastAdded.due ? ` · ${format(parseISO(lastAdded.due), lang === 'zh' ? 'M月d日 HH:mm' : 'EEE MMM d, HH:mm')}` : (lang === 'zh' ? ' · 无日期' : ' · no date')}
+        </p>
+      )}
+
+      {!hasFutureCommitments && lockedMode && !lastAdded && (
+        <p className="mb-6 px-1 text-[13px] text-muted-foreground">
+          {isDeadlineMode
+            ? (lang === 'zh' ? '暂时没有要赶的截止任务。' : 'Nothing due right now.')
+            : (lang === 'zh' ? '还没有习惯。在上面输入想坚持的小事，比如「跑步」。' : 'No habits yet. Type something repeatable above, like “run”.')}
+        </p>
       )}
 
       {hasFutureCommitments && !lockedMode && (
@@ -632,7 +630,7 @@ export function DuesView({
               void handleAddPendingLink(pastedUrl);
             }
           }}
-          className="order-last mb-1 mt-4"
+          className="static order-first mb-4 mt-1"
           leading={
             <Popover open={showPlusMenu} onOpenChange={setShowPlusMenu}>
               <PopoverTrigger asChild>
@@ -715,57 +713,68 @@ export function DuesView({
               ))}
             </div>
           ) : null}
-          expand={isDeadlineMode ? (
+          expand={isDeadlineMode ? ((title.trim() || dueDate) ? (
             (() => {
-              const parts = getNativeDueParts();
+              const typed = !dueDate ? parseQuickDue(title) : null;
+              const parts = typed?.date ? { date: typed.date, time: typed.time } : getNativeDueParts();
+              const now = new Date();
+              const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
+              const weekend = isSaturday(now) || isSunday(now) ? now : nextSaturday(now);
+              const quick = [
+                { key: 'today', label: lang === 'zh' ? '今天' : 'Today', date: ymd(now) },
+                { key: 'tomorrow', label: lang === 'zh' ? '明天' : 'Tomorrow', date: ymd(addDays(now, 1)) },
+                { key: 'weekend', label: lang === 'zh' ? '这周末' : 'This weekend', date: ymd(weekend) },
+                { key: 'nextweek', label: lang === 'zh' ? '下周' : 'Next week', date: ymd(nextMonday(now)) },
+              ];
+              const matched = quick.find(q => q.date === parts.date);
+              const chip = (active: boolean) => cn(
+                'shrink-0 rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors',
+                active
+                  ? 'bg-[hsl(var(--deadline))] font-semibold text-white'
+                  : 'text-muted-foreground hover:bg-[hsl(var(--surface-soft))] hover:text-foreground',
+              );
               return (
-                <div className="flex items-center gap-2 rounded-full bg-[hsl(var(--surface-soft))] px-2.5 py-1.5 text-muted-foreground/80">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const input = dueDateInputRef.current;
-                      input?.focus();
-                      input?.showPicker?.();
-                    }}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/72 transition-colors hover:bg-background/85 hover:text-foreground"
-                    aria-label="Choose due date"
-                  >
-                    <Calendar size={14} />
-                  </button>
-                  <label className="min-w-0 flex-1">
-                    <span className="sr-only">Due date</span>
+                <div className="flex items-center gap-1 overflow-x-auto">
+                  <Calendar size={14} className="mx-1.5 shrink-0 text-muted-foreground/70" aria-hidden />
+                  {quick.map(q => (
+                    <button
+                      key={q.key}
+                      type="button"
+                      aria-pressed={matched?.key === q.key}
+                      onClick={() => applyNativeDueDate(matched?.key === q.key ? '' : q.date, parts.time)}
+                      className={chip(matched?.key === q.key)}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                  <label className={cn(chip(!!parts.date && !matched), 'relative cursor-pointer')}>
+                    {parts.date && !matched ? format(parseISO(parts.date), lang === 'zh' ? 'M月d日' : 'MMM d') : (lang === 'zh' ? '选日期…' : 'Pick a date…')}
                     <input
                       ref={dueDateInputRef}
                       type="date"
                       value={parts.date}
                       onChange={(e) => applyNativeDueDate(e.target.value, parts.time)}
-                      className="datetime-input-iconless w-full min-w-0 bg-transparent text-[13px] font-medium text-foreground/82 focus:outline-none"
+                      onClick={(e) => e.currentTarget.showPicker?.()}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                      aria-label={lang === 'zh' ? '选择日期' : 'Pick a date'}
                     />
                   </label>
-                  <label className="w-[72px] shrink-0">
-                    <span className="sr-only">Time</span>
-                    <input
-                      ref={dueTimeInputRef}
-                      type="time"
-                      value={parts.time}
-                      onChange={(e) => applyNativeDueDate(parts.date || format(new Date(), 'yyyy-MM-dd'), e.target.value)}
-                      className="datetime-input-iconless w-full bg-transparent text-[13px] font-medium text-foreground/82 focus:outline-none"
-                    />
-                  </label>
-                  {dueDate && (
-                    <button
-                      type="button"
-                      onClick={() => applyNativeDueDate('', '23:59')}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/45 transition-colors hover:bg-background/85 hover:text-destructive"
-                      aria-label="Clear due date"
-                    >
-                      <X size={12} />
-                    </button>
+                  {parts.date && (
+                    <label className="ml-auto shrink-0">
+                      <span className="sr-only">{lang === 'zh' ? '时间' : 'Time'}</span>
+                      <input
+                        ref={dueTimeInputRef}
+                        type="time"
+                        value={parts.time}
+                        onChange={(e) => applyNativeDueDate(parts.date, e.target.value)}
+                        className="datetime-input-iconless w-[84px] bg-transparent text-right text-[12.5px] font-medium text-muted-foreground focus:outline-none"
+                      />
+                    </label>
                   )}
                 </div>
               );
             })()
-          ) : (
+          ) : null) : (
             <div className="flex items-center gap-2 px-1 py-0.5">
               <span className="text-[11px] text-muted-foreground/65">Category</span>
               <div className="flex gap-1.5 flex-1 flex-wrap">
@@ -941,12 +950,12 @@ export function DuesView({
       {/* Completed - collapsible */}
       {completedDues.length > 0 && (
         <div className="mb-8">
-          <button onClick={() => setCompletedCollapsed(!completedCollapsed)}
-            className="w-full flex items-center justify-between text-[13px] text-muted-foreground/50 uppercase tracking-wider mb-4 hover:text-muted-foreground transition-colors" >
+          <button onClick={() => setCompletedCollapsed(!completedIsCollapsed)}
+            className="w-full flex items-center justify-between text-[13px] font-medium text-muted-foreground mb-3 hover:text-foreground transition-colors" >
             <span>{t('dues.completed')} ({completedDues.length})</span>
-            {completedCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            {completedIsCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>
-          {!completedCollapsed && (
+          {!completedIsCollapsed && (
             <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
               {completedDues.map(due => (
                 <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}

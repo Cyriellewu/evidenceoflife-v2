@@ -35,7 +35,7 @@ export function PageHeader({
           ? // Reserve right padding so radix Sheet's absolute close/expand buttons
             // (top-right, ~88px) never overlap the title or `right` slot content.
             // Safe-area so iPhone notch / Dynamic Island doesn't clip the header.
-            'border-b border-border/55 bg-background/95 px-5 pb-3 pr-[7.5rem] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl'
+            'px-5 pb-2 pr-[7.5rem] pt-[max(1rem,env(safe-area-inset-top))]'
           : 'px-5 pt-5 pb-4',
         className,
       )}
