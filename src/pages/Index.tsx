@@ -506,7 +506,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
 
   return (
     <div className="h-screen bg-background flex overflow-hidden">
-      <div className="flex flex-1 h-full min-h-0">
+      <div className="flex min-w-0 flex-1 h-full min-h-0">
         <AppSectionErrorBoundary label="SideNav">
           <SideNav
             activeTab={activeTab}
