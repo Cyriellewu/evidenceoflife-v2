@@ -1440,20 +1440,26 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       pane.style.zIndex = '350';
     }
 
-    const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-    const fillColor = primary ? `hsl(${primary})` : LIFE_MAP_COLOR;
     const areas = visitedAreas(neighborhoods, allPlaces.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) })));
     if (areas.length === 0) return;
 
     // One soft wash per everyday area ("Upper West Side"), no inner borders,
     // and a single name label — not every official tabulation block.
     const layer = L.featureGroup();
-    for (const area of areas) {
+    const labels: Array<{ marker: L.Marker; text: string }> = [];
+    // One canvas for all areas: far smoother to pan and zoom than ~dozens of SVG paths.
+    const renderer = L.canvas({ padding: 0.5, pane: 'neighborhoods' });
+    // Each area gets its own colour from the map's existing muted category palette.
+    const areaPalette = Object.values(categoryColors);
+    areas.forEach((area, areaIndex) => {
       const label = localizedAreaName(area.name, lang);
       const countText = lang === 'zh' ? `去过 ${area.placeCount} 个地方` : `${area.placeCount} place${area.placeCount === 1 ? '' : 's'}`;
+      // geometryToLayer hands these options to each polygon, so `renderer`
+      // works here even though GeoJSONOptions doesn't type it.
       const shape = L.geoJSON({ type: 'FeatureCollection', features: area.features } as NeighborhoodCollection, {
-        style: { pane: 'neighborhoods', stroke: false, fillColor, fillOpacity: 0.16 },
-      });
+        renderer,
+        style: { stroke: false, fillColor: areaPalette[areaIndex % areaPalette.length], fillOpacity: 0.26 },
+      } as L.GeoJSONOptions & { renderer: L.Renderer });
       shape.bindPopup(
         `<div style="font-family:inherit;padding:2px 1px;">` +
         `<p style="font-weight:650;font-size:13px;margin:0;">${escapeHtml(label)}</p>` +
@@ -1462,19 +1468,39 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         { className: 'map-popup-minimal' },
       );
       layer.addLayer(shape);
-      layer.addLayer(L.marker(area.anchor, {
+      const marker = L.marker(area.anchor, {
         pane: 'neighborhoods',
         interactive: false,
         keyboard: false,
         icon: L.divIcon({ className: 'neighborhood-area-label', html: `<span>${escapeHtml(label)}</span>`, iconSize: [0, 0] }),
-      }));
-    }
+      });
+      layer.addLayer(marker);
+      labels.push({ marker, text: label });
+    });
     layer.addTo(map);
 
+    // Like a printed map: most-visited areas get their name first, and a name
+    // that would collide with one already placed is left out at this zoom.
     const syncLabels = () => {
-      // Area names only once the city fills the screen; below that they collide.
-      map.getContainer().classList.toggle('hide-area-labels', map.getZoom() < 11);
+      const placed: Array<{ l: number; r: number; t: number; b: number }> = [];
+      // Names only once zoomed in; the colours alone say "different area".
+      const zoomedOut = map.getZoom() < 13;
+      for (const { marker, text } of labels) {
+        const el = marker.getElement();
+        if (!el) continue;
+        const pt = map.latLngToContainerPoint(marker.getLatLng());
+        const width = [...text].reduce((w, ch) => w + (/[\u3000-\u9fff]/.test(ch) ? 12 : 6.6), 0) + 8;
+        const box = { l: pt.x - width / 2, r: pt.x + width / 2, t: pt.y - 9, b: pt.y + 9 };
+        const hit = zoomedOut || placed.some(o => box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t);
+        el.style.display = hit ? 'none' : '';
+        if (!hit) placed.push(box);
+      }
     };
+
+    neighborhoodLayerRef.current = layer as unknown as L.GeoJSON;
+    map.attributionControl.addAttribution('<a href="https://data.cityofnewyork.us/d/9nt8-h7nd">NYC Planning NTA 2020</a>');
+    map.on('zoomend', syncLabels);
+    syncLabels();
 
     return () => {
       map.off('zoomend', syncLabels);

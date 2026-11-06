@@ -751,14 +751,11 @@
     top: 0;
     transform: translate(-50%, -50%);
     white-space: nowrap;
-    color: hsl(var(--primary));
-    font-size: 12px;
-    font-weight: 700;
+    color: hsl(var(--foreground) / 0.62);
+    font-size: 11px;
+    font-weight: 600;
     letter-spacing: 0.01em;
-    text-shadow: 0 0 3px hsl(var(--background)), 0 0 3px hsl(var(--background)), 0 0 6px hsl(var(--background));
-  }
-  .hide-area-labels .neighborhood-area-label {
-    display: none;
+    text-shadow: 0 0 2px hsl(var(--background)), 0 0 4px hsl(var(--background));
   }
 
   /* Fade-in animation for city cards */

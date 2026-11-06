@@ -3421,15 +3421,6 @@ export function PlanView({
                     </button>
                   </div>
 
-                  {onSwitchToRecap && (
-                    <button
-                      onClick={onSwitchToRecap}
-                      className="group inline-flex items-center gap-0.5 rounded-full border border-[#dccfc1]/40 bg-[#fbf8f4]/55 px-3 py-1 text-[12px] font-medium tracking-[-0.01em] text-[#8a7465]/82 transition-all hover:border-[#c9b9a8]/75 hover:bg-[#f6efe8]/85 hover:text-[#725d50] dark:border-foreground/[0.11] dark:bg-foreground/[0.04] dark:text-foreground/65 dark:hover:border-foreground/18 dark:hover:bg-foreground/[0.07] dark:hover:text-foreground/85"
-                    >
-                      {lang === 'zh' ? '复盘' : 'Recap'}
-                      <span className="text-[#8a7465]/50 transition-transform group-hover:translate-x-0.5 dark:text-foreground/40">→</span>
-                    </button>
-                  )}
                 </div>
               </div>
 

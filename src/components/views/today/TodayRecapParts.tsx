@@ -75,7 +75,7 @@ export function DailyHabitTracker({
   }, [selectedDateStr]);
 
   return (
-    <aside className="min-w-0 lg:sticky lg:top-4">
+    <aside className="min-w-0">
       <div className="rounded-3xl border border-border/70 bg-[hsl(var(--surface-soft))] px-3.5 py-3.5 shadow-[0_10px_24px_hsl(var(--foreground)/0.05)]">
         <div className="rounded-2xl border border-border/60 bg-background/55 px-3.5 py-3">
           <div className="flex items-center justify-between gap-3">
