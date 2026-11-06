@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, Component, type Erro
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X, Image as ImageIcon, MapPinned, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
+import { createPortal } from 'react-dom';
 import { buildWidgetKeyPayload, copyAsync } from '@/lib/widgetExport';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -561,6 +562,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const [viewMode, setViewMode] = useState<ViewMode>('world');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [placeQuery, setPlaceQuery] = useState('');
+  // Phone top bar (MobileNavChrome) exposes an empty centre slot to portal into.
+  const [mobileNavSlot, setMobileNavSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = document.getElementById('mobile-nav-center');
+    // Only use it while the top bar is actually shown (it is md:hidden).
+    setMobileNavSlot(el && el.offsetParent !== null ? el : null);
+  }, []);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const selectedPlaceRef = useRef<string | null>(selectedPlace);
@@ -1809,8 +1817,29 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     <div className="flex-1 flex flex-col pb-6">
       {/* Header */}
       {viewMode === 'city' ? (
+        <>
+        {/* Phones: the city title lives in the top bar's empty centre, so the map starts higher. */}
+        {mobileNavSlot && createPortal(
+          <div className="flex min-w-0 max-w-[70vw] items-center gap-1">
+            <button
+              type="button"
+              onClick={() => { setViewMode('world'); }}
+              aria-label="Back to world view"
+              className="-ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-foreground/80"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
+              {currentCity?.cityName || t('map.places')}
+            </span>
+            <span className="ml-1 flex-shrink-0 text-[12px] tabular-nums text-muted-foreground">
+              {cityPlaces.length}
+            </span>
+          </div>,
+          mobileNavSlot,
+        )}
         <PageHeader
-          className="px-5 pb-2 pt-2 sm:pb-3 sm:pt-3"
+          className={cn('px-5 pb-2 pt-2 sm:pb-3 sm:pt-3', mobileNavSlot && 'hidden')}
           leading={
             <Button
               variant="ghost"
@@ -1833,6 +1862,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             </span>
           }
         />
+        </>
       ) : (
         <header className="flex-shrink-0 px-5 pb-3 pt-3 sm:pb-4 sm:pt-4">
           <div className="flex items-center gap-3">
