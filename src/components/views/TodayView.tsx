@@ -73,6 +73,7 @@ import {
   LifeReplay,
 } from './today/TodayRecapParts';
 import { OnThisDayCard } from './today/OnThisDayCard';
+import { TodayModeToggle } from '@/components/TodayModeToggle';
 import { MemoryHorizonsCard } from './today/MemoryHorizonsCard';
 import { PlanDrift } from '@/components/today/PlanDrift';
 import { StorageImage } from "@/components/StorageImage";
@@ -1124,7 +1125,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               {format(today, 'd')}
             </span>
             <div className="min-w-0 border-l border-border/55 pl-2.5 sm:pl-3">
-              <span className="block truncate text-[13px] font-semibold uppercase leading-tight tracking-[0.08em] text-primary sm:text-[18px] sm:tracking-[0.14em] lg:text-[22px]">
+              <span className="block truncate text-[14px] font-semibold leading-tight tracking-[-0.01em] text-primary sm:text-[19px] lg:text-[23px]">
                 {formatDate(today, 'MMMM')}
               </span>
               <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-none text-muted-foreground/80 sm:gap-1.5 sm:text-[15px] lg:text-[18px]">
@@ -1133,6 +1134,13 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 <span className="min-w-0 truncate">{formatDate(today, 'EEE')}</span>
               </div>
             </div>
+            {onTodayModeChange && (
+              <TodayModeToggle
+                mode={todayMode === 'plan' ? 'plan' : 'recap'}
+                onChange={onTodayModeChange}
+                className="ml-auto hidden shrink-0 md:inline-flex"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -1437,22 +1445,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 onRevisit={(dateStr) => onSelectedDateChange(new Date(`${dateStr}T00:00:00`))}
               />
               <MemoryHorizonsCard moments={historyMoments ?? []} selectedDate={selectedDate} />
-              {onTodayModeChange && (
-                <div className="flex items-center justify-between pt-3 border-t border-border/20 mt-2">
-                  <span className="text-[11px] text-muted-foreground/50">
-                    {[todosDone != null && todosTotal != null && todosTotal > 0 && `${todosDone}/${todosTotal} done`, sortedMoments.length > 0 && `${sortedMoments.length} moments`].filter(Boolean).join(' · ')}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onTodayModeChange('plan')}
-                    className="rounded-full gap-1.5 text-[12px] font-semibold"
-                  >
-                    Plan my day
-                    <ChevronRight size={14} />
-                  </Button>
-                </div>
-              )}
             </div>
           )}
           <div className="min-w-0 w-full max-w-full" ref={recapRightColRef}>
