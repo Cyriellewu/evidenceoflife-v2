@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback, Component, type ErrorInfo, type ReactNode } from 'react';
 import { useDateLocale } from '@/hooks/useDateLocale';
-import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X, Image as ImageIcon, MapPinned, Smartphone } from 'lucide-react';
+import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X, MapPinned, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
 import { buildWidgetKeyPayload, copyAsync } from '@/lib/widgetExport';
@@ -305,7 +305,7 @@ class MapDetailErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[240] bg-background flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 flex-shrink-0 bg-background/95 backdrop-blur-sm">
             <Button variant="ghost" size="icon" onClick={this.props.onClose} className="h-8 w-8 rounded-xl">
               <ChevronLeft size={20} />
@@ -2293,15 +2293,18 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
             return (
               <>
-                <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden">
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 flex-shrink-0 bg-background/95 backdrop-blur-sm">
-                    <Button variant="ghost" size="icon" onClick={() => { setShowPlaceDetail(null); setSelectedPlace(null); }} className="h-8 w-8 rounded-xl">
-                      <ChevronLeft size={20} />
+                {/* Full-screen sheet: sits above the phone top bar (z-130) and clears the notch. */}
+                <div className="fixed inset-0 z-[240] bg-background flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]">
+                  <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40 flex-shrink-0 bg-background/95 backdrop-blur-sm">
+                    <Button variant="ghost" size="icon" onClick={() => { setShowPlaceDetail(null); setSelectedPlace(null); }} aria-label={lang === 'zh' ? '返回' : 'Back'} className="h-9 w-9 flex-shrink-0 rounded-full">
+                      <ChevronLeft size={22} />
                     </Button>
                     <div className="flex-1 min-w-0">
-                      <h2 className="font-semibold text-sm truncate">{showPlaceDetail.name}</h2>
-                      <p className="text-[11px] text-muted-foreground/60">
-                        {showPlaceDetail.visits} {showPlaceDetail.visits === 1 ? t('map.visit') : t('map.visits')} · {allPhotos.length} {allPhotos.length === 1 ? t('map.photo') : t('map.photos')}
+                      <h2 className="truncate text-[17px] font-semibold tracking-[-0.02em] text-foreground">{showPlaceDetail.name}</h2>
+                      <p className="truncate text-[12px] text-muted-foreground">
+                        {showPlaceDetail.visits} {showPlaceDetail.visits === 1 ? t('map.visit') : t('map.visits')}
+                        {showPlaceDetail.lastVisit && <> · {lang === 'zh' ? '最近 ' : 'last '}{formatVisitDateLabel(showPlaceDetail.lastVisit, formatDate)}</>}
+                        {allPhotos.length > 0 && <> · {allPhotos.length} {allPhotos.length === 1 ? t('map.photo') : t('map.photos')}</>}
                       </p>
                     </div>
                   </div>
@@ -2363,33 +2366,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       )}
                     </div>
 
-                    <div className="px-4 py-4 pb-8">
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <div className="rounded-3xl border border-border/40 bg-card/70 px-4 py-4">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/55">
-                            {lang === 'zh' ? '地点' : 'Place'}
-                          </p>
-                          <p className="mt-2 text-lg font-semibold text-foreground">{showPlaceDetail.name}</p>
-                        </div>
-                        <div className="rounded-3xl border border-border/40 bg-card/70 px-4 py-4">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/55">
-                            {lang === 'zh' ? '记录' : 'Visits'}
-                          </p>
-                          <p className="mt-2 text-lg font-semibold text-foreground">
-                            {showPlaceDetail.visits} {showPlaceDetail.visits === 1 ? t('map.visit') : t('map.visits')}
-                          </p>
-                        </div>
-                        <div className="rounded-3xl border border-border/40 bg-card/70 px-4 py-4">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/55">
-                            {lang === 'zh' ? '最近一次' : 'Last visit'}
-                          </p>
-                          <p className="mt-2 text-lg font-semibold text-foreground">
-                            {showPlaceDetail.lastVisit ? formatVisitDateLabel(showPlaceDetail.lastVisit, formatDate) : '—'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+                    <div className="px-4 pt-1 pb-[max(2rem,env(safe-area-inset-bottom))]">
+                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+                        {allPhotos.length > 0 && (
                         <div className="rounded-3xl border border-border/40 bg-card/70 p-4">
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
@@ -2410,15 +2389,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <EmptyState
-                              variant="inline"
-                              icon={<ImageIcon size={18} />}
-                              title={lang === 'zh' ? '还没有照片' : 'No photos'}
-                              className="py-8"
-                            />
-                          )}
+                          ) : null}
                         </div>
+                        )}
 
                         <div className="rounded-3xl border border-border/40 bg-card/70 p-4">
                           <div className="mb-3 flex items-center justify-between gap-3">
