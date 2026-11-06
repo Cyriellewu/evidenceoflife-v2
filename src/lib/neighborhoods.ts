@@ -96,3 +96,89 @@ export function visitedNeighborhoods(
     .filter(feature => (feature.properties.placeCount ?? 0) > 0);
   return { ...collection, features };
 }
+
+/**
+ * NYC's official tabulation areas are finer than how people talk about the
+ * city ("Upper West Side (Central)", "Upper West Side-Lincoln Square").
+ * Fold them into the everyday area name: text before " (" or the first "-".
+ */
+export function areaNameFor(ntaname: string): string {
+  return ntaname.split(' (')[0].split('-')[0].trim();
+}
+
+const AREA_NAMES_ZH: Record<string, string> = {
+  'Upper West Side': '上西区',
+  'Upper East Side': '上东区',
+  'Midtown': '中城',
+  'Midtown South': '中城南',
+  'Harlem': '哈莱姆',
+  'East Harlem': '东哈莱姆',
+  'Morningside Heights': '晨边高地',
+  'Hamilton Heights': '汉密尔顿高地',
+  'Washington Heights': '华盛顿高地',
+  'Chelsea': '切尔西',
+  "Hell's Kitchen": '地狱厨房',
+  'Greenwich Village': '格林威治村',
+  'West Village': '西村',
+  'East Village': '东村',
+  'SoHo': '苏荷',
+  'Chinatown': '唐人街',
+  'Lower East Side': '下东区',
+  'Financial District': '金融区',
+  'Tribeca': '翠贝卡',
+  'Murray Hill': '默里山',
+  'Gramercy': '格拉梅西',
+  'Williamsburg': '威廉斯堡',
+  'Greenpoint': '绿点',
+  'DUMBO': '丹波',
+  'Downtown Brooklyn': '布鲁克林市中心',
+  'Park Slope': '公园坡',
+  'Flushing': '法拉盛',
+  'Long Island City': '长岛市',
+  'Astoria': '阿斯托利亚',
+  'Jamaica': '牙买加',
+};
+
+export function localizedAreaName(area: string, lang: string): string {
+  return lang.startsWith('zh') ? AREA_NAMES_ZH[area] ?? area : area;
+}
+
+export interface VisitedArea {
+  name: string;
+  borough: string;
+  placeCount: number;
+  /** [lat, lng] label anchor: centre of the area's bounding box. */
+  anchor: [number, number];
+  features: NeighborhoodCollection['features'];
+}
+
+/** Visited neighborhoods grouped into everyday areas, most-visited first. */
+export function visitedAreas(
+  collection: NeighborhoodCollection,
+  points: Array<{ lat: number; lng: number }>,
+): VisitedArea[] {
+  const areas = new Map<string, VisitedArea>();
+  for (const feature of collection.features) {
+    const inside = points.filter(p => multiPolygonContains(feature.geometry.coordinates as Ring[][], p.lng, p.lat)).length;
+    if (inside === 0) continue;
+    const name = areaNameFor(feature.properties.ntaname);
+    const area = areas.get(name) ?? { name, borough: feature.properties.boroname, placeCount: 0, anchor: [0, 0], features: [] };
+    area.placeCount += inside;
+    area.features.push(feature);
+    areas.set(name, area);
+  }
+  return [...areas.values()]
+    .map(area => {
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      for (const f of area.features) {
+        for (const polygon of f.geometry.coordinates as Ring[][]) {
+          for (const [lng, lat] of polygon[0] ?? []) {
+            minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+            minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+          }
+        }
+      }
+      return { ...area, anchor: [(minLat + maxLat) / 2, (minLng + maxLng) / 2] as [number, number] };
+    })
+    .sort((a, b) => b.placeCount - a.placeCount);
+}

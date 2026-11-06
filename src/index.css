@@ -741,6 +741,26 @@
     display: none !important;
   }
 
+  /* Everyday area names ("Upper West Side") drawn as quiet map type. */
+  .neighborhood-area-label {
+    pointer-events: none;
+  }
+  .neighborhood-area-label span {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    color: hsl(var(--primary));
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-shadow: 0 0 3px hsl(var(--background)), 0 0 3px hsl(var(--background)), 0 0 6px hsl(var(--background));
+  }
+  .hide-area-labels .neighborhood-area-label {
+    display: none;
+  }
+
   /* Fade-in animation for city cards */
   @keyframes lifeMapFadeIn {
     from { opacity: 0; transform: translateY(8px); }
