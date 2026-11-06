@@ -1885,7 +1885,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         <div className="px-5 pb-2">
           <div className="flex items-center gap-2">
             <>
-                <div className="-mx-1 flex flex-1 items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
+                <div className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
                   {categoryKeys
                     .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
                     .map(({ id, labelKey, icon: Icon }) => {
