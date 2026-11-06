@@ -331,7 +331,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
 
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/42">
+                    <p className="text-[12px] font-medium text-muted-foreground/70">
                       {lang === 'zh' ? '生活证据总览' : 'Evidence dashboard'}
                     </p>
                     {isEditingName ? (
@@ -428,7 +428,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 
               <div className="rounded-3xl border border-border/55 bg-card/72 p-4">
                 <div className="mb-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                  <p className="text-[12px] font-medium text-muted-foreground/70">
                     {lang === 'zh' ? '每日节奏' : 'Daily flow'}
                   </p>
                   <p className="mt-1 text-[12px] text-muted-foreground/58">
@@ -438,7 +438,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 
                 <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
                   <div>
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+                    <p className="mb-2 text-[12px] font-medium text-muted-foreground/70">
                       {lang === 'zh' ? '作息时间' : 'Day rhythm'}
                     </p>
                     <CircularTimeRing
@@ -460,7 +460,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 
                   <div className="space-y-3">
                     <div>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+                      <p className="mb-2 text-[12px] font-medium text-muted-foreground/70">
                         {lang === 'zh' ? '语言与连接' : 'Language & connections'}
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
@@ -477,7 +477,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
               </div>
 
               <div className="rounded-3xl border border-border/55 bg-card/72 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                <p className="text-[12px] font-medium text-muted-foreground/70">
                   {lang === 'zh' ? '你的数据' : 'Your data'}
                 </p>
                 <p className="mt-1 text-[12px] text-muted-foreground/58">
@@ -500,7 +500,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           <section className="rounded-3xl border border-border/60 bg-background p-4 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
             <div className="mb-3 flex items-end justify-between gap-3 px-1">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">
+                <p className="text-[12px] font-medium text-muted-foreground/70">
                   {lang === 'zh' ? '最近的照片' : 'Recent photos'}
                 </p>
                 <h2 className="mt-0.5 text-[17px] font-semibold tracking-[-0.03em] text-foreground">
@@ -557,12 +557,12 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           </section>
         )}
 
-        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <section className="min-w-0 rounded-3xl border border-border/60 bg-background p-4 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)] sm:p-5">
             <button onClick={() => setShowLifeCalendar(true)} className="group w-full text-left">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Evidence Calendar</p>
+                  <p className="text-[12px] font-medium text-muted-foreground/70">{lang === 'zh' ? '证据日历' : 'Evidence calendar'}</p>
                   <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">
                     {lang === 'zh' ? '最近半年留下的痕迹' : 'The last half-year of proof'}
                   </h2>
@@ -578,7 +578,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Upcoming Attention</p>
+                <p className="text-[12px] font-medium text-muted-foreground/70">{lang === 'zh' ? '即将到来' : 'Upcoming attention'}</p>
                 <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">
                   {lang === 'zh' ? '接下来最该看见的事' : 'What should stay visible'}
                 </h2>
@@ -612,7 +612,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
         <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Recent Proof</p>
+              <p className="text-[12px] font-medium text-muted-foreground/70">{lang === 'zh' ? '最近的证据' : 'Recent proof'}</p>
               <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-foreground">
                 {lang === 'zh' ? '最近真的发生过的东西' : 'Things that actually happened'}
               </h2>
@@ -685,7 +685,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
             <div className="rounded-3xl border border-border/60 bg-background p-5">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Life Replay</p>
+                  <p className="text-[12px] font-medium text-muted-foreground/70">{lang === 'zh' ? '生活回放' : 'Life replay'}</p>
                   <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-foreground">{lang === 'zh' ? '把今天讲成一段话' : 'Turn today into a short replay'}</h2>
                 </div>
                 <button onClick={generateLifeReplay} disabled={replayLoading} className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-foreground">
@@ -700,7 +700,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 
             {randomMemory && (
               <div className="rounded-3xl border border-border/60 bg-background p-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Memory</p>
+                <p className="text-[12px] font-medium text-muted-foreground/70">{lang === 'zh' ? '记忆' : 'Memory'}</p>
                 <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-foreground">{t('profile.memory')}</h2>
                 <div className="mt-4 rounded-[18px] bg-card/62 px-4 py-4">
                   <p className="font-mono text-[11px] text-muted-foreground/48">{randomMemory.date}</p>
@@ -716,8 +716,8 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
       </div>
 
       {lightboxPhoto && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in" onClick={() => setLightboxPhoto(null)}>
-          <button onClick={() => setLightboxPhoto(null)} className="absolute top-4 right-4 z-10 p-2 text-muted-foreground hover:text-foreground">
+        <div className="fixed inset-0 z-[260] flex items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in" onClick={() => setLightboxPhoto(null)}>
+          <button onClick={() => setLightboxPhoto(null)} className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 p-2 text-muted-foreground hover:text-foreground">
             <X size={24} />
           </button>
           <StorageImage src={lightboxPhoto} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" onClick={e => e.stopPropagation()} />
@@ -725,10 +725,10 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
       )}
 
       {albumOpen && (
-        <div className="fixed inset-0 z-[55] flex flex-col bg-background/97 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[250] flex flex-col pt-[env(safe-area-inset-top)] bg-background/97 backdrop-blur-sm animate-fade-in">
           <div className="flex items-center justify-between border-b border-border/45 px-5 py-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/55">
+              <p className="text-[12px] font-medium text-muted-foreground/70">
                 {lang === 'zh' ? '相册' : 'Album'}
               </p>
               <h2 className="mt-0.5 text-[17px] font-semibold tracking-[-0.03em] text-foreground">
