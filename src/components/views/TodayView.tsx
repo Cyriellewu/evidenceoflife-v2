@@ -2739,6 +2739,8 @@ function NoteCard({ content, onSave, onCollapse }: {
   onSave?: (v: string) => void;
   onCollapse?: () => void;
 }) {
+  const { lang } = useLanguage();
+  const zh = lang.startsWith('zh');
   // Auto-enter edit mode when there's no content yet
   const [editing, setEditing] = useState(!content);
   const [value, setValue] = useState(content ?? '');
@@ -2766,13 +2768,13 @@ function NoteCard({ content, onSave, onCollapse }: {
           autoFocus
           value={value}
           onChange={e => setValue(e.target.value)}
-          placeholder="Type notes... supports **bold**, *italic*, [link](url)"
-          className="w-full bg-transparent px-3 pt-2.5 pb-1 text-[12px] text-foreground/75 focus:outline-none resize-none leading-relaxed placeholder:text-muted-foreground/35"
+          placeholder={zh ? '写点什么…' : 'Write a note…'}
+          className="w-full bg-transparent px-3 pt-2.5 pb-1 text-[14px] text-foreground/80 focus:outline-none resize-none leading-relaxed placeholder:text-muted-foreground/55"
           rows={4}
         />
         <div className="flex items-center justify-end gap-3 px-3 pb-2.5">
-          <button onClick={handleCancel} className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors">Cancel</button>
-          <button onClick={handleSave} className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors">Save</button>
+          <button onClick={handleCancel} className="text-[13px] text-muted-foreground/70 hover:text-muted-foreground transition-colors">{zh ? '取消' : 'Cancel'}</button>
+          <button onClick={handleSave} className="text-[13px] text-primary hover:text-primary/80 font-medium transition-colors">{zh ? '保存' : 'Save'}</button>
         </div>
       </div>
     );
