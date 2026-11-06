@@ -227,8 +227,9 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
           {/* Daily loop: full-page core surfaces (plan → live → capture → revisit) */}
           {expanded && (
             <span className={cn(
-              'font-semibold uppercase tracking-[0.16em] text-muted-foreground/55',
-              isPanel ? 'mb-0.5 px-2.5 text-[10px]' : 'mb-0.5 px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
+              isPanel
+                ? 'mb-1 mt-1 px-2.5 text-[12px] font-medium text-muted-foreground/70'
+                : 'mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45',
             )}>
               {t('sidenav.dailyLoop')}
             </span>
@@ -268,11 +269,11 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                 expanded && !isPanel && 'cursor-grab active:cursor-grabbing',
                 draggedTab === id && 'opacity-60',
                 activeTab === id
-                  ? 'bg-primary/12 text-primary'
-                  : 'text-muted-foreground hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-[hsl(var(--surface-soft-hover))]'
+                  ? (isPanel ? 'bg-primary/10 font-semibold text-primary' : 'bg-primary/12 text-primary')
+                  : (isPanel ? 'text-foreground/80 hover:bg-foreground/[0.04]' : 'text-muted-foreground hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-[hsl(var(--surface-soft-hover))]')
               )}
             >
-              {activeTab === id && (
+              {activeTab === id && !isPanel && (
                 <span
                   aria-hidden
                   className={cn(
@@ -300,8 +301,10 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
               {sheetGroups.map((group) => (
                 <div key={group.labelKey}>
                   <span className={cn(
-                    'mb-0.5 block font-semibold uppercase tracking-[0.16em] text-muted-foreground/50',
-                    isPanel ? 'px-2.5 text-[10px]' : 'px-3 text-[10px] tracking-[0.18em] text-muted-foreground/45',
+                    'mb-0.5 block',
+                    isPanel
+                      ? 'mt-1 px-2.5 text-[12px] font-medium text-muted-foreground/70'
+                      : 'px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45',
                   )}>
                     {t(group.labelKey)}
                   </span>
@@ -320,7 +323,9 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                           isPanel ? 'h-9 gap-2.5 px-2.5' : 'h-9 gap-2.5 px-3',
                           isOpen
                             ? "bg-primary/10 text-primary"
-                            : "text-[hsl(var(--text-soft))] hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-[hsl(var(--surface-soft-hover))]"
+                            : isPanel
+                              ? "text-foreground/80 hover:bg-foreground/[0.04]"
+                              : "text-[hsl(var(--text-soft))] hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-[hsl(var(--surface-soft-hover))]"
                         )}
                       >
                         <Icon size={isPanel ? 16 : 17} strokeWidth={isOpen ? 2 : 1.6} className="flex-shrink-0" />
