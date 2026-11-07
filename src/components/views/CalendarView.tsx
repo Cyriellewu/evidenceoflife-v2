@@ -482,7 +482,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           }
           return (
             <>
-              <div className="flex items-center justify-between px-4 py-2.5 gap-2">
+              <div className="flex items-center justify-between px-4 py-2.5 gap-2 lg:mx-auto lg:max-w-[1080px] lg:px-6">
                 {titleNav(false)}
                 {tools}
               </div>
@@ -660,9 +660,11 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       )}
 
       {viewMode === 'month' && (
-        <div className="flex min-h-0 flex-1 flex-col pb-[max(5.5rem,calc(4.25rem+env(safe-area-inset-bottom)))]">
+        // Wide screens: grid on the left, the day's list beside it (Apple
+        // Calendar), instead of both stretched edge to edge on a 1900px window.
+        <div className="flex min-h-0 flex-1 flex-col pb-[max(5.5rem,calc(4.25rem+env(safe-area-inset-bottom)))] lg:mx-auto lg:w-full lg:max-w-[1080px] lg:flex-row lg:items-start lg:gap-8 lg:px-6 lg:pt-2">
           {/* Compact month grid — Apple-style: dates + dots always fit on screen */}
-          <div className="shrink-0 px-2 sm:px-3">
+          <div className="shrink-0 px-2 sm:px-3 lg:w-[540px] lg:px-0">
             <div className="grid grid-cols-7 mb-0.5">
               {(lang === 'zh' ? WEEKDAYS_CN : weekDays).map((day, i) => (
                 <div key={i} className="py-1.5 text-center text-[11px] font-medium text-muted-foreground/55">
@@ -728,7 +730,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           </div>
 
           {/* Selected-day agenda (Apple List) — full titles, no cell truncation */}
-          <div className="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-border/35 px-3 pt-3">
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-border/35 px-3 pt-3 lg:mt-0 lg:max-w-[460px] lg:border-l lg:border-t-0 lg:pl-8 lg:pr-0 lg:pt-1">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold tracking-tight text-foreground">
