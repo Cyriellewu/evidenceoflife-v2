@@ -73,7 +73,8 @@ export function MobileNavChrome({
     <>
       <div
         className={cn(
-          'sticky top-0 -mx-2 mb-1 border-b border-border/35 bg-[hsl(var(--background)/0.92)] px-2 backdrop-blur-xl md:hidden sm:-mx-3 sm:px-3',
+          // Opaque: a translucent bar let scrolled text ghost through it.
+          'sticky top-0 -mx-2 mb-1 border-b border-border/35 bg-background px-2 md:hidden sm:-mx-3 sm:px-3',
           'pt-[env(safe-area-inset-top)]',
           open ? 'z-[40]' : 'z-[130]',
         )}
