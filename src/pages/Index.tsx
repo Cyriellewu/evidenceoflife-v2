@@ -86,11 +86,13 @@ function AppSideSheet({
   open,
   onOpenChange,
   maxWidthClass,
+  expandable = true,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   maxWidthClass: string;
+  expandable?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -101,6 +103,7 @@ function AppSideSheet({
         // composer/timer (z-55–70) so those never paint through Notes/etc.
         // Stay below the hamburger drawer (z-210/220).
         overlayClassName="!z-[190]"
+        expandable={expandable}
         className={cn(
           '!z-[200] flex h-full w-full flex-col overflow-hidden p-0 border-border/60 bg-background shadow-[0_24px_70px_hsl(var(--foreground)/0.14)]',
           maxWidthClass,
@@ -840,6 +843,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
         open={activeSheet === 'dues' || activeSheet === 'habits'}
         onOpenChange={(open) => setActiveSheet(open ? 'dues' : null)}
         maxWidthClass="sm:max-w-[780px]"
+        expandable={false}
       >
         {activeSheet === 'habits'
           ? <HabitsView titleSlot={upcomingSwitcher} />
