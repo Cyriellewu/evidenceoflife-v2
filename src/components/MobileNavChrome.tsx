@@ -79,16 +79,22 @@ export function MobileNavChrome({
         )}
       >
         <div className="grid h-10 grid-cols-[2.25rem_1fr_2.25rem] items-center">
-          <button
-            type="button"
-            onClick={() => onOpenChange(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))]"
-            aria-label={lang === 'zh' ? '打开菜单' : 'Open menu'}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-          >
-            <Menu size={18} strokeWidth={1.9} />
-          </button>
+          {/* A sub-page (e.g. a Map city) may portal a back button into
+              #mobile-nav-leading; it covers the menu button, iOS-style. The
+              drawer still opens with the left-edge swipe. */}
+          <div className="relative h-8 w-8">
+            <button
+              type="button"
+              onClick={() => onOpenChange(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))]"
+              aria-label={lang === 'zh' ? '打开菜单' : 'Open menu'}
+              aria-haspopup="dialog"
+              aria-expanded={open}
+            >
+              <Menu size={18} strokeWidth={1.9} />
+            </button>
+            <div id="mobile-nav-leading" className="absolute inset-0 empty:pointer-events-none" />
+          </div>
           {/* Pages without a centerSlot (e.g. Map) may portal a compact title here. */}
           <div id="mobile-nav-center" className="flex min-w-0 items-center justify-center">
             {centerSlot}
