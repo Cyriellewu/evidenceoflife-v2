@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { format, parseISO, startOfWeek, addDays, isToday } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import { DayRecord, Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
@@ -508,7 +508,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
                             value={draftTitle}
                             onChange={e => setDraftTitle(e.target.value)}
                             onKeyDown={e => {
-                              if (e.key === 'Enter' && !e.nativeEvent.isComposing) confirmWeekDraft();
+                              if (e.key === 'Enter' && !isImeEnter(e.nativeEvent)) confirmWeekDraft();
                               if (e.key === 'Escape') cancelWeekDraft();
                             }}
                             placeholder={lang === 'zh' ? '日程标题...' : 'Event title...'}

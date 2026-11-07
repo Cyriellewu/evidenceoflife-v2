@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { format, parseISO, isToday } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import { DayRecord, Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
@@ -534,7 +534,7 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
                       value={draftTitle}
                       onChange={e => setDraftTitle(e.target.value)}
                       onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) confirmDraft();
+                        if (e.key === 'Enter' && !isImeEnter(e.nativeEvent)) confirmDraft();
                         if (e.key === 'Escape') cancelDraft();
                       }}
                       placeholder={lang === 'zh' ? '输入日程标题...' : 'Event title...'}

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Mic, Square, X, Loader2, ArrowRight, ChevronDown, ChevronUp, Check, Calendar, Repeat, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
@@ -445,7 +445,7 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
                       {editingId === item.id ? (
                         <input value={item.editedTitle}
                           onChange={e => updateItem(item.id, i => ({ ...i, editedTitle: e.target.value }))}
-                          onBlur={() => setEditingId(null)} onKeyDown={e => { if (e.key === 'Enter') setEditingId(null); }}
+                          onBlur={() => setEditingId(null)} onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) setEditingId(null); }}
                           className="text-sm text-foreground font-medium w-full bg-transparent border-b border-primary/30 focus:outline-none py-0.5" autoFocus />
                       ) : (
                         <p className={cn("text-sm text-foreground font-medium", !item.confirmed && "cursor-pointer hover:text-primary/80 transition-colors")}
@@ -597,7 +597,7 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
               placeholder={t('chatbot.typePlaceholder') || '输入文字...'}
               className="flex-1 text-sm bg-muted/50 border border-border rounded-full px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground placeholder:text-muted-foreground/50"
               onKeyDown={e => {
-                if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent)) && (e.target as HTMLInputElement).value.trim()) {
                   const val = (e.target as HTMLInputElement).value;
                   classify(val);
                   (e.target as HTMLInputElement).value = '';

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { parseISO, format, isToday as isTodayFn } from 'date-fns';
 import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer } from 'lucide-react';
-import { cn, isEnterSubmit } from '@/lib/utils';
+import { cn, isEnterSubmit, isImeEnter } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { Moment } from '@/types';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
@@ -2414,7 +2414,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveBlockTime(block.id);
+                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveBlockTime(block.id);
                 if (e.key === 'Escape') setEditingTimeBlockId(null);
               }}
             />
@@ -2425,7 +2425,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveBlockTime(block.id);
+                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveBlockTime(block.id);
                 if (e.key === 'Escape') setEditingTimeBlockId(null);
               }}
               onBlur={() => handleSaveBlockTime(block.id)}
@@ -2446,7 +2446,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveActualTime(block.id);
+                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveActualTime(block.id);
                 if (e.key === 'Escape') setEditingActualBlockId(null);
               }}
             />
@@ -2457,7 +2457,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               className="w-[54px] rounded-md bg-secondary/80 px-1 py-0.5 text-center tabular-nums text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="HH:MM"
               onKeyDown={e => {
-                if (e.key === 'Enter') handleSaveActualTime(block.id);
+                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveActualTime(block.id);
                 if (e.key === 'Escape') setEditingActualBlockId(null);
               }}
               onBlur={() => handleSaveActualTime(block.id)}
@@ -2573,7 +2573,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           className="w-[48px] tabular-nums bg-muted/20 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-primary/30"
                           style={{ fontSize: '11px' }}
                           placeholder="HH:MM"
-                          onKeyDown={e => { if (e.key === 'Enter') handleSaveBlockTime(block.id); if (e.key === 'Escape') setEditingBlockId(null); }}
+                          onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveBlockTime(block.id); if (e.key === 'Escape') setEditingBlockId(null); }}
                         />
                         <span className="text-muted-foreground/50" style={{ fontSize: '10px' }}>→</span>
                         <input
@@ -2582,7 +2582,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           className="w-[48px] tabular-nums bg-muted/20 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-primary/30"
                           style={{ fontSize: '11px' }}
                           placeholder="HH:MM"
-                          onKeyDown={e => { if (e.key === 'Enter') handleSaveBlockTime(block.id); if (e.key === 'Escape') setEditingBlockId(null); }}
+                          onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveBlockTime(block.id); if (e.key === 'Escape') setEditingBlockId(null); }}
                         />
                       </div>
                     )}
@@ -2716,7 +2716,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           style={{ fontSize: compactLayout ? '11px' : '13px' }}
                           placeholder="HH:MM"
                           onKeyDown={e => {
-                            if (e.key === 'Enter') handleSaveBlockTime(block.id);
+                            if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveBlockTime(block.id);
                             if (e.key === 'Escape') setEditingTimeBlockId(null);
                           }}
                         />
@@ -2728,7 +2728,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           style={{ fontSize: compactLayout ? '11px' : '13px' }}
                           placeholder="HH:MM"
                           onKeyDown={e => {
-                            if (e.key === 'Enter') handleSaveBlockTime(block.id);
+                            if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveBlockTime(block.id);
                             if (e.key === 'Escape') setEditingTimeBlockId(null);
                           }}
                           onBlur={() => handleSaveBlockTime(block.id)}
@@ -2776,7 +2776,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                               style={{ fontSize: compactLayout ? '11px' : '13px' }}
                               placeholder="HH:MM"
                               onKeyDown={e => {
-                                if (e.key === 'Enter') handleSaveActualTime(block.id);
+                                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveActualTime(block.id);
                                 if (e.key === 'Escape') setEditingActualBlockId(null);
                               }}
                             />
@@ -2788,7 +2788,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                               style={{ fontSize: compactLayout ? '11px' : '13px' }}
                               placeholder="HH:MM"
                               onKeyDown={e => {
-                                if (e.key === 'Enter') handleSaveActualTime(block.id);
+                                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveActualTime(block.id);
                                 if (e.key === 'Escape') setEditingActualBlockId(null);
                               }}
                               onBlur={() => handleSaveActualTime(block.id)}
@@ -2836,7 +2836,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                                 style={{ fontSize: compactLayout ? '10px' : '12px' }}
                                 placeholder="HH:MM"
                                 onKeyDown={e => {
-                                  if (e.key === 'Enter') handleSaveActualTime(block.id);
+                                  if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveActualTime(block.id);
                                   if (e.key === 'Escape') setEditingActualBlockId(null);
                                 }}
                               />
@@ -2848,7 +2848,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                                 style={{ fontSize: compactLayout ? '10px' : '12px' }}
                                 placeholder="HH:MM"
                                 onKeyDown={e => {
-                                  if (e.key === 'Enter') handleSaveActualTime(block.id);
+                                  if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveActualTime(block.id);
                                   if (e.key === 'Escape') setEditingActualBlockId(null);
                                 }}
                                 onBlur={() => handleSaveActualTime(block.id)}
@@ -3301,7 +3301,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             defaultValue={`${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`}
                             key={`start-${selectedRange.startMin}`}
                             onBlur={e => applyTimeEdit('start', e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) (e.target as HTMLInputElement).blur(); }}
                             onPointerDown={e => e.stopPropagation()}
                           />
                           <span className="text-muted-foreground/40">→</span>
@@ -3310,7 +3310,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             defaultValue={`${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`}
                             key={`end-${selectedRange.endMin}`}
                             onBlur={e => applyTimeEdit('end', e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) (e.target as HTMLInputElement).blur(); }}
                             onPointerDown={e => e.stopPropagation()}
                           />
                         </div>
