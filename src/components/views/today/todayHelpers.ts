@@ -270,6 +270,24 @@ export function cleanReplayTitle(rawTitle: string): string {
   return title;
 }
 
+/**
+ * Language to tell the story in: the language the moments are written in, not
+ * the UI language. A Chinese diary under an English UI used to come out as
+ * "You started with <中文> at 10:36, moved through <中文>…".
+ * Falls back to the UI language when the text is mixed or has no letters.
+ */
+export function pickReplayLang(titles: string[], uiLang: string): 'zh' | 'en' {
+  const text = titles.join(' ');
+  const cjk = (text.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  // A CJK character carries roughly a word; weigh it like ~3 Latin letters.
+  const cjkWeight = cjk * 3;
+  if (cjkWeight === 0 && latin === 0) return uiLang === 'zh' ? 'zh' : 'en';
+  if (cjkWeight >= latin * 1.5) return 'zh';
+  if (latin >= cjkWeight * 1.5) return 'en';
+  return uiLang === 'zh' ? 'zh' : 'en';
+}
+
 export function buildLocalLifeReplay(
   events: { time: string; title: string; duration?: string }[],
   lang: string
@@ -284,6 +302,7 @@ export function buildLocalLifeReplay(
     .filter(event => event.title.length > 0);
 
   if (cleaned.length < 3) return null;
+  lang = pickReplayLang(cleaned.map(event => event.title), lang);
 
   const first = cleaned[0];
   const middle = cleaned[Math.floor(cleaned.length / 2)];
