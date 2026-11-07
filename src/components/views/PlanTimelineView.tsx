@@ -1512,6 +1512,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     /** Dark: cooler elevated graphite base; warm card tokens made orange tasks turn muddy. */
     const blockFillBase = isDarkMode ? 'hsl(240 5% 15%)' : canvasBg;
     const fillGradVariant = isDarkMode ? ('darkTint' as const) : ('default' as const);
+    /** Light mode: smaller radius and no left stripe (a 3px bar bent round a 10px
+     *  corner read as a crescent). Dark keeps its own hard-won treatment. */
+    const blockRadius = isDarkMode ? BLOCK_CORNER_PX : 6;
     const shellFor = (intensity: 'plan' | 'actual' | 'active' | 'done' | 'ghost') =>
       timelineBlockShell(isDarkMode, blockFillBase, accentPaint, intensity);
     const colorWithAlpha = (alpha: number) => {
@@ -1787,13 +1790,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           <div
             className="relative h-full overflow-hidden pointer-events-auto"
             style={{
-              borderRadius: `${BLOCK_CORNER_PX}px`,
+              borderRadius: `${blockRadius}px`,
               background: eventShell.background,
-              borderLeft: `${isDarkMode ? 2 : 3}px solid ${(block.isCompleted || (isFocusSession && !parentStillOpen)) ? colorWithAlpha(edgeAlpha(0.34)) : isFuture ? colorWithAlpha(edgeAlpha(0.18)) : colorWithAlpha(edgeAlpha(0.38))}`,
+              borderLeft: isDarkMode ? `2px solid ${(block.isCompleted || (isFocusSession && !parentStillOpen)) ? colorWithAlpha(edgeAlpha(0.34)) : isFuture ? colorWithAlpha(edgeAlpha(0.18)) : colorWithAlpha(edgeAlpha(0.38))}` : 'none',
               boxShadow: eventShell.shadow,
             }}
           >
-          {isInProgress && <div className="absolute top-0 left-0 right-0 pointer-events-none transition-all duration-1000" style={{ height: `${fillPct}%`, backgroundColor: tintedCard(isDarkMode ? 0.1 : 0.075), borderRadius: `${BLOCK_CORNER_PX}px ${BLOCK_CORNER_PX}px 0 0` }} />}
+          {isInProgress && <div className="absolute top-0 left-0 right-0 pointer-events-none transition-all duration-1000" style={{ height: `${fillPct}%`, backgroundColor: tintedCard(isDarkMode ? 0.1 : 0.075), borderRadius: `${blockRadius}px ${blockRadius}px 0 0` }} />}
           {compactSessionLayout ? (
             <div className="absolute inset-0 z-10 flex items-center px-3">
               <div className="flex min-w-0 w-full items-center gap-2">
@@ -1954,7 +1957,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         <div
           className="relative h-full overflow-hidden pointer-events-auto"
           style={{
-            borderRadius: `${BLOCK_CORNER_PX}px`,
+            borderRadius: `${blockRadius}px`,
             backgroundColor: 'transparent',
             boxShadow: 'none',
           }}
@@ -2076,7 +2079,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               style={{
                 top: planTop,
                 height: planHeight,
-                borderRadius: `${BLOCK_CORNER_PX}px`,
+                borderRadius: `${blockRadius}px`,
                 background: planBackdrop,
                 boxShadow: 'none',
                 // Plan dashed frame must render ABOVE the actual solid fill.
@@ -2090,7 +2093,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  borderRadius: `${BLOCK_CORNER_PX}px`,
+                  borderRadius: `${blockRadius}px`,
                   ...(isCompletedPlanOnly
                     ? {
                       border: `1px solid ${colorWithAlpha(isDarkMode ? 0.55 : 0.45)}`,
@@ -2138,9 +2141,10 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               style={{
                 top: actTop,
                 height: actHeight,
-                borderRadius: `${BLOCK_CORNER_PX}px`,
+                borderRadius: `${blockRadius}px`,
                 background: actualShell.background,
-                borderLeft: `${actualBorderWidth}px solid ${actualBorderColor}`,
+                // Light: only a running timer keeps its stripe (it marks "live").
+                borderLeft: !isDarkMode && !isTimerActive ? 'none' : `${actualBorderWidth}px solid ${actualBorderColor}`,
                 boxShadow: block.isCompleted
                   ? actualShell.shadow
                   : editingGlow || liveGlow || actualShell.shadow,
@@ -2153,7 +2157,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   style={{
                     height: `${actualFillPct}%`,
                     background: timelineFillGradient(isDarkMode, blockFillBase, accentPaint, 0.11, 0.07, 0.045, fillGradVariant),
-                    borderRadius: `${BLOCK_CORNER_PX}px ${BLOCK_CORNER_PX}px 0 0`,
+                    borderRadius: `${blockRadius}px ${blockRadius}px 0 0`,
                   }}
                 />
               )}
@@ -2184,7 +2188,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                      borderRadius: `${BLOCK_CORNER_PX}px`,
+                      borderRadius: `${blockRadius}px`,
                     }}
                   />
                 </>
