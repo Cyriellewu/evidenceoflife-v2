@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Calendar, ChevronRight, Clock3, Library, LogOut, MapPin, Pin, User } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Calendar, ChevronRight, Clock3, Library, MapPin, Pin, User } from 'lucide-react';
 import { TabType } from '@/types';
 import { cn } from '@/lib/utils';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useProfile } from '@/hooks/useProfile';
 import { useDues } from '@/hooks/useDues';
-import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { StorageImage } from '@/components/StorageImage';
 
@@ -51,14 +49,11 @@ const TAB_ORDER_KEY = 'side-nav-tab-order';
 
 export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' }: SideNavProps) {
   const { t } = useLanguage();
-  const navigate = useNavigate();
   const { profile } = useProfile();
   const { dues } = useDues();
-  const { signOut } = useAuth();
   const isPanel = variant === 'panel';
   const [expanded, setExpanded] = useState(isPanel);
   const [logoVisible, setLogoVisible] = useState(true);
-  const [showProfileHoverCard, setShowProfileHoverCard] = useState(false);
   const [draggedTab, setDraggedTab] = useState<TabType | null>(null);
   const [tabOrder, setTabOrder] = useState<TabType[]>(() => {
     try {
@@ -73,8 +68,6 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
     }
     return tabConfig.map((tab) => tab.id);
   });
-  const hoverTimeoutMs = 200;
-  const profileHoverTimeoutRef = useRef<number | null>(null);
   const sideNavRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -101,39 +94,8 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
     .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0];
 
   useEffect(() => {
-    return () => {
-      if (profileHoverTimeoutRef.current !== null) {
-        window.clearTimeout(profileHoverTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(tabOrder));
   }, [tabOrder]);
-
-  const clearProfileHoverTimeout = () => {
-    if (profileHoverTimeoutRef.current !== null) {
-      window.clearTimeout(profileHoverTimeoutRef.current);
-      profileHoverTimeoutRef.current = null;
-    }
-  };
-
-  const openProfileHoverCardWithDelay = () => {
-    clearProfileHoverTimeout();
-    profileHoverTimeoutRef.current = window.setTimeout(() => {
-      setShowProfileHoverCard(true);
-      profileHoverTimeoutRef.current = null;
-    }, hoverTimeoutMs);
-  };
-
-  const closeProfileHoverCardWithDelay = () => {
-    clearProfileHoverTimeout();
-    profileHoverTimeoutRef.current = window.setTimeout(() => {
-      setShowProfileHoverCard(false);
-      profileHoverTimeoutRef.current = null;
-    }, hoverTimeoutMs);
-  };
 
   const nextDueDateLabel = nextDue?.due_date
     ? (() => {
@@ -418,8 +380,6 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
             isPanel ? 'mt-1.5 border-t border-border/35 px-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5' : 'mt-auto pt-3.5',
             !isPanel && (expanded ? 'px-1.5' : 'px-2'),
           )}
-          onMouseEnter={isPanel ? undefined : openProfileHoverCardWithDelay}
-          onMouseLeave={isPanel ? undefined : closeProfileHoverCardWithDelay}
         >
           <button
             onClick={() => onTabChange('profile')}
@@ -444,34 +404,6 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
               </span>
             )}
           </button>
-          {showProfileHoverCard && (
-            <div
-              onMouseEnter={() => {
-                clearProfileHoverTimeout();
-                setShowProfileHoverCard(true);
-              }}
-              onMouseLeave={closeProfileHoverCardWithDelay}
-              className={cn(
-                'absolute bottom-full z-30 mb-2 rounded-[14px] border border-border bg-background/95 p-2 shadow-[0_12px_28px_hsl(var(--foreground)/0.12)] backdrop-blur-sm',
-                expanded ? 'left-1.5 w-[170px]' : 'left-10 w-[150px]'
-              )}
-            >
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setShowProfileHoverCard(false);
-                  await signOut();
-                  const { clearPhotoUrlCache } = await import('@/lib/momentPhotos');
-                  clearPhotoUrlCache();
-                  navigate('/', { replace: true });
-                }}
-                className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
-              >
-                <LogOut size={14} className="text-[hsl(var(--text-soft))]" />
-                <span>Log out</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </aside>
