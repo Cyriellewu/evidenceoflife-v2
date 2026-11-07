@@ -49,16 +49,20 @@ export function ViewSwitcher({ viewMode, onViewModeChange, onSetDefault }: ViewS
       <button
         onClick={handleSetDefault}
         className={cn(
-          'text-[10px] px-2 py-1 rounded-full transition-all',
+          'flex-shrink-0 text-[12px] sm:text-[10px] px-2 py-1 rounded-full transition-all',
           savedDefault === viewMode
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
         )}
         title="Set as default view"
+        aria-label={savedDefault === viewMode ? 'Default view' : 'Set as default view'}
       >
+        {/* Phones: just the star, so the row stays on one line. */}
         {showSaved ? (
-          <span className="flex items-center gap-0.5"><Check size={10} /> Saved</span>
-        ) : savedDefault === viewMode ? '★ Default' : '☆ Set default'}
+          <span className="flex items-center gap-0.5"><Check size={10} /><span className="hidden sm:inline"> Saved</span></span>
+        ) : savedDefault === viewMode
+          ? <>★<span className="hidden sm:inline"> Default</span></>
+          : <>☆<span className="hidden sm:inline"> Set default</span></>}
       </button>
     </div>
   );

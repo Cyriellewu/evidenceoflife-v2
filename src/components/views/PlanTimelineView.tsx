@@ -207,6 +207,11 @@ const SparkleBurst = React.memo(function SparkleBurst({ seed, count = 16, color,
   );
 });
 
+// Touch: hold this long (without moving more than the slop) to start picking a
+// time range, so ordinary swipes scroll the timeline instead.
+const LONG_PRESS_MS = 350;
+const LONG_PRESS_SLOP_PX = 8;
+
 export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos, prevDayMoments, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, onUpdateMoment, onDeleteMoment, activeTimerIds, getTimerElapsed, onRestStart, onRestEnd, rhythmPresetId }: PlanTimelineViewProps) {
   const { t, lang } = useLanguage();
   const { getWorkType } = useWorkTypes();
@@ -1218,6 +1223,30 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       window.removeEventListener('pointercancel', onUp);
     };
   }, [dragging, handlePointerUp, updateDragPreview]);
+
+  // Touch long-press bookkeeping for starting a range selection.
+  const longPressRef = useRef<(() => void) | null>(null);
+  const cancelLongPress = useCallback(() => {
+    longPressRef.current?.();
+    longPressRef.current = null;
+  }, []);
+  useEffect(() => cancelLongPress, [cancelLongPress]);
+
+  const startRangeSelection = useCallback((clientY: number) => {
+    const anchor = clientYToMin(clientY);
+    setSelectedSlots(new Set());
+    setCustomRange(clampSelectionRange(anchor, anchor + 15));
+    setRangeDragging({ anchorMin: anchor });
+  }, [clientYToMin, clampSelectionRange]);
+
+  // Once a touch selection has started, stop the page from scrolling under
+  // the finger (touch-action is pan-y on the canvas so plain swipes scroll).
+  useEffect(() => {
+    if (!rangeDragging) return;
+    const block = (e: TouchEvent) => { if (e.cancelable) e.preventDefault(); };
+    window.addEventListener('touchmove', block, { passive: false });
+    return () => window.removeEventListener('touchmove', block);
+  }, [rangeDragging]);
 
   // While creating a free-range selection on the canvas, keep tracking even if the
   // finger leaves the column (common on iPhone).
@@ -2972,10 +3001,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         {/* Timeline content */}
         <div
           className={cn(
-            "flex-1 relative transition-colors touch-none",
+            "flex-1 relative transition-colors",
             dragTaskTitle && "bg-primary/[0.03]",
           )}
-          style={{ height: totalHeight, backgroundColor: timelineCanvasBg, touchAction: 'none' }}
+          // pan-y: a finger swipe scrolls the day. Range picking on touch
+          // needs a press-and-hold first (see startRangeSelection below).
+          style={{ height: totalHeight, backgroundColor: timelineCanvasBg, touchAction: 'pan-y' }}
           title={lang === 'zh' ? '在空白处拖拽选择时段' : 'Drag on empty space to pick a time range'}
           onDragOver={handleTimelineDragOver}
           onDrop={handleTimelineDrop}
@@ -2990,13 +3021,39 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               setCustomRange(null);
               return;
             }
-            e.preventDefault();
-            try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
-            const anchor = clientYToMin(e.clientY);
-            const initial = clampSelectionRange(anchor, anchor + 15);
-            setSelectedSlots(new Set());
-            setCustomRange(initial);
-            setRangeDragging({ anchorMin: anchor });
+            if (e.pointerType === 'mouse') {
+              e.preventDefault();
+              try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
+              startRangeSelection(e.clientY);
+              return;
+            }
+            // Touch / pen: only a press-and-hold starts a selection, so a
+            // normal swipe through the timeline just scrolls.
+            cancelLongPress();
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const pointerId = e.pointerId;
+            const onMove = (ev: PointerEvent) => {
+              if (ev.pointerId !== pointerId) return;
+              if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > LONG_PRESS_SLOP_PX) cancelLongPress();
+            };
+            const onEnd = (ev: PointerEvent) => { if (ev.pointerId === pointerId) cancelLongPress(); };
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onEnd);
+            window.addEventListener('pointercancel', onEnd);
+            const timer = window.setTimeout(() => {
+              cleanup();
+              longPressRef.current = null;
+              try { navigator.vibrate?.(10); } catch { /* unsupported */ }
+              startRangeSelection(startY);
+            }, LONG_PRESS_MS);
+            const cleanup = () => {
+              window.clearTimeout(timer);
+              window.removeEventListener('pointermove', onMove);
+              window.removeEventListener('pointerup', onEnd);
+              window.removeEventListener('pointercancel', onEnd);
+            };
+            longPressRef.current = cleanup;
           }}
         >
           {isViewingToday && nowMin > WAKE_TOTAL_MIN && (

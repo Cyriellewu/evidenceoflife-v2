@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { 
@@ -97,6 +98,12 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  // Phones: the month/week title goes in the top bar's empty centre (like Map).
+  const [mobileNavSlot, setMobileNavSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = document.getElementById('mobile-nav-center');
+    setMobileNavSlot(el && el.offsetParent !== null ? el : null);
+  }, []);
   const [showICSManager, setShowICSManager] = useState(false);
   const [rangeTodos, setRangeTodos] = useState<Todo[]>([]);
   const { events: importedEvents, batches, loading: icsLoading, importICS, addManualEvent, updateEvent, deleteBatch, deleteSelected, searchEvents } = useImportedEvents();
@@ -414,47 +421,75 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
   return (
     <div className="relative flex-1 min-h-full flex flex-col pb-0">
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        {/* Header with view switcher */}
-        <div className="flex items-center justify-between px-4 py-2.5 gap-2">
-          <div className="flex items-center gap-1">
-            <button onClick={navigateBack} aria-label="Previous" className="p-2 hover:bg-secondary rounded-full transition-colors">
-              <ChevronLeft size={20} />
-            </button>
-            <h1 className="text-[22px] sm:text-[24px] font-semibold font-display tracking-tight min-w-0 text-center whitespace-nowrap leading-none">
-              {getHeaderTitle()}
-            </h1>
-            <button onClick={navigateForward} aria-label="Next" className="p-2 hover:bg-secondary rounded-full transition-colors">
-              <ChevronRight size={20} />
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-1.5">
-            {/* Import is occasional; it lives in the header rather than as a
-                primary-colored FAB that covered the event list. */}
-            <button
-              onClick={() => setShowICSManager(prev => !prev)}
-              className={cn(
-                'p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground',
-                showICSManager && 'bg-secondary text-foreground',
-              )}
-              title="Import calendar"
-              aria-label="Import calendar"
-            >
-              <Upload size={17} />
-            </button>
-            <button
-              onClick={() => setShowSearch(prev => !prev)}
-              className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
-            >
-              <Search size={17} />
-            </button>
-          </div>
-        </div>
-
-        {/* View switcher */}
-        <div className="flex justify-center px-4 pb-2">
-          <ViewSwitcher viewMode={viewMode} onViewModeChange={setViewMode} onSetDefault={(mode) => localStorage.setItem('calendar-default-view', mode)} />
-        </div>
+        {/* Header: title with prev/next, plus import & search */}
+        {(() => {
+          const titleNav = (compact: boolean) => (
+            <div className="flex min-w-0 items-center gap-1">
+              <button onClick={navigateBack} aria-label="Previous" className={cn('flex-shrink-0 hover:bg-secondary rounded-full transition-colors', compact ? 'p-1' : 'p-2')}>
+                <ChevronLeft size={compact ? 18 : 20} />
+              </button>
+              <h1 className={cn(
+                'min-w-0 truncate text-center whitespace-nowrap leading-none font-semibold tracking-tight',
+                compact ? 'text-[16px] tracking-[-0.02em]' : 'text-[22px] sm:text-[24px] font-display',
+              )}>
+                {getHeaderTitle()}
+              </h1>
+              <button onClick={navigateForward} aria-label="Next" className={cn('flex-shrink-0 hover:bg-secondary rounded-full transition-colors', compact ? 'p-1' : 'p-2')}>
+                <ChevronRight size={compact ? 18 : 20} />
+              </button>
+            </div>
+          );
+          const tools = (
+            <div className={cn('flex flex-shrink-0 items-center', mobileNavSlot ? 'gap-0' : 'gap-1')}>
+              {/* Import is occasional; it lives in the header rather than as a
+                  primary-colored FAB that covered the event list. */}
+              <button
+                onClick={() => setShowICSManager(prev => !prev)}
+                className={cn(
+                  'hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground',
+                  mobileNavSlot ? 'p-1.5' : 'p-2',
+                  showICSManager && 'bg-secondary text-foreground',
+                )}
+                title="Import calendar"
+                aria-label="Import calendar"
+              >
+                <Upload size={17} />
+              </button>
+              <button
+                onClick={() => setShowSearch(prev => !prev)}
+                aria-label="Search"
+                className={cn('hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground', mobileNavSlot ? 'p-1.5' : 'p-2')}
+              >
+                <Search size={17} />
+              </button>
+            </div>
+          );
+          const switcher = (
+            <ViewSwitcher viewMode={viewMode} onViewModeChange={setViewMode} onSetDefault={(mode) => localStorage.setItem('calendar-default-view', mode)} />
+          );
+          if (mobileNavSlot) {
+            return (
+              <>
+                {createPortal(titleNav(true), mobileNavSlot)}
+                <div className="flex items-center justify-between gap-1 px-3 pb-2 pt-1">
+                  {switcher}
+                  {tools}
+                </div>
+              </>
+            );
+          }
+          return (
+            <>
+              <div className="flex items-center justify-between px-4 py-2.5 gap-2">
+                {titleNav(false)}
+                {tools}
+              </div>
+              <div className="flex justify-center px-4 pb-2">
+                {switcher}
+              </div>
+            </>
+          );
+        })()}
 
         {/* Week view day-column header — sticky so it stays visible while time grid scrolls */}
         {viewMode === 'week' && (() => {
