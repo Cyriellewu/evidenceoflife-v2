@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isEnterSubmit, isImeComposing } from '@/lib/utils';
+import { afterEach } from 'vitest';
+import { __setLastCompositionEndForTest, isEnterSubmit, isImeComposing } from '@/lib/utils';
 
 function fakeKeyEvent(partial: {
   key: string;
@@ -41,5 +42,25 @@ describe('isEnterSubmit / IME Enter protection', () => {
     expect(isImeComposing({ isComposing: false, keyCode: 229 })).toBe(true);
     expect(isImeComposing({ isComposing: true, keyCode: 13 })).toBe(true);
     expect(isImeComposing({ isComposing: false, keyCode: 13 })).toBe(false);
+  });
+
+  describe('Safari: compositionend fires before the confirming Enter keydown', () => {
+    afterEach(() => __setLastCompositionEndForTest(-Infinity));
+
+    it('does not submit the Enter that confirms a Chinese candidate', () => {
+      __setLastCompositionEndForTest(performance.now());
+      expect(isEnterSubmit(fakeKeyEvent({ key: 'Enter', isComposing: false, keyCode: 229 }))).toBe(false);
+      expect(isEnterSubmit(fakeKeyEvent({ key: 'Enter', isComposing: false, keyCode: 13 }))).toBe(false);
+    });
+
+    it('submits a later Enter once the composition is long over', () => {
+      __setLastCompositionEndForTest(performance.now() - 1000);
+      expect(isEnterSubmit(fakeKeyEvent({ key: 'Enter' }))).toBe(true);
+    });
+
+    it('a real compositionend event arms the guard', () => {
+      document.dispatchEvent(new Event('compositionend'));
+      expect(isEnterSubmit(fakeKeyEvent({ key: 'Enter' }))).toBe(false);
+    });
   });
 });

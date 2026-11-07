@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { addDays, differenceInDays, format, isSaturday, isSunday, nextMonday, nextSaturday, parseISO } from 'date-fns';
 import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
 import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ChevronDown, ChevronUp, Mic } from 'lucide-react';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isImeComposing, isImeEnter } from '@/lib/utils';
 import {
   normalizeUrl,
   isUrlLike as isStandaloneUrl,
@@ -687,10 +687,10 @@ export function DuesView({
                   </div>
                   <input value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} placeholder="https://..."
                     className="w-full bg-secondary rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddPendingLink(); }} />
+                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !isImeEnter(ne)) void handleAddPendingLink(); }} />
                   <input value={newLinkLabel} onChange={e => setNewLinkLabel(e.target.value)} placeholder={t('dues.labelOptional')}
                     className="w-full bg-secondary rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddPendingLink(); }} />
+                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !isImeEnter(ne)) void handleAddPendingLink(); }} />
                   {newLinkUrl.trim() && (
                     <button onClick={() => void handleAddPendingLink()} className="text-[12px] text-primary hover:underline w-full text-left px-1" disabled={addingPendingLink}>{t('dues.addBtn')}</button>
                   )}
@@ -823,7 +823,7 @@ export function DuesView({
                   className="bg-transparent text-[12px] text-muted-foreground focus:outline-none w-20"
                   onKeyDown={e => {
                     const ne = e.nativeEvent as KeyboardEvent;
-                    if (e.key === 'Enter') {
+                    if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
                       if (isImeComposing(ne)) return;
                       handleAdd();
                     }

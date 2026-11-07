@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { X, MapPin, Pencil, Trash2, Check, Bell, Link, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useReminders } from '@/hooks/useReminders';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
@@ -142,7 +142,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
               value={editTitle}
               onChange={e => setEditTitle(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave();
+                if (e.key === 'Enter' && !isImeEnter(e.nativeEvent)) handleSave();
                 if (e.key === 'Escape') { setIsEditing(false); setEditTitle(event.title); }
               }}
               className="flex-1 text-base font-medium bg-secondary/50 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/30"
@@ -282,7 +282,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
                     placeholder={lang === 'zh' ? '自定义分钟' : 'custom min'}
                     value={customMinutes}
                     onChange={e => setCustomMinutes(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCustomAdd(); }}
+                    onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleCustomAdd(); }}
                     className="flex-1 text-xs px-2.5 py-1.5 rounded-lg bg-card border border-border focus:outline-none focus:ring-1 focus:ring-primary/30 min-w-0"
                   />
                   <button

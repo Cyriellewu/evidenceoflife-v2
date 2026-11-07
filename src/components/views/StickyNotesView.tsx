@@ -2,7 +2,7 @@ import { KeyboardEvent, useEffect, useRef, useState, type ReactNode } from 'reac
 import { Check, ChevronDown, ChevronUp, Link2, Plus, X } from 'lucide-react';
 import { useStickyNotes, StickyCategory, StickyNote } from '@/hooks/useStickyNotes';
 import { useLanguage } from '@/hooks/useLanguage';
-import { cn, isEnterSubmit } from '@/lib/utils';
+import { cn, isEnterSubmit, isImeEnter } from '@/lib/utils';
 import { normalizeUrl, extractFirstUrl, getDomain as getSiteFallback } from '@/lib/linkUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -724,7 +724,7 @@ export function StickyNotesView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
                       onChange={e => setTabDraft(e.target.value)}
                       onBlur={() => handleRenameTab(tab.id)}
                       onKeyDown={e => {
-                        if (e.key === 'Enter') handleRenameTab(tab.id);
+                        if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleRenameTab(tab.id);
                         if (e.key === 'Escape') setEditingTabId(null);
                       }}
                       className={cn('w-20 border-b border-current/30 bg-transparent focus-visible:outline-none focus-visible:border-current/60', STICKY_TYPE.tabLabel, pal.text)}

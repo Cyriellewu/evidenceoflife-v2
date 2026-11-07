@@ -3,7 +3,7 @@ import { Upload, Trash2, Search, X, CheckSquare, Square, FileText, Plus } from '
 import { Button } from '@/components/ui/button';
 import { ImportedEvent, ImportBatch } from '@/hooks/useImportedEvents';
 import { format, parseISO } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import { parseDateFromText } from '@/lib/parseDateFromText';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -94,7 +94,7 @@ export function ICSImportManager({ events, batches, loading, onImport, onDeleteB
           <input
             value={quickInput}
             onChange={e => setQuickInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleQuickAdd()}
+            onKeyDown={e => (e.key === 'Enter' && !isImeEnter(e.nativeEvent)) && handleQuickAdd()}
             placeholder={lang === 'zh' ? '输入日程，如 "开会 3/15 14:00"' : 'e.g. "Meeting Mar 15 14:00"'}
             className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/40"
           />

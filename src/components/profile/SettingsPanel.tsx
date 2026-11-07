@@ -2,7 +2,7 @@ import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { Camera, Check, ChevronLeft, Download, LogOut, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useAuth } from '@/hooks/useAuth';
@@ -201,7 +201,7 @@ export function SettingsPanel({ moments, onBack }: { moments: Moment[]; onBack: 
                 value={name}
                 onChange={e => setName(e.target.value)}
                 onBlur={saveName}
-                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) (e.target as HTMLInputElement).blur(); }}
                 placeholder={zh ? '你的名字' : 'Your name'}
                 aria-label={zh ? '名字' : 'Name'}
                 className="w-full bg-transparent text-[17px] font-semibold text-foreground placeholder:text-muted-foreground/50 focus:outline-none"

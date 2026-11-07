@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { Check, Clock, Clock3, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Moment, TodayMode } from '@/types';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
@@ -113,7 +113,7 @@ export function DailyHabitTracker({
                   value={newHabitTitle}
                   onChange={e => setNewHabitTitle(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter') handleAddHabit();
+                    if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleAddHabit();
                   }}
                   placeholder="Add a daily habit"
                   className="h-9 min-w-0 flex-1 rounded-full border border-border/70 bg-background/60 px-3.5 text-[12px] text-foreground placeholder:text-[11px] placeholder:text-muted-foreground/55 focus:outline-none focus:ring-1 focus:ring-primary"
@@ -154,7 +154,7 @@ export function DailyHabitTracker({
                           setTitleEditingId(null);
                         }}
                         onKeyDown={e => {
-                          if (e.key === 'Enter') {
+                          if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
                             const nextTitle = titleDraft.trim();
                             if (nextTitle && nextTitle !== habit.title) onUpdateHabit(habit.id, { title: nextTitle });
                             setTitleEditingId(null);
@@ -212,7 +212,7 @@ export function DailyHabitTracker({
                   value={newHabitTitle}
                   onChange={e => setNewHabitTitle(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter') handleAddHabit();
+                    if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleAddHabit();
                   }}
                   placeholder="Add another daily habit"
                   className="h-8 min-w-0 flex-1 rounded-full border border-border/70 bg-background/60 px-3.5 text-[12px] text-foreground placeholder:text-[11px] placeholder:text-muted-foreground/55 focus:outline-none focus:ring-1 focus:ring-primary"

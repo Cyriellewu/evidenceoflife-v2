@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { parseISO } from 'date-fns';
 import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
 import { Plus, Calendar, Trash2, CalendarPlus, Check, Pencil, X, Link, Target, Camera, Bell, BellOff, Mail, ChevronDown } from 'lucide-react';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isImeComposing, isImeEnter } from '@/lib/utils';
 import {
   normalizeUrl,
   getDomain as getSiteFallback,
@@ -266,7 +266,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
             <input value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={handleSaveTitle}
               onKeyDown={e => {
                 const ne = e.nativeEvent as KeyboardEvent;
-                if (e.key === 'Enter') {
+                if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
                   if (isImeComposing(ne)) return;
                   handleSaveTitle();
                 }
@@ -534,7 +534,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                 autoFocus
                 onKeyDown={e => {
                   const ne = e.nativeEvent as KeyboardEvent;
-                  if (e.key === 'Enter') {
+                  if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
                     if (isImeComposing(ne)) return;
                     if (newStepTitle.trim()) { onAddStep(due.id, newStepTitle.trim()); setNewStepTitle(''); }
                   }
@@ -737,10 +737,10 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
         <div className="mt-2.5 space-y-1.5">
           <input value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} placeholder="https://..."
             className="w-full bg-secondary rounded-lg px-3 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary" autoFocus
-            onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddLink(); if (e.key === 'Escape') setShowAddLink(false); }} />
+            onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !isImeEnter(ne)) void handleAddLink(); if (e.key === 'Escape') setShowAddLink(false); }} />
           <input value={newLinkLabel} onChange={e => setNewLinkLabel(e.target.value)} placeholder="Label (optional)"
             className="w-full bg-secondary rounded-lg px-3 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-            onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddLink(); if (e.key === 'Escape') setShowAddLink(false); }} />
+            onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !isImeEnter(ne)) void handleAddLink(); if (e.key === 'Escape') setShowAddLink(false); }} />
           <div className="flex gap-1.5">
             <button onClick={() => void handleAddLink()} className="text-primary" disabled={addingLink}><Check size={14} /></button>
             <button onClick={() => setShowAddLink(false)} className="text-muted-foreground"><X size={14} /></button>
@@ -772,7 +772,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                       setIsEditingCount(false);
                     }}
                     onKeyDown={e => {
-                      if (e.key === 'Enter') {
+                      if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
                         if (!hasPerLinkCounts) {
                           setOptimisticHabitCount(Number(countDraft || 0));
                           void onSetHabitCount(due.id, Number(countDraft || 0));
