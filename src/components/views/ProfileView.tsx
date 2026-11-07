@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { getMomentDisplayTags } from '@/lib/momentTags';
-import { buildLocalLifeReplay } from '@/components/views/today/todayHelpers';
+import { buildLocalLifeReplay, pickReplayLang } from '@/components/views/today/todayHelpers';
 import { format } from 'date-fns';
 import { DayRecord, Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
@@ -146,7 +146,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
     }
 
     try {
-      const { data } = await supabase.functions.invoke('life-replay', { body: { events, lang } });
+      const { data } = await supabase.functions.invoke('life-replay', { body: { events, lang: pickReplayLang(events.map(e => e.title), lang) } });
       setLifeReplay(data?.story || buildLocalLifeReplay(events, lang) || (zh ? '今天还没有足够的活动来生成回放。' : 'Not enough activity today for a replay.'));
     } catch {
       const fallback = buildLocalLifeReplay(events, lang);

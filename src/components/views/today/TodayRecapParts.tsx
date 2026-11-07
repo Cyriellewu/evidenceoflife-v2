@@ -19,6 +19,7 @@ import {
   getImportedEventEffectiveEnd,
   parseSubtitleDetail,
   buildLocalLifeReplay,
+  pickReplayLang,
 } from './todayHelpers';
 
 export const recapTimeInputClassName = "min-h-8 w-[64px] rounded-lg border border-border/35 bg-[hsl(var(--surface-soft))] px-2 py-1 text-center tabular-nums text-[15px] tracking-[-0.03em] text-foreground shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.65)] focus:outline-none focus:ring-1 focus:ring-primary/35";
@@ -499,7 +500,8 @@ export function LifeReplay({ items, lang, dateKey, localOnly = false, className 
     setError(false);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('life-replay', {
-        body: { events, lang },
+        // Story language follows what the moments are written in.
+        body: { events, lang: pickReplayLang(events.map(e => e.title), lang) },
       });
       if (fnError) throw fnError;
       setStory(data?.story || buildLocalLifeReplay(events, lang));
