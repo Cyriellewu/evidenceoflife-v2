@@ -66,7 +66,7 @@ export const SheetComposer = forwardRef<HTMLInputElement, SheetComposerProps>(fu
         {attachments && <div className="px-3.5 pt-3">{attachments}</div>}
         <div className="flex items-center gap-2 px-2.5 py-2">
           {leading && <div className="flex-shrink-0">{leading}</div>}
-          <div className="flex min-h-[36px] flex-1 items-center gap-1.5 rounded-full bg-[hsl(var(--surface-soft))] px-3.5">
+          <div className="flex min-h-[36px] min-w-0 flex-1 items-center gap-1.5 rounded-full bg-[hsl(var(--surface-soft))] px-3.5">
             <input
               ref={inputRef}
               value={value}
