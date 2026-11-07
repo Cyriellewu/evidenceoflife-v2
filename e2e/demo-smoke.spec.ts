@@ -28,7 +28,8 @@ test.describe('synthetic demo', () => {
 
     await expect(page.getByTestId('today-mode-recap')).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('recap-photo-action')).toBeVisible();
-    await expect(page.getByTestId('recap-location-action')).toBeVisible();
+    // Location moved into the + menu so the phone row stays uncrowded.
+    await expect(page.getByTestId('recap-location-action')).toHaveCount(0);
     const picker = page.waitForEvent('filechooser');
     await page.getByTestId('recap-photo-action').click();
     const chooser = await picker;

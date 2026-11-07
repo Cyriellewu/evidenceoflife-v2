@@ -1320,7 +1320,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               selectedEmoji={selectedEmoji}
               onEmojiChange={setSelectedEmoji}
               selectedLocation={selectedLocation}
-              onLocationChange={setSelectedLocation}
+              onLocationChange={(loc) => { setSelectedLocation(loc); setLocationAutoFilled(false); }}
               availableTags={quickTags}
               selectedTags={selectedTags}
               onTagsChange={setSelectedTags}
@@ -1349,7 +1349,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
 
             </div>
-            {/* Direct location — primary action; photo/link live in + menu on phone */}
+            {/* Phone: camera stays one tap away; location lives in the + menu and the chip. */}
             {isMobile ? (
               <>
                 <button
@@ -1367,21 +1367,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 >
                   <Camera size={16} />
                 </button>
-                <button
-                  type="button"
-                  data-testid="recap-location-action"
-                  onClick={() => setLocationOpen(true)}
-                  className={cn(
-                    "w-9 h-9 rounded-full transition-colors flex-shrink-0 flex items-center justify-center",
-                    selectedLocation
-                      ? "bg-[hsl(var(--surface-inset))] text-foreground"
-                      : "hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Add location"
-                  aria-label={lang === 'zh' ? '添加地点' : 'Add location'}
-                >
-                  <MapPin size={16} />
-                </button>
+                {/* Location is auto-filled; change it from the chip above or the + menu. */}
                 {locationOpen && (
                   <LocationPopover
                     presentation="sheet"

@@ -26,7 +26,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'today.doneToday': { zh: '今日完成', en: 'Done today' },
   'today.whatYouDid': { zh: '你做了什么', en: 'What you did' },
   'today.noTasks': { zh: '还没有完成任务', en: 'No tasks completed yet' },
-  'today.placeholder': { zh: '刚刚做了什么？', en: 'What just happened?' },
+  'today.placeholder': { zh: '刚刚做了什么？', en: 'What happened?' },
   'capture.placeholderThen': { zh: '那时做了什么？', en: 'What happened then?' },
   'capture.log': { zh: '记录', en: 'Log' },
   'today.listening': { zh: '正在听...', en: 'Listening...' },
