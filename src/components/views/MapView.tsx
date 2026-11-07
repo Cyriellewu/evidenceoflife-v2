@@ -179,6 +179,74 @@ function preferredTileSources(): TileSource[] {
   return [light, dark, ...rest];
 }
 
+// Free vector basemap (OpenFreeMap: no key, no account, commercial use OK),
+// drawn by MapLibre inside Leaflet so every existing marker, neighbourhood
+// polygon and interaction keeps working. Colourful "liberty" in light mode,
+// "dark" in dark mode. Falls back to the raster tiles above when WebGL or the
+// style is unavailable.
+const VECTOR_STYLE_URLS = {
+  light: 'https://tiles.openfreemap.org/styles/liberty',
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+} as const;
+const VECTOR_ATTRIBUTION =
+  '<a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
+
+function webglAvailable(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+/** Vector basemap first; raster fallback if it cannot load. */
+function addBasemap(map: L.Map) {
+  if (typeof document === 'undefined' || !webglAvailable()) {
+    addResilientTiles(map);
+    return;
+  }
+  const dark = document.documentElement.classList.contains('dark');
+  let fellBack = false;
+  const fallBack = () => {
+    if (fellBack) return;
+    fellBack = true;
+    try { addResilientTiles(map); } catch { /* map already removed */ }
+  };
+  Promise.all([
+    import('@maplibre/maplibre-gl-leaflet'),
+    import('maplibre-gl/dist/maplibre-gl.css'),
+  ])
+    .then(([{ maplibreGL }]) => {
+      // The map may have been torn down while the chunk loaded.
+      if (!map.getContainer()?.isConnected) return;
+      const layer = maplibreGL({
+        style: dark ? VECTOR_STYLE_URLS.dark : VECTOR_STYLE_URLS.light,
+        attribution: VECTOR_ATTRIBUTION,
+      } as Parameters<typeof maplibreGL>[0]);
+      layer.addTo(map);
+      const gl = layer.getMaplibreMap();
+      // Keep the basemap quiet under the photo pins: hide the style's own
+      // shop / transit icons and one-way arrows (streets and place names stay).
+      const quiet = () => {
+        for (const styleLayer of gl.getStyle()?.layers ?? []) {
+          if (/^(poi_|road_one_way_arrow|airport)/.test(styleLayer.id)) {
+            gl.setLayoutProperty(styleLayer.id, 'visibility', 'none');
+          }
+        }
+      };
+      gl.on('style.load', quiet);
+      // Only a failed *style* means no basemap at all; a single tile error is fine.
+      gl.on('error', (event: { error?: { message?: string }; sourceId?: string }) => {
+        if (gl.isStyleLoaded()) return;
+        console.warn('Vector basemap unavailable, using raster tiles', event?.error?.message);
+        try { map.removeLayer(layer); } catch { /* ignore */ }
+        fallBack();
+      });
+    })
+    .catch(fallBack);
+}
+
 function addResilientTiles(map: L.Map) {
   // Attach one basemap; on repeated tile failures, swap to the next free host.
   // Do not tear down mid-animation without a replacement — that previously
@@ -1116,6 +1184,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           // vertical panning to the tile edge (longitude stays free).
           maxBounds: L.latLngBounds([-85, -720], [85, 720]),
           maxBoundsViscosity: 1,
+          // Smooth, fractional zoom (vector tiles stay crisp between levels).
+          zoomSnap: 0.25,
+          zoomDelta: 0.5,
+          wheelPxPerZoomLevel: 90,
           // Tile fade-in occasionally stalls at opacity:0 when the container is
           // initialized while hidden / resized repeatedly, leaving a black map.
           // Disabling fade makes loaded tiles paint immediately.
@@ -1130,7 +1202,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         fillFrameMinZoom(map);
         setWorldZoom(map.getZoom());
 
-        addResilientTiles(map);
+        addBasemap(map);
         L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
 
         [80, 200, 400, 800, 1400].forEach((ms) => {
@@ -1770,7 +1842,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
         detailMapRef.current = map;
 
-        addResilientTiles(map);
+        addBasemap(map);
         L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
 
         const color = categoryColors[showPlaceDetail.category] || categoryColors.other;
