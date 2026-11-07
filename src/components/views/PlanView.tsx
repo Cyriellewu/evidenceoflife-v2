@@ -1615,6 +1615,8 @@ export function PlanView({
   const [archiveCollapsed, setArchiveCollapsed] = useState(true);
 
   const [addingSegment, setAddingSegment] = useState<string | null>(null);
+  // Enter already added the task; the blur that follows must not add it again.
+  const segmentSubmittedRef = useRef(false);
   const [segmentNewTitle, setSegmentNewTitle] = useState('');
   const [isAddingQuick, setIsAddingQuick] = useState(false);
   const [listMode, setListModeState] = useState<'grouped' | 'flat'>(() => readPlanListMode());
@@ -3220,8 +3222,14 @@ export function PlanView({
                       </button>
                       <button
                         type="button"
+                        // Don't steal focus: the open input's blur would close it and
+                        // this click would then reopen it.
+                        onMouseDown={(event) => event.preventDefault()}
+                        onPointerDown={(event) => event.preventDefault()}
                         onClick={(event) => {
                           event.stopPropagation();
+                          // Closing via + discards the draft; opening starts clean.
+                          segmentSubmittedRef.current = addingSegment === seg.id;
                           setCollapsedSegments(prev => {
                             const next = new Set(prev);
                             next.delete(seg.id);
@@ -3240,14 +3248,32 @@ export function PlanView({
                     {!collapsedSegments.has(seg.id) && (
                       <div>
                         {addingSegment === seg.id && (
-                          <div className="flex gap-1 py-1 px-0.5">
+                          // Same shape as a task row (hollow circle + text), so a new
+                          // task looks like the next item in the list, not a form field.
+                          <div className="mb-0.5 flex min-h-[50px] items-center gap-3 rounded-[16px] bg-[hsl(var(--surface-soft))] px-3.5">
+                            <Circle size={18} className="flex-shrink-0 text-muted-foreground/30" aria-hidden />
                             <input autoFocus value={segmentNewTitle} onChange={e => setSegmentNewTitle(e.target.value)}
-                              placeholder={`Add to ${seg.label}...`}
+                              placeholder={lang === 'zh' ? '新任务' : 'New task'}
+                              aria-label={lang === 'zh' ? `添加到${seg.label}` : `Add to ${seg.label}`}
+                              enterKeyHint="done"
                               onKeyDown={async e => {
-                                if (isEnterSubmit(e) && segmentNewTitle.trim()) { await addTodo(segmentNewTitle.trim(), seg.id as Todo['time_segment']); setSegmentNewTitle(''); setAddingSegment(null); }
-                                if (e.key === 'Escape') setAddingSegment(null);
+                                if (isEnterSubmit(e) && segmentNewTitle.trim()) {
+                                  segmentSubmittedRef.current = true;
+                                  const title = segmentNewTitle.trim();
+                                  setSegmentNewTitle(''); setAddingSegment(null);
+                                  await addTodo(title, seg.id as Todo['time_segment']);
+                                }
+                                if (e.key === 'Escape') { segmentSubmittedRef.current = true; setSegmentNewTitle(''); setAddingSegment(null); }
                               }}
-                              className="flex-1 h-7 text-[12px] rounded-lg bg-card border border-border px-2 focus:outline-none focus:ring-1 focus:ring-primary text-foreground" />
+                              onBlur={async () => {
+                                // Tapping away keeps what was typed (like iOS Reminders); empty just closes.
+                                if (segmentSubmittedRef.current) { segmentSubmittedRef.current = false; return; }
+                                const title = segmentNewTitle.trim();
+                                if (title) await addTodo(title, seg.id as Todo['time_segment']);
+                                setSegmentNewTitle('');
+                                setAddingSegment(null);
+                              }}
+                              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
                           </div>
                         )}
                         <div className="space-y-0.5">

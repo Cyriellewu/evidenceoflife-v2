@@ -550,7 +550,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
                 size={13}
                 className="flex-shrink-0 text-muted-foreground/42 transition-transform duration-200 group-hover:-translate-y-px"
               />
-              <span className="truncate text-[10px] font-semibold uppercase leading-none tracking-[0.16em] text-muted-foreground/46">
+              <span className="truncate text-[13px] font-medium leading-none text-muted-foreground">
                 {lang === 'zh' ? '执行情况' : 'Execution'}
               </span>
             </div>
