@@ -553,6 +553,16 @@ function formatVisitDateLabel(value: string, formatDate: (date: Date, formatStr?
 
 type ViewMode = 'world' | 'city';
 
+/** Smallest zoom at which the Mercator world is at least as tall as the map
+ *  frame, so zooming out (or fitting far-apart cities) never shows an empty
+ *  band above the poles. */
+function fillFrameMinZoom(map: L.Map) {
+  const frameHeight = map.getSize().y;
+  if (frameHeight <= 0) return;
+  const minZoom = Math.max(0, Math.ceil(Math.log2(frameHeight / 256)));
+  if (map.getMinZoom() !== minZoom) map.setMinZoom(minZoom);
+}
+
 export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapViewProps) {
   // The hook's wrapper object changes on every parent render (including timer
   // ticks). Only actual city data should restart expensive geo requests.
@@ -1098,6 +1108,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           zoom: 2,
           zoomControl: false,
           attributionControl: false,
+          // Never show the empty band above/below the Mercator world: clamp
+          // vertical panning to the tile edge (longitude stays free).
+          maxBounds: L.latLngBounds([-85, -720], [85, 720]),
+          maxBoundsViscosity: 1,
           // Tile fade-in occasionally stalls at opacity:0 when the container is
           // initialized while hidden / resized repeatedly, leaving a black map.
           // Disabling fade makes loaded tiles paint immediately.
@@ -1108,6 +1122,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         setMapPreviewFailed(false);
 
         map.on('zoomend', () => setWorldZoom(map.getZoom()));
+        map.on('resize', () => fillFrameMinZoom(map));
+        fillFrameMinZoom(map);
         setWorldZoom(map.getZoom());
 
         addResilientTiles(map);
@@ -1207,6 +1223,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
     const fitWorld = () => {
       map.invalidateSize();
+      fillFrameMinZoom(map);
       const bounds = L.latLngBounds([] as L.LatLngExpression[]);
       // Temporarily fit only by city centers to avoid possible malformed geojson bounds
       cities.forEach((city) => {
@@ -2101,8 +2118,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {/* World view: city cards */}
       {viewMode === 'world' && (
         <div className="px-5 mt-4 flex-1 overflow-y-auto">
-          <h2 className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-2.5">
-            {lang === 'zh' ? '到访城市' : 'Visited Cities'}
+          <h2 className="text-[13px] font-medium text-muted-foreground mb-2.5">
+            {lang === 'zh' ? '到访城市' : 'Visited cities'}
           </h2>
           {cities.length === 0 ? (
             <div className="text-center py-12">
@@ -2199,7 +2216,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {/* City view: places list */}
       {viewMode === 'city' && (
         <div className="px-5 mt-4 flex-1 overflow-y-auto">
-          <h2 className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-2.5">
+          <h2 className="text-[13px] font-medium text-muted-foreground mb-2.5">
             {activeCategory === 'all'
               ? t('map.allPlaces')
               : t(categoryKeys.find(k => k.id === activeCategory)?.labelKey ?? 'map.allPlaces')
