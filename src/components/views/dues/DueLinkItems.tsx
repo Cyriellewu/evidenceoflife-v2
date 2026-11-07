@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, ExternalLink, Pencil, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, isImeEnter } from '@/lib/utils';
 import {
   getDomain as getSiteFallback,
   buildProxyImageUrl,
@@ -131,7 +131,7 @@ export function LightweightLinkItem({
             onChange={(e) => setDraftLabel(e.target.value)}
             onBlur={save}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') save();
+              if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) save();
               if (e.key === 'Escape') {
                 setDraftLabel(getLinkDisplayName(link));
                 setIsEditing(false);

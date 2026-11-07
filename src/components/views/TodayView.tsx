@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Moment, MomentLinkPreview, TodayMode } from '@/types';
 import { Todo } from '@/hooks/useTodos';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isImeComposing, isImeEnter } from '@/lib/utils';
 import { normalizeUrl, extractFirstUrl } from '@/lib/linkUtils';
 import { validatePhotoFile, canAddMorePhotos } from '@/lib/photoValidation';
 import { LocationPopover } from '@/components/LocationPopover';
@@ -826,7 +826,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const native = e.nativeEvent as KeyboardEvent;
     const isComposing = isImeComposing(native);
-    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
+    if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent)) && !e.shiftKey && !isComposing) {
       e.preventDefault();
       handleSend();
     }
@@ -2007,7 +2007,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     value={inlineInsertText}
                                     onChange={e => setInlineInsertText(e.target.value)}
                                     onKeyDown={e => {
-                                      if (e.key === 'Enter' && !e.nativeEvent.isComposing && inlineInsertText.trim()) {
+                                      if (e.key === 'Enter' && !isImeEnter(e.nativeEvent) && inlineInsertText.trim()) {
                                         handleInlineInsert(midpointStr);
                                       }
                                       if (e.key === 'Escape') { setInlineInsertTime(null); setInlineInsertText(''); }
@@ -2130,7 +2130,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         value={editingTodoTitle}
                                         onChange={e => setEditingTodoTitle(e.target.value)}
                                         onKeyDown={e => {
-                                          if (e.key === 'Enter' && !e.nativeEvent.isComposing && editingTodoTitle.trim()) {
+                                          if (e.key === 'Enter' && !isImeEnter(e.nativeEvent) && editingTodoTitle.trim()) {
                                             onUpdateTodo?.(todo.id, { title: editingTodoTitle.trim() });
                                             setEditingTodoId(null);
                                           }
@@ -2249,7 +2249,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         value={editingImportedEventTitle}
                                         onChange={e => setEditingImportedEventTitle(e.target.value)}
                                         onKeyDown={e => {
-                                          if (e.key === 'Enter' && !e.nativeEvent.isComposing && editingImportedEventTitle.trim()) {
+                                          if (e.key === 'Enter' && !isImeEnter(e.nativeEvent) && editingImportedEventTitle.trim()) {
                                             onUpdateImportedEvent?.(event.id, { title: editingImportedEventTitle.trim() });
                                             setEditingImportedEventId(null);
                                           }
@@ -2635,7 +2635,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                 value={inlineInsertText}
                                 onChange={e => setInlineInsertText(e.target.value)}
                                 onKeyDown={e => {
-                                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && inlineInsertText.trim()) {
+                                  if (e.key === 'Enter' && !isImeEnter(e.nativeEvent) && inlineInsertText.trim()) {
                                     handleInlineInsert(nowTime);
                                   }
                                   if (e.key === 'Escape') { setInlineInsertTime(null); setInlineInsertText(''); }

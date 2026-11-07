@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
 import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn, isEnterSubmit, isImeComposing } from '@/lib/utils';
+import { cn, isEnterSubmit, isImeComposing, isImeEnter } from '@/lib/utils';
 import { mergeCarriedTodos, presentCarryOnTimeline } from '@/lib/carryTodos';
 import { buildTodoOrderUpdates, compareTodoListOrder } from '@/lib/todoOrdering';
 import { isElapsedSlot } from '@/lib/elapsedSlot';
@@ -312,7 +312,7 @@ function FloatingTimerWidgets({ timers, onClickTimer }: { timers: { id: string; 
           tabIndex={0}
           onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
           onPointerUp={(e) => { e.stopPropagation(); onClickTimer(t.id); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') onClickTimer(t.id); }}
+          onKeyDown={(e) => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) onClickTimer(t.id); }}
           className={cn("flex items-center gap-2.5 px-4 py-2.5 rounded-2xl shadow-lg transition-colors text-left border cursor-pointer select-none", t.isPaused ? "bg-muted border-border text-muted-foreground" : "bg-primary/10 border-primary/20 text-primary")}
         >
           <Timer size={16} />
@@ -658,7 +658,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         {isEditing ? (
           <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
             onBlur={handleSaveTitle}
-            onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setEditTitle(todo.title); setIsEditing(false); } }}
+            onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) handleSaveTitle(); if (e.key === 'Escape') { setEditTitle(todo.title); setIsEditing(false); } }}
             className="min-w-0 w-full flex-1 appearance-none border-0 bg-transparent p-0 text-[15px] font-semibold leading-snug text-foreground caret-primary outline-none focus:border-0 focus:outline-none focus:ring-0 md:text-[16px] md:leading-tight" autoFocus />
         ) : (
           <div className="min-w-0 w-full md:flex-1">

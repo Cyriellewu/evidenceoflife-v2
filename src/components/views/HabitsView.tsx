@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useDues, type DueWithStats } from '@/hooks/useDues';
 import { useDueReminders } from '@/hooks/useDueReminders';
 import { useLanguage } from '@/hooks/useLanguage';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isImeComposing, isImeEnter } from '@/lib/utils';
 import { showUndoToast } from '@/lib/undoToast';
 import { SheetHeader, SheetEmptyState } from '@/components/sheet/SheetShell';
 import { DueCard } from '@/components/views/dues/DueCard';
@@ -237,7 +237,7 @@ export function HabitsView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
             onChange={e => setDraft(e.target.value)}
             onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
               const native = e.nativeEvent as unknown as globalThis.KeyboardEvent;
-              if (e.key === 'Enter') {
+              if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
                 if (isImeComposing(native)) return;
                 void handleAdd();
               }
@@ -412,7 +412,7 @@ function HabitTile({
             onBlur={commit}
             onKeyDown={(e) => {
               const ne = e.nativeEvent as unknown as globalThis.KeyboardEvent;
-              if (e.key === 'Enter') {
+              if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
                 if (isImeComposing(ne)) return;
                 commit();
               }

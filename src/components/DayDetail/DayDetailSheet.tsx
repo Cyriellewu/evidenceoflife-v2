@@ -5,7 +5,7 @@ import { MapPin, Clock, Plus, X, Image, Send, Smile, CalendarDays } from 'lucide
 import { Moment } from '@/types';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
 import { Button } from '@/components/ui/button';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isImeComposing, isImeEnter } from '@/lib/utils';
 import { validatePhotoFile, canAddMorePhotos } from '@/lib/photoValidation';
 import { LocationPopover } from '@/components/LocationPopover';
 import { EmojiGrid } from '@/components/today/EmojiGrid';
@@ -240,7 +240,7 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                   onKeyDown={(e) => {
                     const native = e.nativeEvent as KeyboardEvent;
                     const isComposing = isImeComposing(native);
-                    if (e.key === 'Enter' && !isComposing) handleSend();
+                    if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent)) && !isComposing) handleSend();
                   }}
                   onPaste={(e) => {
                     const items = e.clipboardData?.items;

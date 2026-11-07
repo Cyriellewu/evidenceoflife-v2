@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isImeEnter } from '@/lib/utils';
 import { ChevronRight, KeyRound, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,7 +90,7 @@ export function PasswordSetting({ lang, email, variant = 'pill' }: { lang: strin
           autoComplete="new-password"
           value={confirm}
           onChange={e => setConfirm(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') void save(); }}
+          onKeyDown={e => { if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) void save(); }}
           placeholder={zh ? '再输一次' : 'Repeat it'}
           className="h-11 w-full rounded-xl border border-border/60 bg-card px-3.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary/30"
         />

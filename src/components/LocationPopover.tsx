@@ -1,7 +1,7 @@
 import { forwardRef, useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, Navigation, Search, Loader2, X } from 'lucide-react';
-import { cn, isImeComposing } from '@/lib/utils';
+import { cn, isImeComposing, isImeEnter } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { readCachedGeoCoords, writeCachedGeoCoords } from '@/lib/geoCoords';
@@ -287,7 +287,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
           onKeyDown={e => {
-            if (e.key === 'Enter') {
+            if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
               e.preventDefault();
               if (composingRef.current || isImeComposing(e.nativeEvent as KeyboardEvent)) return;
               void handleAddManual();
