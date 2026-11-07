@@ -564,10 +564,14 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const [placeQuery, setPlaceQuery] = useState('');
   // Phone top bar (MobileNavChrome) exposes an empty centre slot to portal into.
   const [mobileNavSlot, setMobileNavSlot] = useState<HTMLElement | null>(null);
+  // ...and a leading slot over the menu button, for an iOS-style back button.
+  const [mobileNavLeading, setMobileNavLeading] = useState<HTMLElement | null>(null);
   useEffect(() => {
     const el = document.getElementById('mobile-nav-center');
     // Only use it while the top bar is actually shown (it is md:hidden).
-    setMobileNavSlot(el && el.offsetParent !== null ? el : null);
+    const shown = !!el && el.offsetParent !== null;
+    setMobileNavSlot(shown ? el : null);
+    setMobileNavLeading(shown ? document.getElementById('mobile-nav-leading') : null);
   }, []);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
@@ -1819,20 +1823,24 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {viewMode === 'city' ? (
         <>
         {/* Phones: the city title lives in the top bar's empty centre, so the map starts higher. */}
+        {/* Phones: back sits where the menu button is; the centre is just the city. */}
+        {mobileNavLeading && createPortal(
+          <button
+            type="button"
+            onClick={() => { setViewMode('world'); }}
+            aria-label={lang === 'zh' ? '返回生活足迹' : 'Back to Life Map'}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))]"
+          >
+            <ChevronLeft size={22} strokeWidth={2} />
+          </button>,
+          mobileNavLeading,
+        )}
         {mobileNavSlot && createPortal(
-          <div className="flex min-w-0 max-w-[70vw] items-center gap-1">
-            <button
-              type="button"
-              onClick={() => { setViewMode('world'); }}
-              aria-label="Back to world view"
-              className="-ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-foreground/80"
-            >
-              <ChevronLeft size={20} />
-            </button>
+          <div className="flex min-w-0 max-w-[70vw] items-baseline gap-1.5">
             <span className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
               {currentCity?.cityName || t('map.places')}
             </span>
-            <span className="ml-1 flex-shrink-0 text-[12px] tabular-nums text-muted-foreground">
+            <span className="flex-shrink-0 text-[12px] tabular-nums text-muted-foreground">
               {cityPlaces.length}
             </span>
           </div>,
