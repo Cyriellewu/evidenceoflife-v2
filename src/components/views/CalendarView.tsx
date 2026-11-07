@@ -420,7 +420,9 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
 
   return (
     <div className="relative flex-1 min-h-full flex flex-col pb-0">
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      {/* Phones: stick just under the top bar (safe area + 40px bar + 1px border)
+          instead of sliding under its translucent backdrop, which ghosted. */}
+      <div className="sticky top-[calc(env(safe-area-inset-top)+41px)] z-20 bg-background md:top-0">
         {/* Header: title with prev/next, plus import & search */}
         {(() => {
           const titleNav = (compact: boolean) => (
