@@ -104,12 +104,13 @@ export function TimelineIntervalPill({
             : '1px solid rgba(60, 60, 67, 0.07)'
           : isDarkMode
             ? '1px solid hsl(var(--border) / 0.42)'
-            : '1px solid rgba(60, 60, 67, 0.11)',
+            : '1px solid rgba(60, 60, 67, 0.09)',
+        // Light: sits on the canvas instead of floating above it.
         boxShadow: subtle
           ? 'none'
           : isDarkMode
             ? '0 6px 18px rgba(0, 0, 0, 0.22)'
-            : '0 6px 18px rgba(15, 23, 42, 0.085)',
+            : 'none',
         color: subtle
           ? isDarkMode
             ? 'hsl(var(--muted-foreground) / 0.82)'
@@ -126,7 +127,7 @@ export function TimelineIntervalPill({
 
 /**
  * "Today remaining" indicator. No container — pure typography:
- *   `7h 39m  ──  LEFT TODAY`
+ *   `7h 39m  ──  left today`
  * A hairline rule between the number and the micro-label breathes in width
  * (10 ↔ 20px), and the label tracking eases (0.16 ↔ 0.20em) on the same
  * 4s cycle — the whole element gently "inhales / exhales" without ever
@@ -188,8 +189,8 @@ export function TimelineTodayRemainingPill({
       />
       <span
         className={cn(
-          'font-medium uppercase animate-today-label-breathe',
-          subtle ? 'text-[9px]' : 'text-[10px]',
+          'font-medium',
+          subtle ? 'text-[11px]' : 'text-[12px]',
         )}
         style={{ color: labelColor, lineHeight: 1 }}
       >
@@ -566,6 +567,15 @@ export function timelineBlockShell(
       border: borderCol,
       shadow: `inset 0 0 0 1px ${borderCol}, 0 8px 18px rgba(0,0,0,0.18)`,
     };
+  }
+  if (!isDarkMode) {
+    // Light mode, Apple-Calendar style: one flat pastel tint and nothing else.
+    // The old top-to-bottom gradient + coloured ring + drop shadow (on top of
+    // the 3px left bar) stacked four effects per block and read as plastic.
+    const flatMix = { plan: 0.15, actual: 0.2, active: 0.24, done: 0.15, ghost: 0.08 }[intensity];
+    const fill = opaqueMix(canvasCss, accentCss, flatMix);
+    const border = opaqueMix(canvasCss, accentCss, 0.22);
+    return { background: fill, border, shadow: 'none' };
   }
   const background = timelineFillGradient(isDarkMode, canvasCss, accentCss, mixes[0], mixes[1], mixes[2], isDarkMode ? 'darkTint' : 'default');
   const borderAccent = isDarkMode ? vividDarkAccent(accentCss) : accentCss;
