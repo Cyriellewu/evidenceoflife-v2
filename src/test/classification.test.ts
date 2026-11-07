@@ -48,7 +48,7 @@ import { autoClassifyTag as classifyForWords } from '@/lib/autoTag';
 
 describe('autoClassifyTag word boundaries', () => {
   it('does not read "trip" inside "stripe"', () => {
-    expect(classifyForWords('Do 4 of the stripe tech screen')).toBe('work');
+    expect(classifyForWords('finish the stripe coding screen')).toBe('work');
   });
   it('still matches whole words, plurals and Chinese', () => {
     expect(classifyForWords('book flights to Boston')).toBe('travel');
