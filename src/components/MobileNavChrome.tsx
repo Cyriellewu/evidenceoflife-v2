@@ -94,7 +94,7 @@ export function MobileNavChrome({
             >
               <Menu size={18} strokeWidth={1.9} />
             </button>
-            <div id="mobile-nav-leading" className="absolute inset-0 empty:pointer-events-none" />
+            <div id="mobile-nav-leading" className="absolute inset-y-0 left-0 flex w-max items-center empty:pointer-events-none" />
           </div>
           {/* Pages without a centerSlot (e.g. Map) may portal a compact title here. */}
           <div id="mobile-nav-center" className="flex min-w-0 items-center justify-center">
