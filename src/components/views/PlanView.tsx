@@ -530,12 +530,20 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     }, 420);
   };
 
-  // Live color for state signaling — always the page accent (terracotta), never
-  // the tag's own hex. Tag identity lives inside the tag chip; the row-level
-  // "ongoing" signal must not repaint the whole card in whatever hue the tag
-  // happens to be (Work=purple, Study=blue, etc.). Locking to `--primary` keeps
-  // the page's Color Consistency intact regardless of category.
-  const liveTint = (a: number) => `hsl(var(--primary) / ${a})`;
+  // Live colour for a running task = the same colour the timeline block and
+  // the floating timer use for it (tag colour, else work-type colour), so the
+  // list row, the block and the timer pill all agree. It used to be locked to
+  // the page accent, which made a Work task glow orange in the list while it
+  // was purple everywhere else. Still only a light wash + 2px spine.
+  const liveHex = (() => {
+    const inferredTag = todo.tags?.[0] || autoClassifyTag(todo.title);
+    const tagHex = inferredTag ? TAG_CATEGORY_COLORS[inferredTag.toLowerCase()] : null;
+    const hex = tagHex || workTypeMeta?.color;
+    return hex && /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : null;
+  })();
+  const liveTint = (a: number) => liveHex
+    ? `${liveHex}${Math.round(Math.min(1, Math.max(0, a)) * 255).toString(16).padStart(2, '0')}`
+    : `hsl(var(--primary) / ${a})`;
 
   // ── Visual hierarchy (the whole point of this block) ─────────────
   // Goal:   active   ▓▓▓ dominates
