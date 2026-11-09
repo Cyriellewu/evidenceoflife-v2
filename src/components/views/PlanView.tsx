@@ -2539,8 +2539,18 @@ export function PlanView({
     [todos, pastDayOpenTodos]
   );
 
+  // A task left in "Anytime" that already has a planned time belongs to the
+  // part of the day that time falls in (Gym planned 18:07 → Evening). A segment
+  // the user picked on purpose (or dragged into) is never overridden.
+  const listSegmentOf = (t: Todo): Todo['time_segment'] => {
+    if ((!t.time_segment || t.time_segment === 'anytime') && t.plan_started_at) {
+      const planned = new Date(t.plan_started_at);
+      if (!Number.isNaN(planned.getTime())) return getTimeSegmentForHour(planned.getHours());
+    }
+    return t.time_segment;
+  };
   const grouped = TIME_SEGMENTS.map(seg => {
-    const segTodos = mainListTodos.filter(t => t.time_segment === seg.id && !t.is_completed);
+    const segTodos = mainListTodos.filter(t => listSegmentOf(t) === seg.id && !t.is_completed);
     segTodos.sort(compareTodoListOrder);
     return { ...seg, todos: segTodos };
   });
