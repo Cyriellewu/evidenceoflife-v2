@@ -497,6 +497,18 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     setActiveTab('map');
   }, []);
 
+  // Navigation rule: the Today tab in the nav always means *today*. Opening a
+  // past day (e.g. "View that day" from a map visit) is a detour; tapping Today
+  // again brings the home page back to the real date and keeps following it.
+  const goToTab = useCallback((tab: TabType) => {
+    if (tab === 'today' && !landingDemoMode) {
+      const now = new Date();
+      setSelectedDate(prev => (isSameDay(prev, now) ? prev : now));
+      setAutoFollowToday(true);
+    }
+    setActiveTab(tab);
+  }, [landingDemoMode]);
+
   // Jump from a map visit back to the day it happened (Today recap).
   const handleOpenDate = useCallback((dateStr: string) => {
     const parsed = parseISO(dateStr);
@@ -520,7 +532,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               if (tab === 'habits') { setActiveSheet('habits'); return; }
               if (tab === 'linkup') { setActiveSheet('links'); return; }
               setActiveSheet(null);
-              setActiveTab(tab);
+              goToTab(tab);
             }}
           />
         </AppSectionErrorBoundary>
@@ -538,7 +550,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 if (tab === 'habits') { setActiveSheet('habits'); return; }
                 if (tab === 'linkup') { setActiveSheet('links'); return; }
                 setActiveSheet(null);
-                setActiveTab(tab);
+                goToTab(tab);
               }}
               centerSlot={
                 activeTab === 'today'
@@ -625,7 +637,6 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
             onViewDues={openDues}
             initialDate={selectedDate}
             forcedViewMode={landingDemoMode && forcedDemoStep === 'calendar' ? 'week' : undefined}
-            onSelectDate={handleSelectedDateChange}
           />
           )}
 

@@ -655,6 +655,14 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const selectedPlaceRef = useRef<string | null>(selectedPlace);
   const [showPlaceDetail, setShowPlaceDetail] = useState<PlaceInfo | null>(null);
+  // Full-screen photo from the place sheet (tap = zoom, never navigates).
+  const [photoViewer, setPhotoViewer] = useState<string | null>(null);
+  useEffect(() => {
+    if (!photoViewer) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPhotoViewer(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [photoViewer]);
   const [mapPreviewFailed, setMapPreviewFailed] = useState(false);
   const [detailMapFailed, setDetailMapFailed] = useState(false);
   const [selectedCityIdx, setSelectedCityIdx] = useState<number>(-1);
@@ -1918,21 +1926,19 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             type="button"
             onClick={() => { setViewMode('world'); }}
             aria-label={lang === 'zh' ? '返回生活足迹' : 'Back to Life Map'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground/85 transition-colors hover:bg-[hsl(var(--surface-soft))]"
+            // iOS back button: bold chevron + the previous screen's name, in the tint colour.
+            className="-ml-1.5 flex h-8 items-center gap-0 whitespace-nowrap bg-background pr-2 text-[17px] text-primary active:opacity-50"
           >
-            <ChevronLeft size={22} strokeWidth={2} />
+            <ChevronLeft size={26} strokeWidth={2.4} className="-mr-0.5" />
+            {lang === 'zh' ? '足迹' : 'Map'}
           </button>,
           mobileNavLeading,
         )}
         {mobileNavSlot && createPortal(
-          <div className="flex min-w-0 max-w-[70vw] items-baseline gap-1.5">
-            <span className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
-              {currentCity?.cityName || t('map.places')}
-            </span>
-            <span className="flex-shrink-0 text-[12px] tabular-nums text-muted-foreground">
-              {cityPlaces.length}
-            </span>
-          </div>,
+          // iOS nav title: just the name. The place count is in the list header.
+          <span className="max-w-[50vw] truncate text-[17px] font-semibold tracking-[-0.02em] text-foreground">
+            {currentCity?.cityName || t('map.places')}
+          </span>,
           mobileNavSlot,
         )}
         <PageHeader
@@ -2387,14 +2393,16 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
               ...showPlaceDetail.photos,
               ...sortedVisits.flatMap((visit) => visit.photos),
             ]));
+            const visitPhotoSet = new Set(sortedVisits.flatMap((visit) => visit.photos));
+            const looseVisitPhotos = allPhotos.filter((photo) => !visitPhotoSet.has(photo));
 
             return (
               <>
                 {/* Full-screen sheet: sits above the phone top bar (z-130) and clears the notch. */}
                 <div className="fixed inset-0 z-[240] bg-background flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]">
                   <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40 flex-shrink-0 bg-background/95 backdrop-blur-sm">
-                    <Button variant="ghost" size="icon" onClick={() => { setShowPlaceDetail(null); setSelectedPlace(null); }} aria-label={lang === 'zh' ? '返回' : 'Back'} className="h-9 w-9 flex-shrink-0 rounded-full">
-                      <ChevronLeft size={22} />
+                    <Button variant="ghost" size="icon" onClick={() => { setPhotoViewer(null); setShowPlaceDetail(null); setSelectedPlace(null); }} aria-label={lang === 'zh' ? '返回' : 'Back'} className="h-9 w-9 flex-shrink-0 rounded-full text-primary hover:text-primary">
+                      <ChevronLeft size={26} strokeWidth={2.4} />
                     </Button>
                     <div className="flex-1 min-w-0">
                       <h2 className="truncate text-[17px] font-semibold tracking-[-0.02em] text-foreground">{showPlaceDetail.name}</h2>
@@ -2464,98 +2472,98 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     </div>
 
                     <div className="px-4 pt-1 pb-[max(2rem,env(safe-area-inset-bottom))]">
-                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-                        {allPhotos.length > 0 && (
-                        <div className="rounded-3xl border border-border/40 bg-card/70 p-4">
-                          <div className="mb-3 flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{lang === 'zh' ? '照片' : 'Photos'}</p>
-                              <p className="mt-0.5 text-[11px] text-muted-foreground/60">
-                                {allPhotos.length} {allPhotos.length === 1 ? t('map.photo') : t('map.photos')}
-                              </p>
-                            </div>
+                      {/* One list, no duplicates: every photo lives under the visit it
+                          belongs to. Photos are tap-to-zoom; only "View that day"
+                          leaves this sheet. */}
+                      <div className="mx-auto max-w-2xl space-y-3">
+                        {looseVisitPhotos.length > 0 && (
+                          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                            {looseVisitPhotos.map((photo, index) => (
+                              <button
+                                key={`${photo}-${index}`}
+                                type="button"
+                                onClick={() => setPhotoViewer(photo)}
+                                className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-secondary/30"
+                              >
+                                <StorageImage src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
+                              </button>
+                            ))}
                           </div>
-                          {allPhotos.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="col-span-2 overflow-hidden rounded-2xl border border-border/35 bg-secondary/20">
-                                <StorageImage src={allPhotos[0]} alt="" className="aspect-[4/3] h-full w-full object-cover" loading="lazy" />
-                              </div>
-                              {allPhotos.slice(1).map((photo, index) => (
-                                <div key={`${photo}-${index}`} className="aspect-square overflow-hidden rounded-[18px] border border-border/35 bg-secondary/20">
-                                  <StorageImage src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
                         )}
-
-                        <div className="rounded-3xl border border-border/40 bg-card/70 p-4">
-                          <div className="mb-3 flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{lang === 'zh' ? '到访记录' : 'Visits'}</p>
-                              <p className="mt-0.5 text-[11px] text-muted-foreground/60">{sortedVisits.length}</p>
-                            </div>
-                          </div>
-                          {sortedVisits.length === 0 ? (
-                            <EmptyState
-                              variant="inline"
-                              icon={<MapPinned size={18} />}
-                              title={lang === 'zh' ? '还没有到访记录' : 'No visits yet'}
-                              className="py-8"
-                            />
-                          ) : (
-                            <div className="space-y-3">
-                              {sortedVisits.map((visit, index) => {
-                                const canOpen = !!onOpenDate && !!visit.date;
-                                return (
-                                <div
-                                  key={`${visit.momentId || visit.date || 'visit'}-${index}`}
-                                  className={cn(
-                                    "rounded-[18px] border border-border/30 bg-background/70 px-3.5 py-3.5",
-                                    canOpen && "cursor-pointer transition-colors hover:border-primary/40 hover:bg-primary/[0.04]"
-                                  )}
-                                  onClick={canOpen ? () => onOpenDate!(visit.date) : undefined}
-                                  role={canOpen ? 'button' : undefined}
-                                  title={canOpen ? (lang === 'zh' ? '查看这一天' : 'Open this day') : undefined}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="text-[12px] font-medium text-foreground/90">
-                                        {visit.date ? formatVisitDateLabel(visit.date, formatDate) : (lang === 'zh' ? '未标注日期' : 'Undated')}
-                                      </p>
-                                      <p className="mt-1 text-[11px] text-muted-foreground/55">
-                                        {visit.photos.length} {visit.photos.length === 1 ? t('map.photo') : t('map.photos')}
-                                      </p>
-                                    </div>
-                                    {canOpen && (
-                                      <ChevronLeft size={14} className="flex-shrink-0 rotate-180 text-muted-foreground/35" />
-                                    )}
-                                  </div>
-                                  {visit.text && (
-                                    <p className="mt-2 text-[12px] leading-6 text-muted-foreground/75 whitespace-pre-wrap">
-                                      {visit.text}
-                                    </p>
-                                  )}
-                                  {visit.photos.length > 0 && (
-                                    <div className="mt-3 grid grid-cols-3 gap-2">
-                                      {visit.photos.map((photo, photoIndex) => (
-                                        <div key={`${photo}-${photoIndex}`} className="aspect-square overflow-hidden rounded-[14px] border border-border/30 bg-secondary/20">
-                                          <StorageImage src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
-                                        </div>
-                                      ))}
-                                    </div>
+                        {sortedVisits.length === 0 ? (
+                          <EmptyState
+                            variant="inline"
+                            icon={<MapPinned size={18} />}
+                            title={lang === 'zh' ? '还没有到访记录' : 'No visits yet'}
+                            className="py-8"
+                          />
+                        ) : (
+                          sortedVisits.map((visit, index) => {
+                            const canOpen = !!onOpenDate && !!visit.date;
+                            return (
+                              <div
+                                key={`${visit.momentId || visit.date || 'visit'}-${index}`}
+                                className="rounded-2xl border border-border/40 bg-card/70 px-4 py-3.5"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-[13px] font-medium text-foreground/90">
+                                    {visit.date ? formatVisitDateLabel(visit.date, formatDate) : (lang === 'zh' ? '未标注日期' : 'Undated')}
+                                  </p>
+                                  {canOpen && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onOpenDate!(visit.date)}
+                                      className="inline-flex flex-shrink-0 items-center gap-0.5 text-[13px] text-primary"
+                                    >
+                                      {lang === 'zh' ? '查看这一天' : 'View that day'}
+                                      <ChevronRight size={14} />
+                                    </button>
                                   )}
                                 </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                                {visit.text && (
+                                  <p className="mt-1.5 whitespace-pre-wrap text-[14px] leading-6 text-foreground/80">
+                                    {visit.text}
+                                  </p>
+                                )}
+                                {visit.photos.length > 0 && (
+                                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                                    {visit.photos.map((photo, photoIndex) => (
+                                      <button
+                                        key={`${photo}-${photoIndex}`}
+                                        type="button"
+                                        onClick={() => setPhotoViewer(photo)}
+                                        aria-label={lang === 'zh' ? '查看照片' : 'View photo'}
+                                        className="aspect-square overflow-hidden rounded-xl bg-secondary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                      >
+                                        <StorageImage src={photo} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
+                {photoViewer && (
+                  <div
+                    className="fixed inset-0 z-[260] flex items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in"
+                    onClick={() => setPhotoViewer(null)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setPhotoViewer(null)}
+                      aria-label={lang === 'zh' ? '关闭' : 'Close'}
+                      className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 p-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X size={24} />
+                    </button>
+                    <StorageImage src={photoViewer} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
+                  </div>
+                )}
               </>
             );
           })()}
