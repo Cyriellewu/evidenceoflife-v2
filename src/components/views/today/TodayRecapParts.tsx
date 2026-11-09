@@ -22,7 +22,7 @@ import {
   pickReplayLang,
 } from './todayHelpers';
 
-export const recapTimeInputClassName = "min-h-8 w-[64px] rounded-lg border border-border/35 bg-[hsl(var(--surface-soft))] px-2 py-1 text-center tabular-nums text-[15px] tracking-[-0.03em] text-foreground shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.65)] focus:outline-none focus:ring-1 focus:ring-primary/35";
+export const recapTimeInputClassName = "min-h-8 w-[84px] rounded-lg border border-border/35 bg-[hsl(var(--surface-soft))] px-2 py-1 text-center tabular-nums text-[15px] tracking-[-0.03em] text-foreground shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.65)] focus:outline-none focus:ring-1 focus:ring-primary/35 [&::-webkit-calendar-picker-indicator]:hidden";
 
 export function DailyHabitTracker({
   habits,
@@ -355,9 +355,9 @@ export function MomentTimeEditor({ moment, onEditMoment }: { moment: Moment; onE
   if (isEditing) {
     return (
       <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-        <input inputMode="numeric" pattern="[0-9:]*" value={editStart} onChange={e => setEditStart(e.target.value)} className={recapTimeInputClassName} placeholder="12:07" />
+        <input type="time" value={editStart} onChange={e => e.target.value && setEditStart(e.target.value)} className={recapTimeInputClassName} aria-label="Start time" />
         <span className="text-muted-foreground text-xs">→</span>
-        <input inputMode="numeric" pattern="[0-9:]*" value={editEnd} onChange={e => setEditEnd(e.target.value)} className={recapTimeInputClassName} placeholder="12:09" />
+        <input type="time" value={editEnd} onChange={e => e.target.value && setEditEnd(e.target.value)} className={recapTimeInputClassName} aria-label="End time" />
         <button onClick={handleSave} aria-label="Save" className="text-primary hover:text-primary/80"><Check size={12} /></button>
         <button onClick={() => setIsEditing(false)} aria-label="Cancel" className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
       </div>
@@ -430,9 +430,9 @@ export function ImportedEventTimeEditor({ event, onUpdate }: { event: ImportedEv
   if (isEditing) {
     return (
       <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-        <input inputMode="numeric" pattern="[0-9:]*" value={editStart} onChange={e => setEditStart(e.target.value)} className={recapTimeInputClassName} placeholder="12:07" />
+        <input type="time" value={editStart} onChange={e => e.target.value && setEditStart(e.target.value)} className={recapTimeInputClassName} aria-label="Start time" />
         <span className="text-muted-foreground text-xs">→</span>
-        <input inputMode="numeric" pattern="[0-9:]*" value={editEnd} onChange={e => setEditEnd(e.target.value)} className={recapTimeInputClassName} placeholder="12:09" />
+        <input type="time" value={editEnd} onChange={e => e.target.value && setEditEnd(e.target.value)} className={recapTimeInputClassName} aria-label="End time" />
         <button onClick={handleSave} aria-label="Save" className="text-primary hover:text-primary/80"><Check size={12} /></button>
         <button onClick={() => setIsEditing(false)} aria-label="Cancel" className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
       </div>

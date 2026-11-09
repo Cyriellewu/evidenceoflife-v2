@@ -68,7 +68,6 @@ import {
 import {
   DailyHabitTracker,
   MomentTimerSummary,
-  MomentTimeEditor,
   ImportedEventTimeEditor,
   LifeReplay,
 } from './today/TodayRecapParts';
@@ -306,6 +305,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const [editLocation, setEditLocation] = useState<{ name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' } | null>(null);
   const [editPhotos, setEditPhotos] = useState<string[]>([]);
   const [editTags, setEditTags] = useState<string[]>([]);
+  // Time is edited inside the same card and saved with the same Save button
+  // (it used to have its own ✓/✗ — two saves in one card). null = no time row.
+  const [editTimeStart, setEditTimeStart] = useState<string | null>(null);
+  const [editTimeEnd, setEditTimeEnd] = useState('');
+  const editMomentRef = useRef<Moment | null>(null);
   const [editLocationOpen, setEditLocationOpen] = useState(false);
   const [editEmojiOpen, setEditEmojiOpen] = useState(false);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -908,6 +912,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     setEditLocation(moment.location ? { ...moment.location, category: moment.location.category || 'other' } : null);
     setEditPhotos(uniquePhotoList(moment.photos || []));
     setEditTags(moment.tags || []);
+    editMomentRef.current = moment;
+    setEditTimeStart(moment.timer_started_at ? format(parseISO(moment.timer_started_at), 'HH:mm') : null);
+    setEditTimeEnd(moment.timer_ended_at ? format(parseISO(moment.timer_ended_at), 'HH:mm') : '');
   };
 
   const handleEditFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -940,13 +947,32 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       const trimmedTitle = editText.trim();
       const trimmedDetail = editDetailText?.trim();
       const finalText = trimmedDetail ? trimmedTitle + DETAIL_SEPARATOR + trimmedDetail : trimmedTitle;
+      const timeUpdate: Partial<Moment> = {};
+      const original = editMomentRef.current;
+      if (original?.id === editingMoment && original.timer_started_at && editTimeStart) {
+        const origStart = format(parseISO(original.timer_started_at), 'HH:mm');
+        const origEnd = original.timer_ended_at ? format(parseISO(original.timer_ended_at), 'HH:mm') : '';
+        if (editTimeStart !== origStart || editTimeEnd !== origEnd) {
+          const fallbackDateStr = format(parseISO(original.date || original.createdAt), 'yyyy-MM-dd');
+          const span = buildTimerSpanISO(editTimeStart, editTimeEnd || editTimeStart, {
+            anchorISO: original.timer_started_at,
+            fallbackDateStr,
+          });
+          if (span) {
+            Object.assign(timeUpdate, editTimeEnd
+              ? { timer_started_at: span.startISO, timer_ended_at: span.endISO, timer_seconds: span.seconds }
+              : { timer_started_at: span.startISO });
+          }
+        }
+      }
       onEditMoment(editingMoment, {
         text: finalText || undefined,
         emoji: editEmoji || undefined,
         location: editLocation ?? null,
         photos: uniquePhotoList(editPhotos),
         tags: editTags,
-      });
+        ...timeUpdate,
+      } as Partial<Moment>);
     }
     setEditingMoment(null);
   };
@@ -1228,7 +1254,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       <>
 
       {/* Floating bottom input bar */}
-      {!voiceSheetOpen && recapInputDock && <div
+      {/* Hidden while a moment is being edited so it never covers the card's Save. */}
+      {!voiceSheetOpen && recapInputDock && !editingMoment && <div
         className="fixed z-20 pointer-events-none"
         style={{
           left: recapInputDock.left,
@@ -2349,7 +2376,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       }
                                     }}
                                     placeholder={lang === 'zh' ? '标题' : 'Title'}
-                                    className="w-full bg-secondary/50 rounded-lg px-3 py-2 text-[14px] focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                                    // Grow with the text so a long title is never clipped.
+                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+                                    className="w-full bg-secondary/50 rounded-lg px-3 py-2 text-[15px] leading-snug focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden"
                                     rows={1}
                                   />
                                   {editDetailText !== null && (
@@ -2370,7 +2399,27 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     </button>
                                   )}
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <MomentTimeEditor moment={moment} onEditMoment={onEditMoment} />
+                                    {editTimeStart !== null && (
+                                      // Native time fields: iOS shows its wheel picker, so nobody has to type ":".
+                                      <div className="inline-flex h-8 items-center gap-1 rounded-full bg-secondary/40 pl-2.5 pr-2 text-[13px] tabular-nums text-foreground">
+                                        <Clock size={13} className="flex-shrink-0 text-muted-foreground" />
+                                        <input
+                                          type="time"
+                                          value={editTimeStart}
+                                          onChange={e => e.target.value && setEditTimeStart(e.target.value)}
+                                          aria-label={lang === 'zh' ? '开始时间' : 'Start time'}
+                                          className="min-w-[5.25rem] bg-transparent text-[13px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+                                        />
+                                        <span className="text-muted-foreground">–</span>
+                                        <input
+                                          type="time"
+                                          value={editTimeEnd}
+                                          onChange={e => setEditTimeEnd(e.target.value)}
+                                          aria-label={lang === 'zh' ? '结束时间' : 'End time'}
+                                          className="min-w-[5.25rem] bg-transparent text-[13px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+                                        />
+                                      </div>
+                                    )}
                                     {isMobile ? (
                                       <>
                                         <button
@@ -2425,16 +2474,24 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       </Popover>
                                     )}
                                   </div>
-                                  {editPhotos.length > 0 && (
-                                    <div className="flex gap-1.5 overflow-x-auto">
-                                      {editPhotos.map((photo, pi) => (
-                                        <div key={pi} className="relative flex-shrink-0">
-                                          <StorageImage src={photo} alt="" className="w-10 h-10 object-cover rounded-lg" />
-                                          <button onClick={() => removeEditPhoto(pi)} className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background rounded-full flex items-center justify-center"><X size={10} /></button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
+                                  {/* Photos and "add photo" live together, so there's one place for them. */}
+                                  <div className="flex gap-1.5 overflow-x-auto pt-1">
+                                    {editPhotos.map((photo, pi) => (
+                                      <div key={pi} className="relative flex-shrink-0">
+                                        <StorageImage src={photo} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                                        <button onClick={() => removeEditPhoto(pi)} aria-label={lang === 'zh' ? '移除照片' : 'Remove photo'} className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background"><X size={11} /></button>
+                                      </div>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      onClick={() => editFileInputRef.current?.click()}
+                                      aria-label={lang === 'zh' ? '添加照片' : 'Add photo'}
+                                      className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-border/70 text-muted-foreground hover:text-foreground"
+                                    >
+                                      <Image size={16} />
+                                    </button>
+                                    <input ref={editFileInputRef} type="file" accept="image/*" multiple onChange={handleEditFileChange} className="hidden" />
+                                  </div>
                                   <div className="flex flex-wrap gap-1">
                                     {editTags.map((tag, ti) => (
                                       <span key={ti} className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary flex items-center gap-1">
@@ -2443,15 +2500,15 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       </span>
                                     ))}
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <button onClick={() => editFileInputRef.current?.click()} className="p-1 text-muted-foreground hover:text-foreground"><Image size={13} /></button>
-                                    <input ref={editFileInputRef} type="file" accept="image/*" multiple onChange={handleEditFileChange} className="hidden" />
-                                    <div className="flex-1" />
+                                  <div className="flex items-center gap-2 pt-1">
                                     {onDeleteMoment && (
-                                      <button onClick={() => { onDeleteMoment(moment.id); setEditingMoment(null); }} className="p-1 text-muted-foreground hover:text-destructive"><Trash2 size={13} /></button>
+                                      <button onClick={() => { onDeleteMoment(moment.id); setEditingMoment(null); }} className="px-1 py-1.5 text-[13px] text-destructive/80 hover:text-destructive">
+                                        {lang === 'zh' ? '删除' : 'Delete'}
+                                      </button>
                                     )}
-                                    <button onClick={() => setEditingMoment(null)} className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground">Cancel</button>
-                                    <button onClick={saveEdit} className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90">Save</button>
+                                    <div className="flex-1" />
+                                    <button onClick={() => setEditingMoment(null)} className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground">{lang === 'zh' ? '取消' : 'Cancel'}</button>
+                                    <button onClick={saveEdit} className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90">{lang === 'zh' ? '保存' : 'Save'}</button>
                                   </div>
                                 </div>
                               ) : (
