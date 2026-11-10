@@ -680,12 +680,25 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       endMin: number;
     }>>();
 
+    // Two tasks with the same name ("Tech screen" added again later) are one
+    // piece of work to the user, so their sessions share one chain.
+    const titleKeyByTodoId = new Map(
+      todos.map(td => [td.id, td.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')]),
+    );
+    const chainKeyOf = (key: string) => {
+      const titleKey = key.startsWith('todo-session:')
+        ? titleKeyByTodoId.get(key.slice('todo-session:'.length))
+        : undefined;
+      return titleKey ? `todo-title:${titleKey}` : key;
+    };
+
     positioned.forEach(({ block }) => {
       if (!block.sessionGroupKey) return;
       const startMin = block.actualStartMin ?? block.startMin;
       const endMin = block.actualEndMin ?? block.endMin;
-      if (!grouped.has(block.sessionGroupKey)) grouped.set(block.sessionGroupKey, []);
-      grouped.get(block.sessionGroupKey)!.push({ id: block.id, startMin, endMin });
+      const chainKey = chainKeyOf(block.sessionGroupKey);
+      if (!grouped.has(chainKey)) grouped.set(chainKey, []);
+      grouped.get(chainKey)!.push({ id: block.id, startMin, endMin });
     });
 
     const map = new Map<string, {
@@ -712,7 +725,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     });
 
     return map;
-  }, [positioned, minToY]);
+  }, [positioned, minToY, todos]);
 
   /** Free-time gap pills must not stack on same-session continuation chrome
    *  ("1h 1m" + "1h 1m · gap ↓" on the same stretch). */
