@@ -111,6 +111,31 @@ function makeTail(b: TimeBlock, isLive: boolean): TimeBlock | null {
  *  calendar day is being rendered — any todo whose timestamps land on other
  *  days is skipped, so a stale timer left running past midnight doesn't leak
  *  a ghost block onto a day the user wasn't actually working on. */
+const normalizeForMatch = (s: string | undefined) =>
+  (s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+/** A moment "logs" a planned task when it was written during the plan window
+ *  (±30 min) and its text contains the task's name. */
+export function isPlanLoggedByMoment(
+  title: string,
+  planStartMin: number,
+  planEndMin: number,
+  moments: Moment[],
+  dayKey?: string,
+): boolean {
+  const name = normalizeForMatch(title);
+  if (name.length < 2) return false;
+  return moments.some(m => {
+    const at = m.timer_started_at || m.createdAt;
+    if (!at) return false;
+    if (dayKey && isoDayKey(at) !== dayKey) return false;
+    const d = parseISO(at);
+    const min = d.getHours() * 60 + d.getMinutes();
+    if (min < planStartMin - 30 || min > planEndMin + 30) return false;
+    return normalizeForMatch(m.text).includes(name);
+  });
+}
+
 export function buildPlanBlocks(
   todos: Todo[],
   importedEvents: ImportedEvent[] | undefined,
@@ -308,6 +333,11 @@ function buildRawBlocks(
         actualEndMin: hasActual ? Math.max(baseActualEnd, baseActualStart + 10) : undefined,
         hasActual,
         sessionGroupKey,
+        // Planned, never timed, but a Recap moment logged it ("Gym来啦" inside
+        // the Gym slot) — show the slot as done. Display only; nothing is saved.
+        isCompleted: hasPlan && !hasActual
+          ? isPlanLoggedByMoment(t.title, basePlanStart, Math.max(basePlanEnd, basePlanStart + 10), moments, dayKey)
+          : undefined,
       });
     });
 
