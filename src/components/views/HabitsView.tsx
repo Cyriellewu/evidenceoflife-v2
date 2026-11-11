@@ -1,3 +1,4 @@
+import { Composer } from '@/components/composer/Composer';
 import { useState, useMemo, useRef, useEffect, KeyboardEvent, type ReactNode } from 'react';
 import { format, subDays } from 'date-fns';
 import { Plus, MoreHorizontal, Trash2, Flame } from 'lucide-react';
@@ -87,7 +88,7 @@ export function HabitsView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
 
   const [draft, setDraft] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const draftRef = useRef<HTMLInputElement>(null);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -227,25 +228,15 @@ export function HabitsView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
           </>
         )}
 
-        <div className="mt-4 flex items-center gap-2.5">
-          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[hsl(var(--surface-soft))] text-muted-foreground/60">
-            <Plus size={14} />
-          </span>
-          <input
-            ref={draftRef}
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-              const native = e.nativeEvent as unknown as globalThis.KeyboardEvent;
-              if ((e.key === 'Enter' && !isImeEnter(e.nativeEvent))) {
-                if (isImeComposing(native)) return;
-                void handleAdd();
-              }
-            }}
-            placeholder={lang === 'zh' ? '新习惯…' : 'New habit…'}
-            className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
-          />
-        </div>
+        <Composer
+          value={draft}
+          onChange={setDraft}
+          onSubmit={() => { void handleAdd(); }}
+          textareaRef={draftRef}
+          placeholder={lang === 'zh' ? '新习惯…' : 'New habit…'}
+          sendLabel={lang === 'zh' ? '添加习惯' : 'Add habit'}
+          className="mt-4"
+        />
       </div>
     </div>
   );

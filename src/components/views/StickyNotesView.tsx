@@ -1,3 +1,4 @@
+import { Composer } from '@/components/composer/Composer';
 import { KeyboardEvent, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp, Link2, Plus, X } from 'lucide-react';
 import { useStickyNotes, StickyCategory, StickyNote } from '@/hooks/useStickyNotes';
@@ -826,32 +827,14 @@ export function StickyNotesView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
       </div>
 
       <div className="flex-shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
-        <div className="rounded-2xl bg-background/70 p-1 backdrop-blur-xl shadow-[0_18px_44px_hsl(var(--foreground)/0.1)]">
-          <div className="flex min-h-[44px] items-center gap-2 rounded-[18px] border border-border bg-card px-3 py-2 transition-colors focus-within:border-foreground/20 focus-within:ring-2 focus-within:ring-foreground/12">
-            <span className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full', palette.header, palette.text)}>
-              <Plus size={14} />
-            </span>
-            <input
-              value={newNoteTitle}
-              onChange={e => setNewNoteTitle(e.target.value)}
-              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (isEnterSubmit(e)) handleAddNote(); }}
-              placeholder={config.notePlaceholder}
-              className={cn('min-w-0 flex-1 bg-transparent text-foreground focus-visible:outline-none placeholder:text-muted-foreground/70', STICKY_TYPE.composer)}
-            />
-            <button
-              onClick={handleAddNote}
-              disabled={!newNoteTitle.trim()}
-              className={cn(
-                'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-all hover:brightness-95 disabled:opacity-30',
-                shellFocusRing,
-                palette.header,
-                palette.text,
-              )}
-            >
-              <Plus size={15} />
-            </button>
-          </div>
-        </div>
+        <Composer
+          value={newNoteTitle}
+          onChange={setNewNoteTitle}
+          onSubmit={handleAddNote}
+          placeholder={config.notePlaceholder}
+          sendLabel={config.notePlaceholder}
+          className="mx-auto max-w-[720px]"
+        />
       </div>
     </div>
   );
