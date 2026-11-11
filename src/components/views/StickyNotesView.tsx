@@ -668,7 +668,7 @@ export function StickyNotesView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[hsl(var(--surface-soft))]">
+    <div className="flex h-full flex-col bg-background">
       <SheetHeader
         title={titleSlot ?? t('notes.header')}
         subtitle={lang === 'zh' ? '小清单、图片和需要记住的事。' : 'Small lists, images, and things to remember.'}
@@ -825,7 +825,7 @@ export function StickyNotesView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
         )}
       </div>
 
-      <div className="flex-shrink-0 bg-gradient-to-t from-[hsl(var(--surface-soft))] via-[hsl(var(--surface-soft)/0.96)] to-[hsl(var(--surface-soft)/0)] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="flex-shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         <div className="rounded-2xl bg-background/70 p-1 backdrop-blur-xl shadow-[0_18px_44px_hsl(var(--foreground)/0.1)]">
           <div className="flex min-h-[44px] items-center gap-2 rounded-[18px] border border-border bg-card px-3 py-2 transition-colors focus-within:border-foreground/20 focus-within:ring-2 focus-within:ring-foreground/12">
             <span className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full', palette.header, palette.text)}>
