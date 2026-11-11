@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { parseISO, format, isToday as isTodayFn } from 'date-fns';
-import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer } from 'lucide-react';
+import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer, RotateCcw } from 'lucide-react';
 import { cn, isEnterSubmit, isImeEnter } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { Moment } from '@/types';
@@ -212,6 +212,14 @@ const SparkleBurst = React.memo(function SparkleBurst({ seed, count = 16, color,
 const LONG_PRESS_MS = 350;
 const LONG_PRESS_SLOP_PX = 8;
 
+/** Clears a task's actual (timed) span and keeps its plan. */
+const CLEAR_ACTUAL_TIME = {
+  timer_started_at: null,
+  timer_ended_at: null,
+  timer_seconds: null,
+  is_completed: false,
+} as const;
+
 export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos, prevDayMoments, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, onUpdateMoment, onDeleteMoment, activeTimerIds, getTimerElapsed, onRestStart, onRestEnd, rhythmPresetId }: PlanTimelineViewProps) {
   const { t, lang } = useLanguage();
   const { getWorkType } = useWorkTypes();
@@ -219,7 +227,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     const translated = t(key);
     return !translated || translated === key ? fallback : translated;
   }, [t]);
-  const [displayMode, setDisplayMode] = useState<'plan' | 'actual' | 'both'>('both');
+  // The timeline always shows plan and actual together. The Plan / Doing
+  // toggle is gone; what those modes were for is reachable from Both:
+  //   move back to list → the ← button (clears the plan, keeps actual time)
+  //   clear actual time  → the ↺ button (keeps the plan)
+  //   log actual time    → "Log actual" on a past planned block not started
+  // Kept as a widened constant so the shared Both branches stay as they were.
+  const displayMode = 'both' as 'plan' | 'actual' | 'both';
   // Auto-plan preview: ghosted placements the user can accept / adjust / dismiss.
   // `null` = not previewing. laneOverrides lets the user flip a task focus↔background.
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
@@ -941,12 +955,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           onUnscheduleTodo(dragging.id);
         } else if (dragging.target === 'actual') {
           // Actual frame: clear actual time, keep plan.
-          onUpdateTodo(dragging.id, {
-            timer_started_at: null,
-            timer_ended_at: null,
-            timer_seconds: null,
-            is_completed: false,
-          });
+          onUpdateTodo(dragging.id, CLEAR_ACTUAL_TIME);
         }
       } else {
         const targetDay = date || format(new Date(), 'yyyy-MM-dd');
@@ -2392,15 +2401,32 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             >
               <Pencil size={14} />
             </button>
-            {displayMode === 'plan' && onUnscheduleTodo && !block.isCompleted && (
-              <button onClick={() => onUnscheduleTodo(block.id)} className="p-1 rounded text-muted-foreground hover:text-accent-foreground transition-colors" title="Move back to list" aria-label="Move back to list"><ArrowLeft size={12} /></button>
+            {isTodo && hasPlan && onUnscheduleTodo && !block.isCompleted && (
+              <button
+                onClick={() => onUnscheduleTodo(block.id)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                title={lang === 'zh' ? '移回列表' : 'Move back to list'}
+                aria-label={lang === 'zh' ? '移回列表' : 'Move back to list'}
+              >
+                <ArrowLeft size={14} />
+              </button>
+            )}
+            {isTodo && hasPlan && hasActual && !isTimerActive && (
+              <button
+                onClick={() => onUpdateTodo(block.id, CLEAR_ACTUAL_TIME)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                title={lang === 'zh' ? '清除实际时间（保留计划）' : 'Clear actual time (keep plan)'}
+                aria-label={lang === 'zh' ? '清除实际时间' : 'Clear actual time'}
+              >
+                <RotateCcw size={14} />
+              </button>
             )}
             {block.source === 'todo' && (
               <button
                 onClick={() => removeBlockFromTimeline(block)}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"
-                title={displayMode === 'plan' ? 'Remove from timeline' : displayMode === 'actual' ? 'Clear actual time' : 'Remove from timeline'}
-                aria-label={displayMode === 'plan' ? 'Remove from timeline' : displayMode === 'actual' ? 'Clear actual time' : 'Remove from timeline'}
+                title={lang === 'zh' ? '从时间轴移除' : 'Remove from timeline'}
+                aria-label={lang === 'zh' ? '从时间轴移除' : 'Remove from timeline'}
               >
                 <Trash2 size={14} />
               </button>
@@ -2842,7 +2868,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                             {actualDurationStr}
                           </span>
                         ))}
-                        {!hasActual && isTodo && displayMode === 'actual' && (
+                        {!hasActual && isTodo && hasPlan && (!isViewingToday || planEnd <= nowMin) && (
                           editingActualBlockId === block.id ? (
                             <div className="flex items-center gap-1" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                               <input
@@ -2883,7 +2909,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                               }}
                               onMouseDown={e => e.stopPropagation()}
                             >
-                              {block.isCompleted ? '✎ actual time' : '+ doing'}
+                              {lang === 'zh' ? '记录实际时间' : 'Log actual'}
                             </button>
                           )
                         )}
@@ -3880,27 +3906,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               )}
             </div>
           )}
-        </div>
-        <div className="pointer-events-auto flex shrink-0 items-center rounded-full border border-border/45 bg-[hsl(var(--surface-contrast)/0.88)] p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] backdrop-blur-md">
-          {([
-            { id: 'plan' as const, en: 'Plan', zh: '计划' },
-            { id: 'actual' as const, en: 'Doing', zh: '进行' },
-            { id: 'both' as const, en: 'Both', zh: '对照' },
-          ]).map(mode => (
-            <button
-              key={mode.id}
-              type="button"
-              onClick={() => setDisplayMode(mode.id)}
-              className={cn(
-                'whitespace-nowrap rounded-full px-2 py-[5px] text-[11px] font-medium transition-all sm:px-2.5 sm:py-[3px] sm:text-[12px]',
-                displayMode === mode.id
-                  ? 'bg-[hsl(var(--surface-soft))] text-foreground shadow-sm'
-                  : 'text-muted-foreground/85 hover:text-foreground',
-              )}
-            >
-              {lang === 'zh' ? mode.zh : mode.en}
-            </button>
-          ))}
         </div>
       </div>
 
