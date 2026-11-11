@@ -6,7 +6,7 @@ import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, isToday, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
-import { MapPin, Image, Camera, Send, X, Smile, Pencil, Trash2, Sparkles, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { MapPin, Image, Camera, Send, X, Smile, Pencil, Trash2, Sparkles, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2, Plus } from 'lucide-react';
 import { InputPlusMenu, detectAutoTags } from '@/components/InputPlusMenu';
 import { useReminders } from '@/hooks/useReminders';
 import { Button } from '@/components/ui/button';
@@ -82,7 +82,10 @@ type TimeBreakdownRange = 'today' | 'week' | 'month';
 const STREAM_TIME_RAIL = 'w-[34px] flex-shrink-0 sm:w-14';
 const STREAM_TIME_RAIL_PAD = 'pt-1 text-right pr-0.5 sm:pt-[3px] sm:pr-3';
 /** Interactive Recap copy never drops below the 12px mobile readability floor. */
-const RECAP_AUX_ACTION_CLASS = 'ml-auto flex items-center gap-1 text-[12px] font-normal leading-5 text-muted-foreground/50 transition-colors hover:text-muted-foreground/80';
+// One way to reach notes on every item: an existing note is always shown
+// under it (tap to edit); an item without one gets this quiet "Add note",
+// shown on hover with a mouse and always on touch screens.
+const RECAP_ADD_NOTE_CLASS = 'ml-auto flex items-center gap-1 text-[13px] font-normal leading-5 text-muted-foreground/60 transition-[color,opacity] hover:text-foreground opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -2166,26 +2169,19 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         {format(parseISO(todo.timer_started_at!), 'HH:mm')} → {format(parseISO(todo.timer_ended_at!), 'HH:mm')}
                                       </span>
                                     )}
-                                    {!isPlanOutline && (
+                                    {!isPlanOutline && !todo.note && !expandedStreamIds.has(todo.id) && (
                                       <button
                                         data-testid="recap-notes-toggle"
-                                        className={cn(RECAP_AUX_ACTION_CLASS, !todo.note && '-m-1.5 p-1.5')}
-                                        aria-label={t('recap.notes')}
-                                        aria-expanded={expandedStreamIds.has(todo.id)}
+                                        className={RECAP_ADD_NOTE_CLASS}
                                         onClick={() => toggleStreamExpand(todo.id)}
                                       >
-                                        {expandedStreamIds.has(todo.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                        {todo.note && (
-                                          <>
-                                            <span>{t('recap.notes')}</span>
-                                            <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />
-                                          </>
-                                        )}
+                                        <Plus size={13} />
+                                        {t('recap.addNote')}
                                       </button>
                                     )}
                                   </div>
                                   {/* Expanded note panel */}
-                                  {expandedStreamIds.has(todo.id) && !isPlanOutline && (
+                                  {(todo.note || expandedStreamIds.has(todo.id)) && !isPlanOutline && (
                                     <NoteCard
                                       content={todo.note}
                                       onSave={(v) => onUpdateTodo?.(todo.id, { note: v || null })}
@@ -2509,21 +2505,16 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                           </span>
                                         )
                                       )}
-                                      <button
-                                        data-testid="recap-notes-toggle"
-                                        className={cn(RECAP_AUX_ACTION_CLASS, !detail && '-m-1.5 p-1.5')}
-                                        aria-label={t('recap.notes')}
-                                        aria-expanded={expandedStreamIds.has(moment.id)}
-                                        onClick={() => toggleStreamExpand(moment.id)}
-                                      >
-                                        {expandedStreamIds.has(moment.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                        {detail && (
-                                          <>
-                                            <span>{t('recap.notes')}</span>
-                                            <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />
-                                          </>
-                                        )}
-                                      </button>
+                                      {!detail && !expandedStreamIds.has(moment.id) && (
+                                        <button
+                                          data-testid="recap-notes-toggle"
+                                          className={RECAP_ADD_NOTE_CLASS}
+                                          onClick={() => toggleStreamExpand(moment.id)}
+                                        >
+                                          <Plus size={13} />
+                                          {t('recap.addNote')}
+                                        </button>
+                                      )}
                                     </div>
 
                                     {/* Evidence tag chips */}
@@ -2549,7 +2540,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     })()}
 
                                     {/* Expandable notes/detail */}
-                                    {expandedStreamIds.has(moment.id) && (
+                                    {(detail || expandedStreamIds.has(moment.id)) && (
                                       <StreamDetail
                                         detail={detail}
                                         onCollapse={() => toggleStreamExpand(moment.id)}
@@ -2830,14 +2821,14 @@ function NoteCard({ content, onSave, onCollapse }: {
 
   if (editing) {
     return (
-      <div className="mt-2 rounded-xl bg-[hsl(var(--surface-soft))] overflow-hidden">
+      <div className="mt-1.5 overflow-hidden rounded-xl border border-border/60">
         <textarea
           autoFocus
           value={value}
           onChange={e => setValue(e.target.value)}
           placeholder={zh ? '写点什么…' : 'Write a note…'}
-          className="w-full bg-transparent px-3 pt-2.5 pb-1 text-[14px] text-foreground/80 focus:outline-none resize-none leading-relaxed placeholder:text-muted-foreground/55"
-          rows={4}
+          className="w-full bg-transparent px-3 pt-2.5 pb-1 text-[15px] text-foreground focus:outline-none resize-none leading-relaxed placeholder:text-muted-foreground/55"
+          rows={3}
         />
         <div className="flex items-center justify-end gap-3 px-3 pb-2.5">
           <button onClick={handleCancel} className="text-[13px] text-muted-foreground/70 hover:text-muted-foreground transition-colors">{zh ? '取消' : 'Cancel'}</button>
@@ -2848,18 +2839,17 @@ function NoteCard({ content, onSave, onCollapse }: {
   }
 
   return (
-    <div
-      className="group/note mt-2 relative rounded-xl bg-[hsl(var(--surface-soft))] px-3 py-2.5 cursor-pointer"
+    <button
+      type="button"
+      title={zh ? '编辑备注' : 'Edit note'}
+      className="mt-1.5 block w-full border-l-2 border-border/70 pl-3 text-left transition-colors hover:border-primary/50"
       onClick={() => { setValue(content ?? ''); setEditing(true); }}
     >
       <div
-        className="text-[12px] text-foreground/55 leading-relaxed max-h-[180px] overflow-y-auto"
+        className="max-h-[180px] overflow-y-auto text-[14px] leading-relaxed text-muted-foreground"
         dangerouslySetInnerHTML={{ __html: renderMarkdown(content ?? '') }}
       />
-      <div className="absolute top-2 right-2 opacity-0 group-hover/note:opacity-100 transition-opacity">
-        <Pencil size={10} className="text-muted-foreground/40" />
-      </div>
-    </div>
+    </button>
   );
 }
 

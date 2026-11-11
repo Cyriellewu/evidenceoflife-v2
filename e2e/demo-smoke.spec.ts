@@ -47,7 +47,7 @@ test.describe('synthetic demo', () => {
     await expect(preview).toBeVisible();
     await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
     await preview.locator('..').getByRole('button').click();
-    expect(await page.getByTestId('recap-notes-toggle').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('12px');
+    expect(await page.getByTestId('recap-notes-toggle').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('13px');
     await expect(page.getByText('07:48 → 08:18', { exact: true })).toHaveCount(0);
     await page.getByText('Draft project notes', { exact: true }).last().click();
     await expect(page.getByText('07:48 → 08:18', { exact: true })).toBeVisible();
