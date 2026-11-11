@@ -313,6 +313,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const [editTimeStart, setEditTimeStart] = useState<string | null>(null);
   const [editTimeEnd, setEditTimeEnd] = useState('');
   const editMomentRef = useRef<Moment | null>(null);
+  // Which field the one moment editor opens on: title (tap title / pencil) or notes ("Add note" / tap note).
+  const [editFocus, setEditFocus] = useState<'title' | 'notes'>('title');
   const [editLocationOpen, setEditLocationOpen] = useState(false);
   const [editEmojiOpen, setEditEmojiOpen] = useState(false);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -654,31 +656,18 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     };
   }, [allTodos, selectedDateStr]);
 
-  // Click outside to close edit
+  // Click outside saves, through the same saveEdit as the Save button (so time edits aren't dropped).
+  const saveEditRef = useRef<() => void>(() => {});
   useEffect(() => {
+    if (!editingMoment) return;
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target?.closest('[data-edit-popover="true"]')) return;
-      if (editingMoment && editRef.current && !editRef.current.contains(target as Node)) {
-        if (onEditMoment) {
-          const trimmedTitle = editText.trim();
-          const trimmedDetail = editDetailText?.trim();
-          const finalText = trimmedDetail ? trimmedTitle + DETAIL_SEPARATOR + trimmedDetail : trimmedTitle;
-          onEditMoment(editingMoment, {
-            text: finalText || undefined,
-            emoji: editEmoji || undefined,
-            location: editLocation ?? null,
-            photos: uniquePhotoList(editPhotos),
-            tags: editTags,
-          });
-        }
-        setEditingMoment(null);
-      }
+      if (editRef.current && !editRef.current.contains(target as Node)) saveEditRef.current();
     };
-    
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [editingMoment, editText, editDetailText, editEmoji, editLocation, editPhotos, editTags, onEditMoment]);
+  }, [editingMoment]);
 
   // Inline timeline insertion handler
   const handleInlineInsert = useCallback(async (timeStr: string) => {
@@ -925,11 +914,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     setSelectedPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
-  const startEdit = (moment: Moment) => {
+  const startEdit = (moment: Moment, focus: 'title' | 'notes' = 'title') => {
     const { subtitle, detail } = parseSubtitleDetail(moment.text);
     setEditingMoment(moment.id);
+    setEditFocus(focus);
     setEditText(subtitle);
-    setEditDetailText(detail);
+    setEditDetailText(detail ?? '');
     setEditEmoji(moment.emoji || null);
     setEditLocation(moment.location ? { ...moment.location, category: moment.location.category || 'other' } : null);
     setEditPhotos(uniquePhotoList(moment.photos || []));
@@ -998,6 +988,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     }
     setEditingMoment(null);
   };
+  saveEditRef.current = saveEdit;
 
   useEffect(() => {
     if (todayMode === 'plan') return;
@@ -2224,8 +2215,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                               {editingMoment === moment.id ? (
                                 /* ── Inline edit mode ── */
                                 <div ref={editRef} data-edit-popover="true" className="space-y-2">
+                                  <div className="overflow-hidden rounded-xl border border-border/60 transition-colors focus-within:border-primary/40">
                                   <textarea
-                                    autoFocus
+                                    autoFocus={editFocus === 'title'}
                                     value={editText}
                                     onChange={e => setEditText(e.target.value)}
                                     onPaste={(e) => {
@@ -2248,37 +2240,31 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     placeholder={lang === 'zh' ? '标题' : 'Title'}
                                     // Grow with the text so a long title is never clipped.
                                     ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
-                                    className="w-full bg-secondary/50 rounded-lg px-3 py-2 text-[15px] leading-snug focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden"
+                                    className="block w-full resize-none overflow-hidden bg-transparent px-3 pb-2 pt-2.5 text-[15px] font-medium leading-[1.4] text-foreground placeholder:text-muted-foreground/55 focus:outline-none sm:text-[16px] sm:font-semibold"
                                     rows={1}
                                   />
-                                  {editDetailText !== null && (
-                                    <textarea
-                                      value={editDetailText}
-                                      onChange={e => setEditDetailText(e.target.value)}
-                                      placeholder={lang === 'zh' ? '详情' : 'Details'}
-                                      className="w-full bg-secondary/30 rounded-lg px-3 py-2 text-[13px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none border-l-2 border-primary/20"
-                                      rows={3}
-                                    />
-                                  )}
-                                  {editDetailText === null && (
-                                    <button
-                                      onClick={() => setEditDetailText('')}
-                                      className="self-start text-[13px] text-muted-foreground/70 hover:text-foreground transition-colors"
-                                    >
-                                      + {lang === 'zh' ? '添加详情' : 'Add details'}
-                                    </button>
-                                  )}
+                                  <textarea
+                                    autoFocus={editFocus === 'notes'}
+                                    value={editDetailText ?? ''}
+                                    onChange={e => setEditDetailText(e.target.value)}
+                                    placeholder={lang === 'zh' ? '写点什么…' : 'Write a note…'}
+                                    aria-label={lang === 'zh' ? '备注' : 'Note'}
+                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${Math.max(el.scrollHeight, 48)}px`; } }}
+                                    className="block w-full resize-none overflow-hidden border-t border-border/40 bg-transparent px-3 py-2 text-[15px] leading-relaxed text-foreground/80 placeholder:text-muted-foreground/55 focus:outline-none"
+                                    rows={2}
+                                  />
+                                  </div>
                                   <div className="flex items-center gap-2 flex-wrap">
                                     {editTimeStart !== null && (
                                       // Native time fields: iOS shows its wheel picker, so nobody has to type ":".
-                                      <div className="inline-flex h-8 items-center gap-1 rounded-full bg-secondary/40 pl-2.5 pr-2 text-[13px] tabular-nums text-foreground">
+                                      <div className="inline-flex h-8 items-center gap-1 rounded-full bg-secondary/40 pl-2.5 pr-2 text-[12px] tabular-nums text-foreground">
                                         <Clock size={13} className="flex-shrink-0 text-muted-foreground" />
                                         <input
                                           type="time"
                                           value={editTimeStart}
                                           onChange={e => e.target.value && setEditTimeStart(e.target.value)}
                                           aria-label={lang === 'zh' ? '开始时间' : 'Start time'}
-                                          className="min-w-[5.25rem] bg-transparent text-[13px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+                                          className="min-w-[5rem] bg-transparent text-[12px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
                                         />
                                         <span className="text-muted-foreground">–</span>
                                         <input
@@ -2286,7 +2272,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                           value={editTimeEnd}
                                           onChange={e => setEditTimeEnd(e.target.value)}
                                           aria-label={lang === 'zh' ? '结束时间' : 'End time'}
-                                          className="min-w-[5.25rem] bg-transparent text-[13px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+                                          className="min-w-[5rem] bg-transparent text-[12px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
                                         />
                                       </div>
                                     )}
@@ -2431,11 +2417,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                           </span>
                                         )
                                       )}
-                                      {!detail && !expandedStreamIds.has(moment.id) && (
+                                      {!detail && (
                                         <button
                                           data-testid="recap-notes-toggle"
                                           className={RECAP_ADD_NOTE_CLASS}
-                                          onClick={() => toggleStreamExpand(moment.id)}
+                                          onClick={() => startEdit(moment, 'notes')}
                                         >
                                           <Plus size={13} />
                                           {t('recap.addNote')}
@@ -2466,19 +2452,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     })()}
 
                                     {/* Expandable notes/detail */}
-                                    {(detail || expandedStreamIds.has(moment.id)) && (
-                                      <StreamDetail
-                                        detail={detail}
-                                        onCollapse={() => toggleStreamExpand(moment.id)}
-                                        onSaveDetail={(newDetail) => {
-                                          if (onEditMoment) {
-                                            const { subtitle: currentSubtitle } = parseSubtitleDetail(moment.text);
-                                            const trimmedDetail = newDetail.trim();
-                                            const finalText = trimmedDetail ? currentSubtitle + DETAIL_SEPARATOR + trimmedDetail : currentSubtitle;
-                                            onEditMoment(moment.id, { text: finalText || undefined });
-                                          }
-                                        }}
-                                      />
+                                    {detail && (
+                                      <NoteCard content={detail} onOpen={() => startEdit(moment, 'notes')} />
                                     )}
 
                                     {moment.links && moment.links.length > 0 && (
@@ -2718,21 +2693,23 @@ function renderMarkdown(text: string): string {
   return html;
 }
 
-function NoteCard({ content, onSave, onCollapse }: {
+function NoteCard({ content, onSave, onCollapse, onOpen }: {
   content?: string | null;
   onSave?: (v: string) => void;
   onCollapse?: () => void;
+  /** Open the host's editor instead of editing in place (moments use their one edit form). */
+  onOpen?: () => void;
 }) {
   const { lang } = useLanguage();
   const zh = lang.startsWith('zh');
   // Auto-enter edit mode when there's no content yet
-  const [editing, setEditing] = useState(!content);
+  const [editing, setEditing] = useState(!content && !onOpen);
   const [value, setValue] = useState(content ?? '');
 
   useEffect(() => {
     setValue(content ?? '');
-    if (!content) setEditing(true);
-  }, [content]);
+    if (!content && !onOpen) setEditing(true);
+  }, [content, onOpen]);
 
   const handleSave = () => {
     if (onSave) onSave(value);
@@ -2747,7 +2724,7 @@ function NoteCard({ content, onSave, onCollapse }: {
 
   if (editing) {
     return (
-      <div className="mt-1.5 overflow-hidden rounded-xl border border-border/60">
+      <div className="mt-1.5 overflow-hidden rounded-xl border border-border/60 transition-colors focus-within:border-primary/40">
         <textarea
           autoFocus
           value={value}
@@ -2756,9 +2733,9 @@ function NoteCard({ content, onSave, onCollapse }: {
           className="w-full bg-transparent px-3 pt-2.5 pb-1 text-[15px] text-foreground focus:outline-none resize-none leading-relaxed placeholder:text-muted-foreground/55"
           rows={3}
         />
-        <div className="flex items-center justify-end gap-3 px-3 pb-2.5">
-          <button onClick={handleCancel} className="text-[13px] text-muted-foreground/70 hover:text-muted-foreground transition-colors">{zh ? '取消' : 'Cancel'}</button>
-          <button onClick={handleSave} className="text-[13px] text-primary hover:text-primary/80 font-medium transition-colors">{zh ? '保存' : 'Save'}</button>
+        <div className="flex items-center justify-end gap-2 px-2 pb-2">
+          <button onClick={handleCancel} className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground">{zh ? '取消' : 'Cancel'}</button>
+          <button onClick={handleSave} className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90">{zh ? '保存' : 'Save'}</button>
         </div>
       </div>
     );
@@ -2769,7 +2746,7 @@ function NoteCard({ content, onSave, onCollapse }: {
       type="button"
       title={zh ? '编辑备注' : 'Edit note'}
       className="mt-1.5 block w-full border-l-2 border-border/70 pl-3 text-left transition-colors hover:border-primary/50"
-      onClick={() => { setValue(content ?? ''); setEditing(true); }}
+      onClick={() => { if (onOpen) { onOpen(); return; } setValue(content ?? ''); setEditing(true); }}
     >
       <div
         className="max-h-[180px] overflow-y-auto text-[14px] leading-relaxed text-muted-foreground"
@@ -2777,8 +2754,4 @@ function NoteCard({ content, onSave, onCollapse }: {
       />
     </button>
   );
-}
-
-function StreamDetail({ detail, onSaveDetail, onCollapse }: { detail?: string | null; onSaveDetail?: (newDetail: string) => void; onCollapse?: () => void }) {
-  return <NoteCard content={detail} onSave={onSaveDetail} onCollapse={onCollapse} />;
 }
