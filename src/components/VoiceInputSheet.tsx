@@ -1,3 +1,4 @@
+import { cleanFillerWords } from '@/lib/fillerWords';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Mic, Square, X, Loader2, ArrowRight, ChevronDown, ChevronUp, Check, Calendar, Repeat, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,11 +78,6 @@ type SpeechCapableWindow = Window & {
   webkitSpeechRecognition?: SpeechRecognitionCtor;
 };
 
-const FILLER_WORDS_RE = /[，。]?\s*(?:嗯|啊|呃|ne|那个|就是说|就是|然后呢|然后|好的|对的|对|额|哦|哎|呢)+[，。]?\s*/gi;
-
-function cleanFillerWords(text: string): string {
-  return text.replace(FILLER_WORDS_RE, '').replace(/\s{2,}/g, ' ').trim();
-}
 
 export interface VoiceInputSheetProps {
   open: boolean;

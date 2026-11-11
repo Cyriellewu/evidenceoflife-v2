@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { sanitizeRedirectTo, verifyOAuthState } from "../_shared/auth.ts";
 
 Deno.serve(async (req) => {

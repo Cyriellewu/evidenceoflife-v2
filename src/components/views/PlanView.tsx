@@ -1,3 +1,5 @@
+import { Composer, ComposerIconButton } from '@/components/composer/Composer';
+import { isTouchComposer } from '@/components/composer/composerLayout';
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
@@ -3496,10 +3498,10 @@ export function PlanView({
               }}
             >
               <div className="pointer-events-auto">
-              <div className="relative bg-[hsl(var(--toolbar-background))] border border-border rounded-2xl shadow-[0_2px_10px_hsl(var(--foreground)/0.08)] overflow-visible">
+              <div className="relative">
                 {taskSuggestions.length > 0 && (
                   <div className="absolute bottom-full left-0 mb-1.5 w-full max-w-[320px] bg-card border border-border rounded-xl shadow-xl p-1 z-[70] animate-scale-in">
-                    <p className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/55">
+                    <p className="px-2 pt-1 pb-0.5 text-[13px] text-muted-foreground">
                       {lang === 'zh' ? '之前写过' : 'You wrote before'}
                     </p>
                     {taskSuggestions.map(s => (
@@ -3517,18 +3519,32 @@ export function PlanView({
                     ))}
                   </div>
                 )}
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+              <Composer
+                value={newTitle}
+                onChange={(v) => { setNewTitle(v); setSuggestionsDismissed(false); }}
+                onSubmit={() => { if (!isAddingQuick) handleAdd(); }}
+                canSubmit={!isAddingQuick && !!newTitle.trim()}
+                textareaRef={taskInputRef}
+                placeholder={tLang('plan.addTask') || 'Add a task...'}
+                sendLabel={lang === 'zh' ? '添加任务' : 'Add task'}
+                onKeyDown={e => {
+                  if (e.key === 'Tab' && taskSuggestions.length > 0 && !e.shiftKey) { e.preventDefault(); acceptSuggestion(taskSuggestions[0].title); return; }
+                  if (e.key === 'Escape' && taskSuggestions.length > 0) { e.preventDefault(); setSuggestionsDismissed(true); }
+                }}
+                leading={
+                  <>
                   {/* ➕ menu button */}
                   <div className="relative">
                     <button onClick={(e) => { e.stopPropagation(); setPlusMenuOpen(prev => !prev); }}
-                      className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
+                      aria-label={lang === 'zh' ? '更多选项' : 'More options'}
+                      className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
                         plusMenuOpen ? "bg-[hsl(var(--surface-inset))] text-foreground" : "bg-transparent hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground"
                       )}>
-                      <Plus size={16} />
+                      <Plus size={18} />
                     </button>
                     {plusMenuOpen && (
                       <div className="absolute bottom-12 left-0 bg-card border border-border rounded-2xl shadow-xl p-2.5 min-w-[264px] z-[70] animate-scale-in font-normal" onClick={e => e.stopPropagation()}>
-                        <p className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                        <p className="px-1 pb-1.5 text-[13px] font-medium text-muted-foreground">
                           {tLang('plan.timeSlot') || 'Time slot'}
                         </p>
                         <div className="grid grid-cols-2 gap-1.5">
@@ -3555,7 +3571,7 @@ export function PlanView({
                         <div className="border-t border-border/40 my-2.5" />
                         {reminders.length > 0 && (
                           <div className="mb-1.5 max-h-36 space-y-1 overflow-y-auto px-1">
-                            <p className="px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                            <p className="px-1 text-[13px] font-medium text-muted-foreground">
                               {lang === 'zh' ? '已有提醒' : 'Your reminders'}
                             </p>
                             {reminders.map(r => (
@@ -3609,25 +3625,24 @@ export function PlanView({
                       </div>
                     )}
                   </div>
-                  <textarea value={newTitle} onChange={e => { setNewTitle(e.target.value); setSuggestionsDismissed(false); }}
-                    ref={taskInputRef}
-                    onKeyDown={e => {
-                      if (e.key === 'Tab' && taskSuggestions.length > 0 && !e.shiftKey) { e.preventDefault(); acceptSuggestion(taskSuggestions[0].title); return; }
-                      if (e.key === 'Escape' && taskSuggestions.length > 0) { e.preventDefault(); setSuggestionsDismissed(true); return; }
-                      if (!isAddingQuick && isEnterSubmit(e)) { e.preventDefault(); handleAdd(); }
-                    }}
-                    placeholder={tLang('plan.addTask') || 'Add a task...'} rows={1}
-                    className="flex-1 bg-transparent resize-none focus:outline-none text-foreground placeholder:text-muted-foreground/60 text-[13px] leading-5"
-                    style={{ minHeight: '24px', maxHeight: '72px' }} />
-                  {onOpenVoiceSheet && (
-                    <button onClick={onOpenVoiceSheet}
-                      className="w-8 h-8 rounded-full transition-colors flex-shrink-0 hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground flex items-center justify-center"
-                      title={lang === 'zh' ? '语音输入' : 'Voice input'}
-                      aria-label={lang === 'zh' ? '语音输入' : 'Voice input'}><Mic size={15} /></button>
-                  )}
-                  <Button onClick={() => handleAdd(true)} size="icon" variant="outline" className="h-8 w-8 rounded-full flex-shrink-0 border-border text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))]" title={tLang('plan.addAndStart') || (lang === 'zh' ? '添加并开始计时' : 'Add & start timer')} aria-label={tLang('plan.addAndStart') || (lang === 'zh' ? '添加并开始计时' : 'Add & start timer')} disabled={isAddingQuick || !newTitle.trim()}><Timer size={15} /></Button>
-                  <Button onClick={() => handleAdd()} size="icon" className="h-8 w-8 rounded-full flex-shrink-0 bg-primary/12 text-primary hover:bg-primary/18" disabled={isAddingQuick || !newTitle.trim()} title={lang === 'zh' ? '添加任务' : 'Add task'} aria-label={lang === 'zh' ? '添加任务' : 'Add task'}><ArrowUp size={15} /></Button>
-                </div>
+                  </>
+                }
+                trailing={
+                  <>
+                    {onOpenVoiceSheet && (
+                      <ComposerIconButton onClick={onOpenVoiceSheet} ariaLabel={lang === 'zh' ? '语音输入' : 'Voice input'}>
+                        <Mic size={17} />
+                      </ComposerIconButton>
+                    )}
+                    <ComposerIconButton
+                      onClick={() => { if (!isAddingQuick && newTitle.trim()) handleAdd(true); }}
+                      ariaLabel={tLang('plan.addAndStart') || (lang === 'zh' ? '添加并开始计时' : 'Add & start timer')}
+                    >
+                      <Timer size={16} />
+                    </ComposerIconButton>
+                  </>
+                }
+              />
               </div>
               </div>
             </div>
@@ -3767,6 +3782,7 @@ export function PlanView({
                   if (e.key !== 'Enter' || e.shiftKey) return;
                   const native = e.nativeEvent as KeyboardEvent;
                   if (isImeComposing(native)) return;
+                  if (isTouchComposer()) return; // phone: Enter = new line, like every composer
                   e.preventDefault();
                   void handleSaveCapture();
                 }}
