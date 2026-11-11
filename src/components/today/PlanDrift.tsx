@@ -78,7 +78,8 @@ function scheduledTodoPlannedDurationMin(t: Todo): number {
   return 30;
 }
 
-function computeDrift(allTodos: Todo[], completedTodos: Todo[], moments: Moment[], todayDateStr: string): DriftResult {
+// eslint-disable-next-line react-refresh/only-export-components -- exported for tests
+export function computeDrift(allTodos: Todo[], completedTodos: Todo[], moments: Moment[], todayDateStr: string): DriftResult {
   const scheduledTodos = allTodos.filter(t => t.timer_started_at && t.date === todayDateStr);
   const completedScheduled = scheduledTodos.filter(t => t.is_completed);
   const now = Date.now();
@@ -175,9 +176,10 @@ function computeDrift(allTodos: Todo[], completedTodos: Todo[], moments: Moment[
   }
 
   for (const m of moments) {
-    if (m.timer_started_at) {
-      // A running moment timer only extends to "now" on the real current day.
-      if (!m.timer_ended_at && !isRealToday) continue;
+    // A moment with a start but no end is a note pinned to a time ("17:39"),
+    // not a running timer — moments have no live timer. Counting it up to
+    // "now" turned an evening photo into hours of phantom focus.
+    if (m.timer_started_at && m.timer_ended_at) {
       const tag = normalizeDriftTag(m, m.text);
       const startMs = m.timer_ended_at
         ? parseISO(m.timer_started_at).getTime()
@@ -349,8 +351,8 @@ function buildExecutionSlots(
   for (const m of allMoments || []) {
     if (m.date !== todayDateStr) continue;
     const tag = resolveSlotTag(m.tags, m.text);
-    if (m.timer_started_at) {
-      if (!m.timer_ended_at && !isRealToday) continue;
+    // Only timed moments (start + end) fill a slot; see the note above.
+    if (m.timer_started_at && m.timer_ended_at) {
       const s = parseISO(m.timer_started_at);
       const e = m.timer_ended_at ? parseISO(m.timer_ended_at) : new Date();
       const sm = s.getHours() * 60 + s.getMinutes();
@@ -384,8 +386,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
   // instead of freezing until the next data refresh.
   const isRealToday = new Date(`${todayDateStr}T00:00:00`).toDateString() === new Date().toDateString();
   const hasRunningTimer =
-    (allTodos || []).some(t => t.date === todayDateStr && t.timer_started_at && !t.timer_ended_at) ||
-    (allMoments || []).some(m => m.date === todayDateStr && m.timer_started_at && !m.timer_ended_at);
+    (allTodos || []).some(t => t.date === todayDateStr && t.timer_started_at && !t.timer_ended_at);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!isRealToday || !hasRunningTimer) return;

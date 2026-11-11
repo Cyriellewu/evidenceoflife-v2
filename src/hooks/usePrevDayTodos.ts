@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Todo } from '@/hooks/useTodos';
@@ -6,7 +6,11 @@ import { Todo } from '@/hooks/useTodos';
 /** Read-only fetch of a single day's todos, with NO rollover side effects.
  *  Used to surface the previous day's cross-midnight sessions as early-morning
  *  "tail" blocks on the current day's timeline. Returns [] in demo / signed-out. */
-export function usePrevDayTodos(dateStr: string | undefined): Todo[] {
+export function usePrevDayTodos(dateStr: string | undefined): {
+  todos: Todo[];
+  /** Mirror a write made elsewhere so a stopped timer can't live on in this copy. */
+  patch: (id: string, updates: Partial<Todo>) => void;
+} {
   const { user, isDemo, authReady } = useAuth();
   const [todos, setTodos] = useState<Todo[]>([]);
 
@@ -33,5 +37,9 @@ export function usePrevDayTodos(dateStr: string | undefined): Todo[] {
     return () => { cancelled = true; };
   }, [user, isDemo, authReady, dateStr]);
 
-  return todos;
+  const patch = useCallback((id: string, updates: Partial<Todo>) => {
+    setTodos(prev => (prev.some(t => t.id === id) ? prev.map(t => (t.id === id ? { ...t, ...updates } : t)) : prev));
+  }, []);
+
+  return { todos, patch };
 }

@@ -28,7 +28,7 @@ import { LinksView } from '@/components/views/LinksView';
 import { VoiceInputSheet } from '@/components/VoiceInputSheet';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useMoments } from '@/hooks/useMoments';
-import { useTodos } from '@/hooks/useTodos';
+import { useTodos, type Todo } from '@/hooks/useTodos';
 import { usePrevDayTodos } from '@/hooks/usePrevDayTodos';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
 import { useProfile } from '@/hooks/useProfile';
@@ -203,8 +203,15 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   } = useMoments();
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const prevDateStr = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
-  const { todos, pastDayOpenTodos, updateTodo, addTodo, deleteTodo, toggleRecurring, refetch: refetchTodos } = useTodos(selectedDateStr);
-  const prevDayTodos = usePrevDayTodos(prevDateStr);
+  const { todos, pastDayOpenTodos, updateTodo: updateTodoBase, addTodo, deleteTodo, toggleRecurring, refetch: refetchTodos } = useTodos(selectedDateStr);
+  const { todos: prevDayTodos, patch: patchPrevDayTodo } = usePrevDayTodos(prevDateStr);
+  // Yesterday's todos are a separate read-only copy (cross-midnight tails). A
+  // timer stopped while viewing today must stop there too, or the stale copy
+  // keeps a "running" timer alive: a pill counting to 26h that can't be stopped.
+  const updateTodo = useCallback(async (id: string, updates: Partial<Todo>) => {
+    await updateTodoBase(id, updates);
+    patchPrevDayTodo(id, updates);
+  }, [updateTodoBase, patchPrevDayTodo]);
   const { events: importedEvents, updateEvent: updateImportedEvent } = useImportedEvents();
   const { profile } = useProfile();
   const { addDue, dues } = useDues();

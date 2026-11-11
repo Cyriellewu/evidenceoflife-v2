@@ -158,6 +158,8 @@ function buildDemoMoments(): Moment[] {
 export function useMoments() {
   const { user, isDemo, authReady } = useAuth();
   const [moments, setMoments] = useState<Moment[]>([]);
+  const momentsRef = useRef<Moment[]>([]);
+  momentsRef.current = moments;
   const allLocations = useMemo(() => moments.filter(m => m.location), [moments]);
   const [loading, setLoading] = useState(true);
   const pendingAddsRef = useRef(new Set<string>());
@@ -210,6 +212,19 @@ export function useMoments() {
 
   const addMoment = useCallback(async (moment: Omit<Moment, 'id' | 'createdAt'>) => {
     if (!user) return;
+    // A focus session is one moment. Several stop paths can log the same
+    // session (e.g. a stale running copy stopped again), so skip it when a
+    // moment for the same task and start time already exists.
+    const sessionTag = moment.tags?.find(tag => tag.startsWith('todo-session:'));
+    if (sessionTag && moment.timer_started_at) {
+      const startMs = new Date(moment.timer_started_at).getTime();
+      const existing = momentsRef.current.find(m =>
+        m.tags?.includes(sessionTag) &&
+        !!m.timer_started_at &&
+        new Date(m.timer_started_at).getTime() === startMs,
+      );
+      if (existing) return existing;
+    }
     const addKey = JSON.stringify([
       moment.date,
       moment.text || '',

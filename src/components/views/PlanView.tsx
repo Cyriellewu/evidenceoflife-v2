@@ -19,6 +19,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { showUndoToast } from '@/lib/undoToast';
 import { toast } from 'sonner';
+import { partitionRunningTimers } from '@/lib/staleTimers';
+
+/** A focus timer running this long was left on by mistake; see the guard in PlanView. */
+const AUTO_STOP_TIMER_HOURS = 8;
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -2271,12 +2275,14 @@ export function PlanView({
     }
 
     clearPauseState(todoId);
+    clearFreshTimerStart(todoId);
     setShowOverlayForId(null);
   };
 
   const handleCancelTimer = (todoId: string) => {
     updateTodo(todoId, { timer_started_at: null, timer_ended_at: null });
     clearPauseState(todoId);
+    clearFreshTimerStart(todoId);
     setShowOverlayForId(null);
   };
 
@@ -2619,6 +2625,52 @@ export function PlanView({
       timer_seconds: workingSec,
     });
   }, [getInheritedPlanActualRange, onAddMoment]);
+
+  // Forgotten-timer guard: a focus timer running 8h+ was almost certainly left
+  // on. Stop it at start + 8h (never more than 8h of focus), log that session
+  // once, keep the task open, and say so. Runs on load and once a minute, so it
+  // also catches a timer left running while the app was closed.
+  const autoStoppedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (isDemo) return;
+    const check = () => {
+      const now = Date.now();
+      const { toStop } = partitionRunningTimers(activeTimerTodos, now, AUTO_STOP_TIMER_HOURS);
+      for (const id of toStop) {
+        if (autoStoppedRef.current.has(id)) continue;
+        const todo = activeTimerTodos.find(t => t.id === id);
+        if (!todo?.timer_started_at) continue;
+        autoStoppedRef.current.add(id);
+        const startMs = new Date(todo.timer_started_at).getTime();
+        const capSec = AUTO_STOP_TIMER_HOURS * 3600;
+        const endMs = Number.isFinite(startMs) ? startMs + capSec * 1000 : now;
+        const endISO = new Date(Math.min(endMs, now)).toISOString();
+        const sessionSec = Math.min(capSec, Math.max(0, getCurrentSessionElapsedRef.current(todo)));
+        void (async () => {
+          await updateTodo(id, {
+            timer_ended_at: endISO,
+            timer_seconds: Math.max(0, todo.timer_seconds || 0) + sessionSec,
+          });
+          await logFocusSessionMoment(todo, sessionSec, endISO);
+          clearPauseState(id);
+          clearFreshTimerStart(id);
+          setShowOverlayForId(prev => (prev === id ? null : prev));
+          const loggedH = Math.floor(sessionSec / 3600);
+          const loggedM = Math.floor((sessionSec % 3600) / 60);
+          const logged = loggedH > 0 ? `${loggedH}h ${loggedM}m` : `${loggedM}m`;
+          toast(
+            lang === 'zh'
+              ? `「${todo.title}」计时超过 ${AUTO_STOP_TIMER_HOURS} 小时，已自动停止，记了 ${logged}。可以在时间轴上拖动调整。`
+              : `"${todo.title}" ran over ${AUTO_STOP_TIMER_HOURS}h, so it was stopped and logged as ${logged}. Drag it on the timeline to adjust.`,
+            { duration: 10000 },
+          );
+        })();
+      }
+    };
+    check();
+    const id = window.setInterval(check, 60_000);
+    return () => window.clearInterval(id);
+  }, [activeTimerTodos, isDemo, lang, updateTodo, logFocusSessionMoment, clearPauseState, clearFreshTimerStart]);
 
   // Record a just-ended STEP timer session as a focus-session moment tagged to
   // the parent todo. This is what makes finished step work persist on the
