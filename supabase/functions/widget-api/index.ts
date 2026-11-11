@@ -10,7 +10,7 @@
 // below is filtered by the key owner's user_id; the service-role client never
 // touches another user's rows.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { corsHeaders, jsonResponse, requireUser } from "../_shared/auth.ts";
 import {
   cleanLocation,

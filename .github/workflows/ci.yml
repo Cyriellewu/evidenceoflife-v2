@@ -64,7 +64,14 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        # --with-deps apt-installs extra fonts; when Ubuntu's mirrors are
+        # unreachable (DNS outages on the runner) that fails before any test
+        # runs. The runner image already has Chromium's system libraries, so
+        # fall back to installing just the browser.
+        timeout-minutes: 6
+        run: |
+          timeout 300 npx playwright install --with-deps chromium \
+            || { echo "::warning::apt deps unavailable; installing Chromium only"; npx playwright install chromium; }
 
       - name: Demo smoke tests
         run: npm run test:e2e
