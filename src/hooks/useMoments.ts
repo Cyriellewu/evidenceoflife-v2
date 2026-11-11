@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { findDuplicateSessionMoment } from '@/lib/focusTimer';
 import { Moment, DayRecord, MomentLinkPreview } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
@@ -212,19 +213,10 @@ export function useMoments() {
 
   const addMoment = useCallback(async (moment: Omit<Moment, 'id' | 'createdAt'>) => {
     if (!user) return;
-    // A focus session is one moment. Several stop paths can log the same
-    // session (e.g. a stale running copy stopped again), so skip it when a
-    // moment for the same task and start time already exists.
-    const sessionTag = moment.tags?.find(tag => tag.startsWith('todo-session:'));
-    if (sessionTag && moment.timer_started_at) {
-      const startMs = new Date(moment.timer_started_at).getTime();
-      const existing = momentsRef.current.find(m =>
-        m.tags?.includes(sessionTag) &&
-        !!m.timer_started_at &&
-        new Date(m.timer_started_at).getTime() === startMs,
-      );
-      if (existing) return existing;
-    }
+    // One focus session = one moment (see src/lib/focusTimer.ts). Several stop
+    // paths can log the same session, so reuse the saved one.
+    const existingSession = findDuplicateSessionMoment(momentsRef.current, moment);
+    if (existingSession) return existingSession;
     const addKey = JSON.stringify([
       moment.date,
       moment.text || '',

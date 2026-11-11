@@ -20,4 +20,11 @@ describe('computeDrift focus total', () => {
     const r = computeDrift([], [], [moment({ timer_started_at: at(0, 10), timer_ended_at: at(0, 40), timer_seconds: 1800 })], today);
     expect(r.totalActiveMin).toBe(30);
   });
+
+  it('counts a running moment timer (timer_seconds 0) up to now on today', () => {
+    const start = new Date(Date.now() - 20 * 60_000);
+    if (start.toDateString() !== new Date().toDateString()) return; // just after midnight: not today
+    const r = computeDrift([], [], [moment({ timer_started_at: start.toISOString(), timer_ended_at: null, timer_seconds: 0 })], today);
+    expect(r.totalActiveMin).toBeGreaterThanOrEqual(19);
+  });
 });

@@ -230,7 +230,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     });
     // Persist timer start immediately
     if (onEditMoment) {
-      onEditMoment(moment.id, { timer_started_at: startISO } as Partial<Moment>);
+      // timer_seconds 0 marks "running" (a time-pinned note has null); see isMomentTimerRunning.
+      onEditMoment(moment.id, { timer_started_at: startISO, timer_ended_at: null, timer_seconds: 0 } as Partial<Moment>);
     }
     if (!isDemo) trackEvent('timer_started', { source: 'moment' });
   };

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Todo } from '@/hooks/useTodos';
+import { patchTodoList } from '@/lib/focusTimer';
 
 /** Read-only fetch of a single day's todos, with NO rollover side effects.
  *  Used to surface the previous day's cross-midnight sessions as early-morning
@@ -38,7 +39,7 @@ export function usePrevDayTodos(dateStr: string | undefined): {
   }, [user, isDemo, authReady, dateStr]);
 
   const patch = useCallback((id: string, updates: Partial<Todo>) => {
-    setTodos(prev => (prev.some(t => t.id === id) ? prev.map(t => (t.id === id ? { ...t, ...updates } : t)) : prev));
+    setTodos(prev => patchTodoList(prev, id, updates));
   }, []);
 
   return { todos, patch };

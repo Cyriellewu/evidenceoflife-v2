@@ -19,10 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { showUndoToast } from '@/lib/undoToast';
 import { toast } from 'sonner';
-import { partitionRunningTimers } from '@/lib/staleTimers';
-
-/** A focus timer running this long was left on by mistake; see the guard in PlanView. */
-const AUTO_STOP_TIMER_HOURS = 8;
+import { AUTO_STOP_TIMER_HOURS, planAutoStop } from '@/lib/focusTimer';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -1482,6 +1479,7 @@ export function PlanView({
   const getElapsedRef = useRef<(todo: Todo) => number>(() => 0);
   const getCurrentSessionElapsedRef = useRef<(todo: Todo) => number>(() => 0);
   const clearFreshTimerStartRef = useRef<(todoId: string) => void>(() => {});
+  const clearPauseStateRef = useRef<(todoId: string) => void>(() => {});
   const planTags = orderedPlanTags.map(key => {
     const def = defaultPlanTags.find(d => d.key === key);
     return def ? tLang(key) : key;
@@ -1575,11 +1573,8 @@ export function PlanView({
       updates.timer_ended_at = new Date().toISOString();
       updates.timer_seconds = getElapsedRef.current(todo);
       clearFreshTimerStartRef.current(todo.id);
-      setPausedTimers(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      // Clears the persisted pause state too, not just the paused flag.
+      clearPauseStateRef.current(todo.id);
       setShowOverlayForId(prev => prev === id ? null : prev);
     } else if (newCompleted && todo.plan_started_at && !todo.timer_started_at) {
       // Plan-only completion — treat plan time as actual so Doing view matches Plan view
@@ -1593,8 +1588,9 @@ export function PlanView({
       Object.assign(updates, getAutoDoneTimerUpdates(todo));
     }
 
-    await rawUpdateTodo(id, updates);
-    onTodosChanged?.();
+    // The shared write path (not rawUpdateTodo): it updates Index's lists and
+    // yesterday's cross-midnight copy, so a timer stopped here can't live on.
+    await updateTodo(id, updates);
 
     // Only offer undo when we're marking Done (accidental clicks); reverting
     // to open state is already trivial (re-click the circle).
@@ -1604,7 +1600,7 @@ export function PlanView({
         previous: previousSnapshot,
       });
     }
-  }, [todos, pastDayOpenTodos, rawUpdateTodo, onTodosChanged, showDoneUndo]);
+  }, [todos, pastDayOpenTodos, updateTodo, showDoneUndo]);
 
   const handleToggleRecurring = useCallback(async (todoId: string, next: boolean) => {
     await (toggleRecurringProp ?? toggleRecurring)(todoId, next);
@@ -1970,6 +1966,7 @@ export function PlanView({
     });
   }, []);
   clearFreshTimerStartRef.current = clearFreshTimerStart;
+  clearPauseStateRef.current = clearPauseState;
 
   // The floating timer lives WITHIN the timeline column, not the whole viewport
   // (the logged-in layout has a chat panel on the right). Bound dragging/snapping
@@ -2245,46 +2242,8 @@ export function PlanView({
     setShowOverlayForId(todoId);
   };
 
-  const handleTogglePause = (todoId: string) => {
-    setPausedTimers(prev => {
-      const next = new Set(prev);
-      if (next.has(todoId)) next.delete(todoId);
-      else next.add(todoId);
-      return next;
-    });
-  };
 
-  const handleStopTimer = async (todoId: string) => {
-    const todo = todos.find(t => t.id === todoId) ?? (prevDayTodos || []).find(t => t.id === todoId);
-    if (!todo?.timer_started_at) return;
 
-    const elapsed = getElapsed(todo);
-    const isDueChild = Boolean(todo.parent_due_id);
-    const nextProgress = isDueChild ? Math.max(0, Math.min(100, todo.progress || 0)) : 100;
-    const nextCompleted = isDueChild ? nextProgress >= 100 : true;
-
-    await updateTodo(todoId, {
-      timer_ended_at: new Date().toISOString(),
-      timer_seconds: elapsed,
-      progress: nextProgress,
-      is_completed: nextCompleted,
-    });
-
-    if (isDueChild) {
-      await supabase.from('todos').update({ progress: nextProgress, is_completed: nextProgress >= 100 }).eq('id', todo.parent_due_id!);
-    }
-
-    clearPauseState(todoId);
-    clearFreshTimerStart(todoId);
-    setShowOverlayForId(null);
-  };
-
-  const handleCancelTimer = (todoId: string) => {
-    updateTodo(todoId, { timer_started_at: null, timer_ended_at: null });
-    clearPauseState(todoId);
-    clearFreshTimerStart(todoId);
-    setShowOverlayForId(null);
-  };
 
   const handleToggleWithProgress = async (todo: Todo) => {
     const next = todo.is_completed ? 0 : 100;
@@ -2627,41 +2586,40 @@ export function PlanView({
   }, [getInheritedPlanActualRange, onAddMoment]);
 
   // Forgotten-timer guard: a focus timer running 8h+ was almost certainly left
-  // on. Stop it at start + 8h (never more than 8h of focus), log that session
-  // once, keep the task open, and say so. Runs on load and once a minute, so it
-  // also catches a timer left running while the app was closed.
+  // on. planAutoStop (src/lib/focusTimer.ts) closes the session at the last
+  // real work (the pause, if paused) with at most 8h of work. It is stored the
+  // same way as "Save and continue": one session moment, the total banked on
+  // the task, the task left open. Runs on load and every minute, so a timer
+  // left on while the app was closed is caught the next time it opens.
   const autoStoppedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (isDemo) return;
     const check = () => {
       const now = Date.now();
-      const { toStop } = partitionRunningTimers(activeTimerTodos, now, AUTO_STOP_TIMER_HOURS);
-      for (const id of toStop) {
-        if (autoStoppedRef.current.has(id)) continue;
-        const todo = activeTimerTodos.find(t => t.id === id);
-        if (!todo?.timer_started_at) continue;
-        autoStoppedRef.current.add(id);
-        const startMs = new Date(todo.timer_started_at).getTime();
-        const capSec = AUTO_STOP_TIMER_HOURS * 3600;
-        const endMs = Number.isFinite(startMs) ? startMs + capSec * 1000 : now;
-        const endISO = new Date(Math.min(endMs, now)).toISOString();
-        const sessionSec = Math.min(capSec, Math.max(0, getCurrentSessionElapsedRef.current(todo)));
+      for (const todo of activeTimerTodos) {
+        if (autoStoppedRef.current.has(todo.id)) continue;
+        const snap = withFreshTimerStart(todo);
+        const plan = planAutoStop(snap, pauseStatesRef.current.get(todo.id), now);
+        if (!plan) continue;
+        autoStoppedRef.current.add(todo.id);
+        setPendingStopIds(prev => new Set([...prev, todo.id]));
+        clearPauseState(todo.id);
+        clearFreshTimerStart(todo.id);
+        setShowOverlayForId(prev => (prev === todo.id ? null : prev));
         void (async () => {
-          await updateTodo(id, {
-            timer_ended_at: endISO,
-            timer_seconds: Math.max(0, todo.timer_seconds || 0) + sessionSec,
+          await logFocusSessionMoment(snap, plan.sessionSec, plan.endISO);
+          await updateTodo(todo.id, {
+            timer_started_at: null,
+            timer_ended_at: plan.endISO,
+            timer_seconds: plan.totalSec,
           });
-          await logFocusSessionMoment(todo, sessionSec, endISO);
-          clearPauseState(id);
-          clearFreshTimerStart(id);
-          setShowOverlayForId(prev => (prev === id ? null : prev));
-          const loggedH = Math.floor(sessionSec / 3600);
-          const loggedM = Math.floor((sessionSec % 3600) / 60);
-          const logged = loggedH > 0 ? `${loggedH}h ${loggedM}m` : `${loggedM}m`;
+          const h = Math.floor(plan.sessionSec / 3600);
+          const m = Math.floor((plan.sessionSec % 3600) / 60);
+          const logged = h > 0 ? `${h}h ${m}m` : `${m}m`;
           toast(
             lang === 'zh'
-              ? `「${todo.title}」计时超过 ${AUTO_STOP_TIMER_HOURS} 小时，已自动停止，记了 ${logged}。可以在时间轴上拖动调整。`
-              : `"${todo.title}" ran over ${AUTO_STOP_TIMER_HOURS}h, so it was stopped and logged as ${logged}. Drag it on the timeline to adjust.`,
+              ? `「${todo.title}」的计时开了超过 ${AUTO_STOP_TIMER_HOURS} 小时，已自动停止，记了 ${logged}。可以在时间轴上调整。`
+              : `"${todo.title}" was left running over ${AUTO_STOP_TIMER_HOURS}h. It was stopped and logged as ${logged}; adjust it on the timeline.`,
             { duration: 10000 },
           );
         })();
@@ -2670,7 +2628,7 @@ export function PlanView({
     check();
     const id = window.setInterval(check, 60_000);
     return () => window.clearInterval(id);
-  }, [activeTimerTodos, isDemo, lang, updateTodo, logFocusSessionMoment, clearPauseState, clearFreshTimerStart]);
+  }, [activeTimerTodos, isDemo, lang, updateTodo, logFocusSessionMoment, clearPauseState, clearFreshTimerStart, withFreshTimerStart]);
 
   // Record a just-ended STEP timer session as a focus-session moment tagged to
   // the parent todo. This is what makes finished step work persist on the
@@ -2832,8 +2790,6 @@ export function PlanView({
   const overlayTodo = showOverlayForId
     ? (todos.find(t => t.id === showOverlayForId) ?? (prevDayTodos || []).find(t => t.id === showOverlayForId))
     : null;
-  const floatingTimers = activeTimerTodos.filter(t => t.id !== showOverlayForId)
-    .map(t => ({ id: t.id, title: t.title, elapsed: getElapsed(t), isPaused: pausedTimers.has(t.id) }));
   const uploadCapturePhoto = useCallback(async (file: File): Promise<string | null> => {
     if (!user || file.size > MAX_PHOTO_PICK_BYTES) return null;
     const { uploadMomentPhotoObject } = await import('@/lib/momentPhotos');

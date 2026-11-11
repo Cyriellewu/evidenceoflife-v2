@@ -29,6 +29,7 @@ import { VoiceInputSheet } from '@/components/VoiceInputSheet';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useMoments } from '@/hooks/useMoments';
 import { useTodos, type Todo } from '@/hooks/useTodos';
+import { buildSessionMomentDraft } from '@/lib/focusTimer';
 import { usePrevDayTodos } from '@/hooks/usePrevDayTodos';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
 import { useProfile } from '@/hooks/useProfile';
@@ -699,15 +700,9 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               let createdMomentId: string | null = null;
               try {
                 if (finalProgress < 100 && focusTodo.timer_started_at && workingSec > 0) {
-                  const created = await handleAddMoment({
-                    text: focusTodo.title,
-                    emoji: extractLeadingEmoji(focusTodo.title),
-                    photos: [],
-                    tags: ['focus-session', `todo-session:${focusTodo.id}`, ...(focusTodo.tags || [])],
-                    timer_started_at: focusTodo.timer_started_at,
-                    timer_ended_at: endedAtISO,
-                    timer_seconds: workingSec,
-                  });
+                  const created = await handleAddMoment(
+                    buildSessionMomentDraft(focusTodo, focusTodo.timer_started_at, endedAtISO, workingSec, extractLeadingEmoji(focusTodo.title)),
+                  );
                   createdMomentId = created?.id ?? null;
                 }
                 await updateTodo(focusTodo.id, {
@@ -742,15 +737,9 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               try {
                 let createdMomentId: string | null = null;
                 if (snap.timer_started_at && workingSec > 0) {
-                  const created = await handleAddMoment({
-                    text: snap.title,
-                    emoji: extractLeadingEmoji(snap.title),
-                    photos: [],
-                    tags: ['focus-session', `todo-session:${snap.id}`, ...(snap.tags || [])],
-                    timer_started_at: snap.timer_started_at,
-                    timer_ended_at: endedAtISO,
-                    timer_seconds: workingSec,
-                  });
+                  const created = await handleAddMoment(
+                    buildSessionMomentDraft(snap, snap.timer_started_at, endedAtISO, workingSec, extractLeadingEmoji(snap.title)),
+                  );
                   createdMomentId = created?.id ?? null;
                 }
                 await updateTodo(snap.id, {
