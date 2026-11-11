@@ -441,16 +441,16 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
         {(() => {
           const titleNav = (compact: boolean) => (
             <div className="flex min-w-0 items-center gap-1">
-              <button onClick={navigateBack} aria-label="Previous" className={cn('flex-shrink-0 hover:bg-secondary rounded-full transition-colors', compact ? 'p-1' : 'p-2')}>
+              <button onClick={navigateBack} aria-label="Previous" className={cn('flex-shrink-0 hover:bg-secondary rounded-full transition-colors', compact ? 'p-1' : 'p-1.5')}>
                 <ChevronLeft size={compact ? 18 : 20} />
               </button>
               <h1 className={cn(
                 'min-w-0 truncate text-center whitespace-nowrap leading-none font-semibold tracking-tight',
-                compact ? 'text-[17px] tracking-[-0.02em]' : 'text-[24px] font-display',
+                compact ? 'text-[17px] tracking-[-0.02em]' : 'text-[20px] font-display',
               )}>
                 {getHeaderTitle()}
               </h1>
-              <button onClick={navigateForward} aria-label="Next" className={cn('flex-shrink-0 hover:bg-secondary rounded-full transition-colors', compact ? 'p-1' : 'p-2')}>
+              <button onClick={navigateForward} aria-label="Next" className={cn('flex-shrink-0 hover:bg-secondary rounded-full transition-colors', compact ? 'p-1' : 'p-1.5')}>
                 <ChevronRight size={compact ? 18 : 20} />
               </button>
             </div>
@@ -498,7 +498,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
             <>
               {/* One row: title, view switcher, tools. Two stacked rows ate a
                   sixth of the screen before any calendar showed. */}
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5 lg:mx-auto lg:max-w-[1480px] lg:px-8">
+              <div className="flex items-center justify-between gap-3 px-4 py-1.5 lg:mx-auto lg:max-w-[1480px] lg:px-8">
                 {titleNav(false)}
                 <div className="flex items-center gap-2">
                   {switcher}
@@ -522,13 +522,13 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                   <button
                     key={format(day, 'yyyy-MM-dd')}
                     onClick={() => { setCurrentDate(day); setViewMode('day'); }}
-                    className="flex-1 flex flex-col items-center py-2 hover:bg-secondary/30 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1 hover:bg-secondary/30 transition-colors"
                   >
                     <span className="text-[13px] font-medium text-muted-foreground">
                       {lang === 'zh' ? WEEKDAYS_CN[day.getDay()] : format(day, 'EEE')}
                     </span>
                     <span className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center text-[17px] font-semibold mt-0.5',
+                      'w-7 h-7 rounded-full flex items-center justify-center text-[15px] font-semibold',
                       dayIsToday && 'bg-primary text-primary-foreground',
                     )}>
                       {format(day, 'd')}
