@@ -20,6 +20,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import { showUndoToast } from '@/lib/undoToast';
 import { toast } from 'sonner';
 import { AUTO_STOP_TIMER_HOURS, planAutoStop } from '@/lib/focusTimer';
+import { onPauseChange, pauseStates as sharedPauseStates, savePauseStates } from '@/lib/pauseStore';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -1687,19 +1688,10 @@ export function PlanView({
     return () => window.removeEventListener('plan-list-mode-change', handleListModeChange);
   }, []);
 
-  const [_initPauseStates] = useState<Map<string, { pausedAt: number | null; totalPausedMs: number }>>(() => {
-    try {
-      const raw = localStorage.getItem('plan-pause-states');
-      if (raw) {
-        const obj = JSON.parse(raw) as Record<string, { pausedAt: number | null; totalPausedMs: number }>;
-        return new Map(Object.entries(obj));
-      }
-    } catch {
-      // Ignore malformed persisted pause state and fall back to defaults.
-    }
-    return new Map();
-  });
-  const pauseStatesRef = useRef(_initPauseStates);
+  // The shared pause store (src/lib/pauseStore.ts) — the same Map the global
+  // focus overlay in Index uses, so a pause made in either place is seen here.
+  const _initPauseStates = sharedPauseStates;
+  const pauseStatesRef = useRef(sharedPauseStates);
   const [pausedTimers, setPausedTimers] = useState<Set<string>>(() => {
     const s = new Set<string>();
     _initPauseStates.forEach((v, k) => { if (v.pausedAt !== null) s.add(k); });
@@ -1936,15 +1928,17 @@ export function PlanView({
   getElapsedRef.current = getElapsed;
   getCurrentSessionElapsedRef.current = getCurrentSessionElapsed;
 
-  const savePauseStatesToStorage = useCallback(() => {
-    try {
-      const obj: Record<string, { pausedAt: number | null; totalPausedMs: number }> = {};
-      pauseStatesRef.current.forEach((v, k) => { obj[k] = v; });
-      localStorage.setItem('plan-pause-states', JSON.stringify(obj));
-    } catch {
-      // Ignore storage failures in private mode.
-    }
-  }, []);
+  const savePauseStatesToStorage = useCallback(() => { savePauseStates(); }, []);
+  // A pause or resume from the global focus overlay (Index) updates the same
+  // store; reflect it here.
+  useEffect(() => onPauseChange(() => {
+    setPausedTimers(prev => {
+      const next = new Set<string>();
+      sharedPauseStates.forEach((v, k) => { if (v.pausedAt !== null) next.add(k); });
+      return next.size === prev.size && [...next].every(id => prev.has(id)) ? prev : next;
+    });
+    setPauseStateVersion(v => v + 1);
+  }), []);
 
   const clearPauseState = useCallback((todoId: string) => {
     pauseStatesRef.current.delete(todoId);
