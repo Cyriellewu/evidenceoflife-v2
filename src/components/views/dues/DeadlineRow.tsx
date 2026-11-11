@@ -12,12 +12,15 @@ export function DeadlineRow({
   expanded,
   onToggleExpand,
   onComplete,
+  completed = false,
 }: {
   due: DueWithStats;
   lang: string;
   expanded: boolean;
   onToggleExpand: () => void;
+  /** Marks done, or — for a completed row — brings it back. */
   onComplete: () => void;
+  completed?: boolean;
 }) {
   const { emoji, tone } = pickDeadlineIcon(due.title);
   const info = due.due_date ? describeDeadline(due.due_date, lang) : null;
@@ -32,13 +35,13 @@ export function DeadlineRow({
         aria-expanded={expanded}
         className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span aria-hidden className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[19px]', DEADLINE_TONES[tone])}>
+        <span aria-hidden className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[19px]', DEADLINE_TONES[tone], completed && 'opacity-50')}>
           {emoji}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15.5px] font-bold text-foreground">{due.title}</span>
-          <span className={cn('block truncate text-[13px] font-semibold', info?.urgent ? 'text-[hsl(var(--deadline))]' : 'text-muted-foreground')}>
-            {info ? info.text : (lang === 'zh' ? '没有日期' : 'No date')}
+          <span className={cn('block truncate text-[15px] font-semibold', completed ? 'text-muted-foreground line-through decoration-muted-foreground/50' : 'text-foreground')}>{due.title}</span>
+          <span className={cn('block truncate text-[13px]', !completed && info?.urgent ? 'text-[hsl(var(--deadline))]' : 'text-muted-foreground')}>
+            {completed ? (lang === 'zh' ? '已完成' : 'Done') : info ? info.text : (lang === 'zh' ? '没有日期' : 'No date')}
             {steps > 0 && <span className="text-muted-foreground"> · {stepsDone}/{steps}</span>}
           </span>
         </span>
@@ -46,10 +49,16 @@ export function DeadlineRow({
       <button
         type="button"
         onClick={onComplete}
-        aria-label={lang === 'zh' ? `完成「${due.title}」` : `Complete “${due.title}”`}
+        aria-label={completed
+          ? (lang === 'zh' ? `把「${due.title}」标为未完成` : `Mark “${due.title}” not done`)
+          : (lang === 'zh' ? `完成「${due.title}」` : `Complete “${due.title}”`)}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="h-[22px] w-[22px] rounded-full border-2 border-muted-foreground/35 transition-colors hover:border-[hsl(var(--deadline))]" />
+        {completed ? (
+          <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[hsl(var(--habit))] text-[12px] font-bold text-background">✓</span>
+        ) : (
+          <span className="h-[22px] w-[22px] rounded-full border-2 border-muted-foreground/35 transition-colors hover:border-[hsl(var(--deadline))]" />
+        )}
       </button>
     </div>
   );

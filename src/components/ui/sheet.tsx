@@ -95,7 +95,9 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
               {expanded ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
             </button>
           )}
-          <SheetPrimitive.Close className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background/88 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/65 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+          {/* Desktop closes by clicking outside or Esc, so the × only shows on
+              phones, where the sheet is full width and there is no outside. */}
+          <SheetPrimitive.Close className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background/88 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/65 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none sm:hidden">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>

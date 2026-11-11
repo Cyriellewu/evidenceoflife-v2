@@ -449,7 +449,8 @@ export function DuesView({
     ? (isDeadlineMode ? activeDeadlines.length : activeHabits.length)
     : activeDues.length;
   const hasFutureCommitments = visibleActiveCount > 0;
-  const completedIsCollapsed = completedCollapsed ?? hasFutureCommitments;
+  // Finished items are history: start folded, whatever else is on the list.
+  const completedIsCollapsed = completedCollapsed ?? true;
   const viewTitle = lockedMode ? (isDeadlineMode ? 'Deadlines' : 'Habits') : 'Commitments';
 
   const noDateDeadlines = activeDeadlines.filter(d => !d.due_date);
@@ -462,11 +463,6 @@ export function DuesView({
       .map(key => ({ key, label: labels[key], items: sorted.filter(d => deadlineBucket(d.due_date) === key) }))
       .filter(g => g.items.length > 0);
   })();
-  const deadlineStats = {
-    today: activeDeadlines.filter(d => deadlineBucket(d.due_date) === 'today').length,
-    week: activeDeadlines.filter(d => deadlineBucket(d.due_date) === 'week').length,
-    done: completedDues.length,
-  };
 
   const todayUrgent = activeDeadlines.filter(d => {
     if (!d.due_date) return false;
@@ -565,21 +561,6 @@ export function DuesView({
           {lang === 'zh' ? `已添加「${lastAdded.title}」` : `Added “${lastAdded.title}”`}
           {lastAdded.due ? ` · ${format(parseISO(lastAdded.due), lang === 'zh' ? 'M月d日 HH:mm' : 'EEE MMM d, HH:mm')}` : (lang === 'zh' ? ' · 无日期' : ' · no date')}
         </p>
-      )}
-
-      {isDeadlineMode && lockedMode && (deadlineStats.today + deadlineStats.week + deadlineStats.done > 0) && (
-        <div className="mb-5 grid grid-cols-3 gap-2.5">
-          {[
-            { n: deadlineStats.today, label: lang === 'zh' ? '今天到期' : 'Due today', cls: deadlineStats.today ? 'text-[hsl(var(--deadline))]' : 'text-foreground' },
-            { n: deadlineStats.week, label: lang === 'zh' ? '本周' : 'This week', cls: 'text-foreground' },
-            { n: deadlineStats.done, label: lang === 'zh' ? '已完成' : 'Done', cls: 'text-[hsl(var(--habit))]' },
-          ].map(stat => (
-            <div key={stat.label} className="rounded-2xl bg-card px-3.5 py-3 ring-1 ring-border/50">
-              <p className={cn('text-[24px] font-black leading-none', stat.cls)}>{stat.n}</p>
-              <p className="mt-1.5 text-[12px] font-semibold text-muted-foreground">{stat.label}</p>
-            </div>
-          ))}
-        </div>
       )}
 
       {!hasFutureCommitments && lockedMode && !lastAdded && (
@@ -840,9 +821,9 @@ export function DuesView({
           <div className="min-w-0">
           {deadlineGroups.map(group => (
             <section key={group.key} className="mb-5">
-              <h3 className="mb-2 flex items-baseline gap-2 px-1 text-[17px] font-extrabold text-foreground">
+              <h3 className="mb-2 flex items-baseline gap-2 px-1 text-[17px] font-semibold text-foreground">
                 {group.label}
-                <span className="text-[13px] font-semibold text-muted-foreground">{group.items.length}</span>
+                <span className="text-[13px] font-normal text-muted-foreground">{group.items.length}</span>
               </h3>
               <div className="divide-y divide-border/60 overflow-hidden rounded-[18px] bg-card shadow-[0_1px_2px_hsl(var(--foreground)/0.04)] ring-1 ring-border/50">
                 {group.items.map(due => (
@@ -946,18 +927,32 @@ export function DuesView({
       {completedDues.length > 0 && (
         <div className="mb-8">
           <button onClick={() => setCompletedCollapsed(!completedIsCollapsed)}
-            className="w-full flex items-center justify-between text-[13px] font-medium text-muted-foreground mb-3 hover:text-foreground transition-colors" >
-            <span>{t('dues.completed')} ({completedDues.length})</span>
+            className="mb-2 flex w-full items-center justify-between px-1 text-[15px] font-semibold text-muted-foreground transition-colors hover:text-foreground" >
+            <span>{t('dues.completed')} <span className="font-normal">{completedDues.length}</span></span>
             {completedIsCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>
           {!completedIsCollapsed && (
-            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
+            <div className="divide-y divide-border/60 overflow-hidden rounded-[18px] bg-card ring-1 ring-border/50">
               {completedDues.map(due => (
-                <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
-                  onAddToToday={handleAddToToday} justAdded={false}
-                  dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
-                  onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
-                  onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
+                <div key={due.id}>
+                  <DeadlineRow
+                    due={due}
+                    lang={lang}
+                    completed
+                    expanded={expandedDeadlineId === due.id}
+                    onToggleExpand={() => setExpandedDeadlineId(expandedDeadlineId === due.id ? null : due.id)}
+                    onComplete={() => { void updateDue(due.id, { is_completed: false }); }}
+                  />
+                  {expandedDeadlineId === due.id && (
+                    <div className="px-2 pb-2">
+                      <DueCard due={due} onUpdate={updateDue} onDelete={deleteDue}
+                        onAddToToday={handleAddToToday} justAdded={false}
+                        dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder} onToggleReminder={toggleReminder}
+                        onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
+                        onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

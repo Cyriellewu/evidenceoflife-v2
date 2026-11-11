@@ -37,3 +37,10 @@ describe('parseQuickDue (en)', () => {
     expect(q('monitor the sunflower')).toMatchObject({ date: null });
   });
 });
+
+describe('parseQuickDue title cleanup', () => {
+  it('drops a trailing "by"/"due"/"on" left behind by the date', () => {
+    expect(parseQuickDue('renew passport by Dec 1')?.title).toBe('renew passport');
+    expect(parseQuickDue('essay due friday')?.title).toBe('essay');
+  });
+});
