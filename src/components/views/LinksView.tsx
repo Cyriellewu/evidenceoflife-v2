@@ -516,7 +516,7 @@ export function LinksView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
     else { addGroup(trimmed); setDraft(''); }
   }, [draft, createGroupFromUrl, addGroup]);
 
-  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLElement>) => {
     const text = e.clipboardData.getData('text');
     if (isUrl(text)) { e.preventDefault(); void createGroupFromUrl(normalizeUrl(text.trim())!); return; }
     const imgItem = Array.from(e.clipboardData.items).find(item => item.type.startsWith('image/'));
