@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { findDuplicateSessionMoment } from '@/lib/focusTimer';
 import { Moment, DayRecord, MomentLinkPreview } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
@@ -158,6 +159,8 @@ function buildDemoMoments(): Moment[] {
 export function useMoments() {
   const { user, isDemo, authReady } = useAuth();
   const [moments, setMoments] = useState<Moment[]>([]);
+  const momentsRef = useRef<Moment[]>([]);
+  momentsRef.current = moments;
   const allLocations = useMemo(() => moments.filter(m => m.location), [moments]);
   const [loading, setLoading] = useState(true);
   const pendingAddsRef = useRef(new Set<string>());
@@ -210,6 +213,10 @@ export function useMoments() {
 
   const addMoment = useCallback(async (moment: Omit<Moment, 'id' | 'createdAt'>) => {
     if (!user) return;
+    // One focus session = one moment (see src/lib/focusTimer.ts). Several stop
+    // paths can log the same session, so reuse the saved one.
+    const existingSession = findDuplicateSessionMoment(momentsRef.current, moment);
+    if (existingSession) return existingSession;
     const addKey = JSON.stringify([
       moment.date,
       moment.text || '',

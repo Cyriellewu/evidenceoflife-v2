@@ -28,7 +28,8 @@ import { LinksView } from '@/components/views/LinksView';
 import { VoiceInputSheet } from '@/components/VoiceInputSheet';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useMoments } from '@/hooks/useMoments';
-import { useTodos } from '@/hooks/useTodos';
+import { useTodos, type Todo } from '@/hooks/useTodos';
+import { buildSessionMomentDraft } from '@/lib/focusTimer';
 import { usePrevDayTodos } from '@/hooks/usePrevDayTodos';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
 import { useProfile } from '@/hooks/useProfile';
@@ -223,8 +224,15 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   } = useMoments();
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const prevDateStr = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
-  const { todos, pastDayOpenTodos, updateTodo, addTodo, deleteTodo, toggleRecurring, refetch: refetchTodos } = useTodos(selectedDateStr);
-  const prevDayTodos = usePrevDayTodos(prevDateStr);
+  const { todos, pastDayOpenTodos, updateTodo: updateTodoBase, addTodo, deleteTodo, toggleRecurring, refetch: refetchTodos } = useTodos(selectedDateStr);
+  const { todos: prevDayTodos, patch: patchPrevDayTodo } = usePrevDayTodos(prevDateStr);
+  // Yesterday's todos are a separate read-only copy (cross-midnight tails). A
+  // timer stopped while viewing today must stop there too, or the stale copy
+  // keeps a "running" timer alive: a pill counting to 26h that can't be stopped.
+  const updateTodo = useCallback(async (id: string, updates: Partial<Todo>) => {
+    await updateTodoBase(id, updates);
+    patchPrevDayTodo(id, updates);
+  }, [updateTodoBase, patchPrevDayTodo]);
   const { events: importedEvents, updateEvent: updateImportedEvent } = useImportedEvents();
   const { profile } = useProfile();
   const { addDue, dues } = useDues();
@@ -712,15 +720,9 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               let createdMomentId: string | null = null;
               try {
                 if (finalProgress < 100 && focusTodo.timer_started_at && workingSec > 0) {
-                  const created = await handleAddMoment({
-                    text: focusTodo.title,
-                    emoji: extractLeadingEmoji(focusTodo.title),
-                    photos: [],
-                    tags: ['focus-session', `todo-session:${focusTodo.id}`, ...(focusTodo.tags || [])],
-                    timer_started_at: focusTodo.timer_started_at,
-                    timer_ended_at: endedAtISO,
-                    timer_seconds: workingSec,
-                  });
+                  const created = await handleAddMoment(
+                    buildSessionMomentDraft(focusTodo, focusTodo.timer_started_at, endedAtISO, workingSec, extractLeadingEmoji(focusTodo.title)),
+                  );
                   createdMomentId = created?.id ?? null;
                 }
                 await updateTodo(focusTodo.id, {
@@ -755,15 +757,9 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               try {
                 let createdMomentId: string | null = null;
                 if (snap.timer_started_at && workingSec > 0) {
-                  const created = await handleAddMoment({
-                    text: snap.title,
-                    emoji: extractLeadingEmoji(snap.title),
-                    photos: [],
-                    tags: ['focus-session', `todo-session:${snap.id}`, ...(snap.tags || [])],
-                    timer_started_at: snap.timer_started_at,
-                    timer_ended_at: endedAtISO,
-                    timer_seconds: workingSec,
-                  });
+                  const created = await handleAddMoment(
+                    buildSessionMomentDraft(snap, snap.timer_started_at, endedAtISO, workingSec, extractLeadingEmoji(snap.title)),
+                  );
                   createdMomentId = created?.id ?? null;
                 }
                 await updateTodo(snap.id, {
