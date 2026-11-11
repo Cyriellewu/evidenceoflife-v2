@@ -1,6 +1,6 @@
-import { KeyboardEvent, ReactNode, forwardRef } from 'react';
-import { ArrowUp } from 'lucide-react';
-import { cn, isEnterSubmit } from '@/lib/utils';
+import { ClipboardEvent, ReactNode, forwardRef } from 'react';
+import { cn } from '@/lib/utils';
+import { Composer } from '@/components/composer/Composer';
 
 interface SheetComposerProps {
   value: string;
@@ -17,7 +17,7 @@ interface SheetComposerProps {
   attachments?: ReactNode;
   disabled?: boolean;
   loading?: boolean;
-  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  onPaste?: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
   /** Optional className for the outer wrapper. */
   className?: string;
 }
@@ -31,7 +31,7 @@ interface SheetComposerProps {
  * date row, attachment chips) compose without each sheet inventing its own
  * shape.
  */
-export const SheetComposer = forwardRef<HTMLInputElement, SheetComposerProps>(function SheetComposer(
+export const SheetComposer = forwardRef<HTMLTextAreaElement, SheetComposerProps>(function SheetComposer(
   {
     value,
     onChange,
@@ -48,55 +48,27 @@ export const SheetComposer = forwardRef<HTMLInputElement, SheetComposerProps>(fu
   },
   inputRef,
 ) {
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (isEnterSubmit(e) && value.trim() && !loading && !disabled) {
-      e.preventDefault();
-      onSubmit();
-    }
-  };
-
+  // Same composer as everywhere else (src/components/composer/Composer.tsx).
   return (
-    <div
+    <Composer
+      value={value}
+      onChange={onChange}
+      onSubmit={onSubmit}
+      placeholder={placeholder}
+      leading={leading}
+      trailing={trailing}
+      attachments={attachments}
+      expand={expand}
+      disabled={disabled}
+      loading={loading}
+      onPaste={onPaste}
+      textareaRef={inputRef}
+      sendLabel="Submit"
       className={cn(
-        'sticky bottom-2 z-40 mx-auto w-full max-w-[720px] mb-[env(safe-area-inset-bottom)]',
+        'sticky bottom-2 z-40 mx-auto max-w-[720px] mb-[env(safe-area-inset-bottom)]',
         className,
       )}
-    >
-      <div className="overflow-hidden rounded-[22px] border border-border/60 bg-card shadow-[0_10px_30px_-12px_hsl(var(--foreground)/0.16)]">
-        {attachments && <div className="px-3.5 pt-3">{attachments}</div>}
-        <div className="flex items-center gap-2 px-2.5 py-2">
-          {leading && <div className="flex-shrink-0">{leading}</div>}
-          <div className="flex min-h-[36px] min-w-0 flex-1 items-center gap-1.5 rounded-full bg-[hsl(var(--surface-soft))] px-3.5">
-            <input
-              ref={inputRef}
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onPaste={onPaste}
-              placeholder={placeholder}
-              disabled={disabled}
-              className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-foreground placeholder:text-muted-foreground/55 focus:outline-none disabled:opacity-50"
-            />
-            {trailing && <div className="flex flex-shrink-0 items-center gap-1">{trailing}</div>}
-          </div>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={!value.trim() || disabled || loading}
-            aria-label="Submit"
-            className={cn(
-              'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all',
-              'shadow-[0_2px_6px_hsl(var(--primary)/0.35)] hover:shadow-[0_3px_10px_hsl(var(--primary)/0.45)]',
-              'disabled:opacity-30 disabled:shadow-none',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            )}
-          >
-            <ArrowUp size={16} strokeWidth={2.4} />
-          </button>
-        </div>
-        {expand && <div className="border-t border-border/45 px-2.5 py-2">{expand}</div>}
-      </div>
-    </div>
+    />
   );
 });
 
