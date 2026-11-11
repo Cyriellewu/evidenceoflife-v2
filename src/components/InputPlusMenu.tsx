@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Plus, MapPin, Bell, X, Image, Clock, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ComposerPlusMenu } from '@/components/composer/ComposerPlusMenu';
 import { EmojiGrid } from '@/components/today/EmojiGrid';
 import { LocationPopover } from '@/components/LocationPopover';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -121,20 +121,12 @@ export function InputPlusMenu({
   };
 
   return (
-    <Popover open={menuOpen} onOpenChange={(open) => { setMenuOpen(open); if (open) setActivePanel('main'); }}>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
-            (selectedEmoji || selectedLocation || selectedTags.length > 0 || (reminderConfig?.enabled))
-              ? "bg-primary/10 text-primary"
-              : "bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Plus size={18} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-0 bg-popover text-popover-foreground z-50" align="start" side="top">
+    <ComposerPlusMenu
+      open={menuOpen}
+      onOpenChange={(open) => { setMenuOpen(open); if (open) setActivePanel('main'); }}
+      active={Boolean(selectedEmoji || selectedLocation || selectedTags.length > 0 || reminderConfig?.enabled)}
+      label={lang === 'zh' ? '添加' : 'Add'}
+    >
         {activePanel === 'main' && (
           <div className="p-2 space-y-0.5">
             {/* Photo */}
@@ -291,7 +283,6 @@ export function InputPlusMenu({
             </div>
           </div>
         )}
-      </PopoverContent>
-    </Popover>
+    </ComposerPlusMenu>
   );
 }
