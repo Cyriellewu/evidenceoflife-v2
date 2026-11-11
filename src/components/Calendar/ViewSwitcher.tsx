@@ -36,7 +36,7 @@ export function ViewSwitcher({ viewMode, onViewModeChange, onSetDefault }: ViewS
             key={v.key}
             onClick={() => onViewModeChange(v.key)}
             className={cn(
-              'px-3 py-1 rounded-md text-xs font-medium transition-all',
+              'px-3.5 py-1 rounded-md text-[13px] font-medium transition-all',
               viewMode === v.key
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -49,20 +49,16 @@ export function ViewSwitcher({ viewMode, onViewModeChange, onSetDefault }: ViewS
       <button
         onClick={handleSetDefault}
         className={cn(
-          'flex-shrink-0 text-[12px] sm:text-[10px] px-2 py-1 rounded-full transition-all',
+          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[15px] transition-all',
           savedDefault === viewMode
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
         )}
-        title="Set as default view"
+        title={savedDefault === viewMode ? 'Default view' : 'Set as default view'}
         aria-label={savedDefault === viewMode ? 'Default view' : 'Set as default view'}
       >
-        {/* Phones: just the star, so the row stays on one line. */}
-        {showSaved ? (
-          <span className="flex items-center gap-0.5"><Check size={10} /><span className="hidden sm:inline"> Saved</span></span>
-        ) : savedDefault === viewMode
-          ? <>★<span className="hidden sm:inline"> Default</span></>
-          : <>☆<span className="hidden sm:inline"> Set default</span></>}
+        {/* A quiet star; the tooltip says what it does. */}
+        {showSaved ? <Check size={14} /> : savedDefault === viewMode ? '★' : '☆'}
       </button>
     </div>
   );

@@ -336,16 +336,24 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
     return Math.max(0, Math.min(24 * 60 - 15, Math.round(totalMin / 15) * 15));
   }, []);
 
+  // Creating an event needs a deliberate drag. A plain click used to open a
+  // 30-minute draft at once, so the second click of the double-click that
+  // opened this day (or any stray tap) created an event.
+  const openedAtRef = useRef(Date.now());
+  const dragOriginYRef = useRef<number | null>(null);
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (draftRange) return; // Don't start new drag while popover is open
+    if (Date.now() - openedAtRef.current < 400) return; // carry-over from the click that opened Day view
     const min = getMinuteFromY(e.clientY);
+    dragOriginYRef.current = e.clientY;
     setDragStart(min);
-    setDragEnd(min + 30);
+    setDragEnd(min);
     isDragging.current = true;
   }, [getMinuteFromY, draftRange]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging.current || dragStart === null) return;
+    if (dragOriginYRef.current != null && Math.abs(e.clientY - dragOriginYRef.current) < 8) return;
     const min = getMinuteFromY(e.clientY);
     setDragEnd(min);
   }, [dragStart, getMinuteFromY]);
@@ -415,7 +423,7 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
               style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
               <div className="w-14 flex-shrink-0 pr-2 -mt-2 text-right">
-                <span className="text-[10px] text-muted-foreground font-mono">
+                <span className="text-[12px] tabular-nums text-muted-foreground">
                   {hour === 0 ? '' : format(new Date(2000, 0, 1, hour), 'h a')}
                 </span>
               </div>
@@ -473,7 +481,7 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
                       <p
                         className="min-w-0 leading-[1.15] overflow-hidden"
                         style={{
-                          fontSize: compactCard ? '11px' : '12px',
+                          fontSize: compactCard ? '13px' : '15px',
                           fontWeight: 500,
                           color: getActivityTextColor(e.color, isDarkMode, 'strong'),
                           display: titleClamp ? '-webkit-box' : 'block',
@@ -485,7 +493,7 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
                       >
                         {e.title}
                       </p>
-                      <p style={{ fontSize: compactCard ? '9px' : '10px', color: getActivityTextColor(e.color, isDarkMode, 'soft'), opacity: 0.7 }}>
+                      <p style={{ fontSize: compactCard ? '12px' : '13px', color: getActivityTextColor(e.color, isDarkMode, 'soft'), opacity: 0.7 }}>
                         {format(new Date(2000, 0, 1, e.startHour, e.startMinute), 'h:mm a')}
                         {e.durationMinutes > 0 && ` – ${format(new Date(2000, 0, 1, e.startHour, e.startMinute + e.durationMinutes), 'h:mm a')}`}
                       </p>
@@ -528,7 +536,7 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
                     style={{ top: `${topPx + heightPx + 4}px` }}
                     onPointerDown={e => e.stopPropagation()}
                   >
-                    <p className="text-[11px] text-muted-foreground font-mono">{startTime} – {endTime}</p>
+                    <p className="text-[13px] tabular-nums text-muted-foreground">{startTime} – {endTime}</p>
                     <input
                       ref={draftInputRef}
                       value={draftTitle}
@@ -538,14 +546,14 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
                         if (e.key === 'Escape') cancelDraft();
                       }}
                       placeholder={lang === 'zh' ? '输入日程标题...' : 'Event title...'}
-                      className="w-full bg-secondary/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+                      className="w-full bg-secondary/50 rounded-lg px-3 py-2 text-[15px] focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                       autoFocus
                     />
                     <div className="flex items-center gap-2 justify-end">
-                      <button onClick={cancelDraft} className="text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
+                      <button onClick={cancelDraft} className="text-[13px] px-3 py-1.5 rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
                         {lang === 'zh' ? '取消' : 'Cancel'}
                       </button>
-                      <button onClick={confirmDraft} className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium">
+                      <button onClick={confirmDraft} className="text-[13px] px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium">
                         {lang === 'zh' ? '创建' : 'Create'}
                       </button>
                     </div>
