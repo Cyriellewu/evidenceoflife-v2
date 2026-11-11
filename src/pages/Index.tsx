@@ -138,6 +138,26 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     if (!routeRecording || !user?.id || isDemo || landingDemoMode) return;
     return startRouteRecorder(user.id);
   }, [routeRecording, user?.id, isDemo, landingDemoMode]);
+  // Sync recorded points so other devices can show them: on open, every
+  // 5 minutes and when the app goes to the background. Uploads read nothing back.
+  useEffect(() => {
+    const owner = user?.id;
+    if (!owner || isDemo || landingDemoMode) return;
+    let cancelled = false;
+    const flush = () => {
+      if (cancelled) return;
+      void import('@/lib/routeSync').then(({ uploadRoutePoints }) => uploadRoutePoints(owner)).catch(() => {});
+    };
+    flush();
+    const id = window.setInterval(flush, 5 * 60 * 1000);
+    const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, [user?.id, isDemo, landingDemoMode]);
   // New accounts (first 72h) start on Plan with a short guide instead of an
   // empty Recap. Decided once, synchronously, from account age — never from
   // "no data loaded", which a failed fetch would fake for existing users.

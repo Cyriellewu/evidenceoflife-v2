@@ -80,6 +80,15 @@ export function getRoutePoints(owner: string | undefined, dayKey: string): Route
   return Array.isArray(pts) ? pts : [];
 }
 
+/** Every stored point on this device, with its local day (for upload). */
+export function getAllRoutePoints(owner: string): { day: string; point: RoutePoint }[] {
+  const out: { day: string; point: RoutePoint }[] = [];
+  for (const [day, pts] of Object.entries(readStore(owner))) {
+    if (Array.isArray(pts)) for (const point of pts) out.push({ day, point });
+  }
+  return out;
+}
+
 /** Append a fix if it passes `shouldRecordPoint`; prunes days older than KEEP_DAYS. */
 export function addRoutePoint(owner: string, point: RoutePoint): boolean {
   const store = readStore(owner);
