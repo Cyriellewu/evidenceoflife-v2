@@ -479,12 +479,12 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
             />
           )}
           <span
-            className="text-[13px] leading-none tabular-nums text-foreground/85"
-            style={{ fontWeight: 500, letterSpacing: '-0.01em' }}
+            className="text-[15px] leading-none tabular-nums text-foreground"
+            style={{ fontWeight: 600, letterSpacing: '-0.01em' }}
           >
             {focusedDur ?? '0m'}
           </span>
-          <span className={cn('text-[9.5px] leading-none tracking-[0.02em] text-muted-foreground/48', lang !== 'zh' && 'lowercase')}>
+          <span className={cn('text-[13px] leading-none text-muted-foreground', lang !== 'zh' && 'lowercase')}>
             {focusWord}
           </span>
         </span>
@@ -497,7 +497,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
                 style={{ width: `${Math.min(100, Math.max(2, planRatio ?? 0))}%` }}
               />
             </span>
-            <span className="tabular-nums text-[9px] leading-none text-muted-foreground/40">
+            <span className="tabular-nums text-[13px] leading-none text-muted-foreground">
               {planRatio}%
             </span>
           </span>
@@ -506,7 +506,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
         {!hasPlan && <span className="flex-1" />}
 
         {drift.totalMissed > 0 && (
-          <span className="inline-flex flex-shrink-0 items-center rounded-full bg-foreground/[0.04] px-1.5 py-0.5 text-[9.5px] font-medium leading-none tabular-nums tracking-[0.02em] text-muted-foreground/60">
+          <span className="inline-flex flex-shrink-0 items-center text-[13px] leading-none tabular-nums text-muted-foreground">
             {drift.totalMissed} {missedLabel}
           </span>
         )}
@@ -534,8 +534,8 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
         )}
 
         <ChevronRight
-          size={12}
-          className="flex-shrink-0 text-muted-foreground/25 transition-transform duration-200 group-hover:translate-x-0.5"
+          size={14}
+          className="flex-shrink-0 text-muted-foreground/50 transition-transform duration-200 group-hover:translate-x-0.5"
         />
       </button>
     );
@@ -570,7 +570,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
               <span className="text-[13px] font-medium leading-none tabular-nums tracking-[-0.01em] text-foreground/85">
                 {focusedDur ?? '0m'}
               </span>
-              <span className={cn('text-[9.5px] leading-none tracking-[0.02em] text-muted-foreground/48', lang !== 'zh' && 'lowercase')}>
+              <span className={cn('text-[13px] leading-none text-muted-foreground', lang !== 'zh' && 'lowercase')}>
                 {focusWord}
               </span>
             </div>

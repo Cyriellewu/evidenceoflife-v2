@@ -6,7 +6,7 @@ import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, isToday, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
-import { MapPin, Image, Camera, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { MapPin, Image, Camera, Send, X, Smile, Pencil, Trash2, Sparkles, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { InputPlusMenu, detectAutoTags } from '@/components/InputPlusMenu';
 import { useReminders } from '@/hooks/useReminders';
 import { Button } from '@/components/ui/button';
@@ -1731,12 +1731,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                  })()}
                </div>
               {!isMobile && shouldShowTimeBreakdownCard && (
-                 <div className="mt-3 rounded-2xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-3">
+                 <div className="mt-4 px-1">
                    <div className="flex items-center justify-between gap-2">
-                     <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
-                       {lang === 'zh' ? '时间分布' : 'Time Breakdown'}
+                     <p className="text-[15px] font-semibold text-foreground">
+                       {lang === 'zh' ? '时间分布' : 'Time breakdown'}
                      </p>
-                     <div className="inline-flex rounded-full border border-border/55 bg-background/75 p-0.5">
+                     <div className="inline-flex rounded-lg bg-secondary/60 p-0.5">
                        {([
                          { key: 'today', zh: '今日', en: 'Today' },
                          { key: 'week', zh: '本周', en: 'Week' },
@@ -1749,9 +1749,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                              type="button"
                              onClick={() => setTimeBreakdownRange(range.key)}
                              className={cn(
-                               'rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors',
+                               'rounded-md px-2.5 py-0.5 text-[13px] font-medium transition-colors',
                                active
-                                 ? 'bg-primary/15 text-foreground'
+                                 ? 'bg-background text-foreground shadow-sm'
                                  : 'text-muted-foreground hover:text-foreground/90',
                              )}
                            >
@@ -1772,7 +1772,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                            />
                          ))}
                        </div>
-                       <div className="mt-2.5 flex flex-wrap gap-2">
+                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                          {activeTimeBreakdown.map((item) => {
                            const hour = Math.floor(item.min / 60);
                            const minute = item.min % 60;
@@ -1780,28 +1780,20 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                              ? `${hour}h${minute > 0 ? ` ${minute}m` : ''}`
                              : `${minute}m`;
                            return (
-                             <span key={item.type} className="inline-flex items-center gap-1.5 rounded-full border border-border/55 bg-background/75 px-2.5 py-1 text-[11px] text-muted-foreground">
+                             <span key={item.type} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: WORK_TYPE_META[item.type].color }} />
-                               <span className="font-medium text-foreground/85">{WORK_TYPE_META[item.type].label}</span>
-                               <span>{item.pct}%</span>
-                               <span className="text-muted-foreground/70">{durationLabel}</span>
+                               <span className="text-foreground">{WORK_TYPE_META[item.type].label}</span>
+                               <span className="tabular-nums">{item.pct}% · {durationLabel}</span>
                              </span>
                            );
                          })}
                        </div>
                      </>
                    ) : (
-                     <p className="mt-2 text-xs text-muted-foreground/75">
+                     <p className="mt-2 text-[13px] text-muted-foreground">
                        {lang === 'zh'
                          ? '这个时间范围内还没有可聚合的计时记录。'
                          : 'No aggregate-able timed records in this range yet.'}
-                     </p>
-                   )}
-                   {timeBreakdownRange !== 'today' && (
-                     <p className="mt-2 text-[10px] text-muted-foreground/65">
-                       {lang === 'zh'
-                         ? 'Week/Month：当天含 Todo/Calendar 计时，历史日期目前基于 Moments 计时记录。'
-                         : 'Week/Month includes today timeline; historical dates currently aggregate from timed Moments.'}
                      </p>
                    )}
                  </div>
@@ -1812,33 +1804,13 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                    completedTodos={completedTodos}
                    allMoments={todayMoments}
                    todayDateStr={selectedDateStr}
-                   defaultCollapsed={false}
+                   defaultCollapsed
                  />
                )}
                {!isMobile && priorityAlignment && (
-                 <div className="mt-3 rounded-2xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-3">
-                   <div className="flex items-start gap-2.5">
-                     <div
-                       className={cn(
-                         'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border',
-                         priorityAlignment.tone === 'aligned'
-                           ? 'border-primary/25 bg-primary/10 text-primary'
-                           : priorityAlignment.tone === 'mixed'
-                             ? 'border-accent/30 bg-accent/10 text-foreground/80'
-                             : 'border-primary/20 bg-background/70 text-muted-foreground'
-                       )}
-                     >
-                       {priorityAlignment.tone === 'aligned' ? (
-                         <CheckCircle2 className="h-4 w-4" />
-                       ) : (
-                         <Clock className="h-4 w-4" />
-                       )}
-                     </div>
-                     <div className="min-w-0 flex-1">
-                       <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
-                         {lang === 'zh' ? '优先级对齐' : 'Priority Alignment'}
-                       </p>
-                       <p className="mt-1 text-[13px] leading-5 text-foreground/88">
+                 <div className="mt-3 px-1">
+                   <p className="text-[15px] font-semibold text-foreground">{lang === 'zh' ? '优先级' : 'Priorities'}</p>
+                   <p className="mt-1 text-[15px] leading-snug text-foreground/90">
                          {lang === 'zh'
                            ? priorityAlignment.tone === 'aligned'
                              ? `列表前 ${priorityAlignment.topCount} 件事吃下了 ${priorityAlignment.sharePct}% 的任务计时，今天的执行基本跟着优先级走。`
@@ -1850,8 +1822,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                              : priorityAlignment.tone === 'mixed'
                                ? `Your first ${priorityAlignment.topCount} tasks still got ${priorityAlignment.sharePct}% of tracked task time, but the day spread wider than planned.`
                                : `More tracked task time drifted to lower-ranked work than to the top of today's list.`}
-                       </p>
-                       <p className="mt-1 text-[11px] leading-4 text-muted-foreground/75">
+                   </p>
+                   <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">
                          {lang === 'zh'
                            ? priorityAlignment.firstUntouchedTitle
                              ? `前排还落着 ${priorityAlignment.firstUntouchedTitle}；如果它明天仍最重要，尽量更早开做。`
@@ -1863,24 +1835,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                              : priorityAlignment.strongestLowerPriorityTitle
                                ? `${priorityAlignment.strongestLowerPriorityTitle} still pulled ${priorityAlignment.strongestLowerPriorityMin}m, but the top of the list was at least started.`
                                : `${priorityAlignment.completedTopCount}/${priorityAlignment.topCount} of today's top tasks were completed.`}
-                       </p>
-                       <div className="mt-2 flex flex-wrap gap-2">
-                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/55 bg-background/75 px-2.5 py-1 text-[11px] text-muted-foreground">
-                           <span className="font-medium text-foreground/85">{priorityAlignment.sharePct}%</span>
-                           <span>{lang === 'zh' ? '任务计时在前排' : 'task time on top items'}</span>
-                         </span>
-                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/55 bg-background/75 px-2.5 py-1 text-[11px] text-muted-foreground">
-                           <span className="font-medium text-foreground/85">{priorityAlignment.touchedTopCount}/{priorityAlignment.topCount}</span>
-                           <span>{lang === 'zh' ? '前排任务已启动' : 'top tasks started'}</span>
-                         </span>
-                       </div>
-                     </div>
-                   </div>
+                   </p>
                  </div>
                )}
                   {/* ─── Timeline ─── */}
                   <div className="mb-1.5">
-                    <p className="mb-1 text-[12px] font-medium uppercase tracking-[0.1em] text-muted-foreground/45">{t('recap.timeline')}</p>
+                    <p className="mb-1 mt-4 px-1 text-[15px] font-semibold text-foreground">{t('recap.timeline')}</p>
                   </div>
 
             {/* Life Stream: flowing vertical line with dots, threads, phase labels */}
