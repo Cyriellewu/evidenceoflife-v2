@@ -235,6 +235,39 @@ export type Database = {
         }
         Relationships: []
       }
+      route_points: {
+        Row: {
+          acc: number | null
+          created_at: string
+          day: string
+          id: number
+          lat: number
+          lng: number
+          t: string
+          user_id: string
+        }
+        Insert: {
+          acc?: number | null
+          created_at?: string
+          day: string
+          id?: never
+          lat: number
+          lng: number
+          t: string
+          user_id?: string
+        }
+        Update: {
+          acc?: number | null
+          created_at?: string
+          day?: string
+          id?: never
+          lat?: number
+          lng?: number
+          t?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       places: {
         Row: {
           category: string

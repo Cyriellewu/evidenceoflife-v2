@@ -42,7 +42,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { mergedWallClockFocusMinutes } from '@/lib/mergedWallClockMinutes';
 import { getMomentDisplayTags } from '@/lib/momentTags';
 import { useCustomOptions } from '@/hooks/useCustomOptions';
-import { DueLink, DueWithStats, useDues } from '@/hooks/useDues';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { getActivityAccentColor, getActivityTagIcon } from '@/lib/activityColors';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
@@ -67,7 +66,6 @@ import {
   buildYesterdayNudge,
 } from './today/todayHelpers';
 import {
-  DailyHabitTracker,
   MomentTimerSummary,
   ImportedEventTimeEditor,
   LifeReplay,
@@ -142,7 +140,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const isMobile = useIsMobile();
   const isDarkMode = useIsDarkMode();
   const { getWorkType } = useWorkTypes();
-  const { dues, addDue, updateDue, incrementHabitCount, setHabitCount } = useDues();
   const { isDemo } = useAuth();
   const { defaultRecapTags, customRecapTags, allEmojis, orderedRecapTags } = useCustomOptions();
   const emojis = allEmojis;
@@ -390,10 +387,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     }
   }, [composing, selectedLocation]);
   const hasYesterdayMoments = getMomentsForDate(format(subDays(today, 1), 'yyyy-MM-dd')).length > 0;
-  const recapHabits = useMemo(
-    () => dues.filter(due => due.habit_category !== null && due.show_in_recap_daily && !due.is_completed),
-    [dues]
-  );
 
   useEffect(() => {
     setHeaderImageSrc(homepageImageUrl || dailyArtwork.imageUrl);
@@ -1517,14 +1510,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         <div className="min-w-0 w-full lg:grid lg:grid-cols-[minmax(260px,3fr)_minmax(0,7fr)] lg:gap-6 lg:items-start">
           {!isMobile && (
             <div className="mb-5 lg:mb-0 flex flex-col gap-3">
-              <DailyHabitTracker
-                habits={recapHabits}
-                selectedDateStr={selectedDateStr}
-                onIncrement={(habitId, dateStr) => { void incrementHabitCount(habitId, dateStr); }}
-                onSetCount={(habitId, nextCount, dateStr) => { void setHabitCount(habitId, nextCount, dateStr); }}
-                onUpdateHabit={(habitId, updates) => { void updateDue(habitId, updates); }}
-                onAddHabit={(title) => { void addDue(title, undefined, 'Uncategorized', true); }}
-              />
               <LifeReplay items={timelineItems} lang={lang} dateKey={format(selectedDate, 'yyyy-MM-dd')} />
               <DayRouteCard moments={todayMoments} allMoments={historyMoments} dayKey={format(selectedDate, 'yyyy-MM-dd')} />
               <OnThisDayCard
