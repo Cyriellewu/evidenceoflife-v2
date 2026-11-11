@@ -1795,18 +1795,21 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         )}
         <PageHeader
           className={cn('px-5 pb-2 pt-2 sm:pb-3 sm:pt-3', mobileNavSlot && 'hidden')}
-          leading={
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => { setViewMode('world'); }}
-              aria-label="Back to world view"
-              className="-ml-1 h-8 w-8 rounded-xl"
-            >
-              <ChevronLeft size={22} />
-            </Button>
+          // Desktop: a breadcrumb instead of a lone back arrow — "Life Map /
+          // New York", where the first part goes back.
+          title={
+            <span className="flex min-w-0 items-baseline gap-2">
+              <button
+                type="button"
+                onClick={() => { setViewMode('world'); }}
+                className="shrink-0 font-normal text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {lang === 'zh' ? '生活足迹' : 'Life Map'}
+              </button>
+              <span aria-hidden className="font-normal text-muted-foreground/50">/</span>
+              <span className="min-w-0 truncate">{currentCity?.cityName || t('map.places')}</span>
+            </span>
           }
-          title={currentCity?.cityName || t('map.places')}
           right={
             <span
               className="inline-flex items-baseline gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium"
