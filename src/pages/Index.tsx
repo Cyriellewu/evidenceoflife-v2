@@ -1,3 +1,5 @@
+import { PageTitleInTopBarContext } from '@/components/sheet/SheetShell';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { isRouteRecordingEnabled, startRouteRecorder } from '@/lib/routeRecorder';
 import { useState, useCallback, useEffect, useMemo, useRef, Component, type ErrorInfo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -26,7 +28,6 @@ import { ProfileView } from '@/components/views/ProfileView';
 import { StickyNotesView } from '@/components/views/StickyNotesView';
 import { LinksView } from '@/components/views/LinksView';
 import { VoiceInputSheet } from '@/components/VoiceInputSheet';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useMoments } from '@/hooks/useMoments';
 import { useTodos, type Todo } from '@/hooks/useTodos';
 import { buildSessionMomentDraft } from '@/lib/focusTimer';
@@ -84,39 +85,6 @@ class AppSectionErrorBoundary extends Component<
   }
 }
 
-function AppSideSheet({
-  open,
-  onOpenChange,
-  maxWidthClass,
-  expandable = true,
-  children,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  maxWidthClass: string;
-  expandable?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        // Sit above phone chrome (z-130), demo banner (z-120), and Plan
-        // composer/timer (z-55–70) so those never paint through Notes/etc.
-        // Stay below the hamburger drawer (z-210/220).
-        overlayClassName="!z-[190]"
-        expandable={expandable}
-        className={cn(
-          '!z-[200] flex h-full w-full flex-col overflow-hidden p-0 border-border/60 bg-background shadow-[0_24px_70px_hsl(var(--foreground)/0.14)]',
-          maxWidthClass,
-        )}
-      >
-        {children}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
 const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const [searchParams] = useSearchParams();
   const { t, lang } = useLanguage();
@@ -126,6 +94,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const demoFixedDate = useMemo(() => new Date('2026-04-08T12:00:00'), []);
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const { user, isDemo } = useAuth();
+  const isMobile = useIsMobile();
   // Day route: record location while the app is open, once the user turned it
   // on in Map → Day route. Points stay on this device (see routeRecorder).
   const [routeRecording, setRouteRecording] = useState(() => isRouteRecordingEnabled(user?.id));
@@ -566,7 +535,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
       <div className="flex min-w-0 flex-1 h-full min-h-0">
         <AppSectionErrorBoundary label="SideNav">
           <SideNav
-            activeTab={activeTab}
+            activeTab={activeSheet ? (activeSheet === 'notes' || activeSheet === 'links' ? 'notes' : 'dues') : activeTab}
             activeSheet={activeSheet}
             onTabChange={(tab) => {
               if (tab === 'notes') { setActiveSheet('notes'); return; }
@@ -584,7 +553,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
             <MobileNavChrome
               open={mobileNavOpen}
               onOpenChange={setMobileNavOpen}
-              activeTab={activeTab}
+              activeTab={activeSheet ? (activeSheet === 'notes' || activeSheet === 'links' ? 'notes' : 'dues') : activeTab}
               activeSheet={activeSheet}
               onTabChange={(tab) => {
                 if (tab === 'notes') { setActiveSheet('notes'); return; }
@@ -595,7 +564,9 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 goToTab(tab);
               }}
               centerSlot={
-                activeTab === 'today'
+                activeSheet
+                  ? (activeSheet === 'notes' || activeSheet === 'links' ? librarySwitcher : upcomingSwitcher)
+                  : activeTab === 'today'
                   ? (
                     <PlanPaneSwitcher
                       todayMode={todayMode}
@@ -606,7 +577,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               }
             />
           )}
-          {activeTab === 'today' && (
+          {!activeSheet && activeTab === 'today' && (
           <>
             <TodayView
               selectedDate={selectedDate}
@@ -666,7 +637,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
           )}
 
 
-          {activeTab === 'calendar' && (
+          {!activeSheet && activeTab === 'calendar' && (
           <CalendarView
             dayRecords={dayRecords}
             getMomentsForDate={getMomentsForDate}
@@ -684,13 +655,42 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
 
 
 
-          {activeTab === 'map' && (
+          {!activeSheet && activeTab === 'map' && (
           <AppSectionErrorBoundary label="MapView">
             <MapView moments={allLocations} placesData={placesData} focusPlace={mapFocus} onOpenDate={handleOpenDate} />
           </AppSectionErrorBoundary>
           )}
 
-          {activeTab === 'profile' && (
+          {/* Library (Notes · Links) and Upcoming (Deadlines · Habits) are pages
+              like Today / Calendar / Map — same place, same transition on phone
+              and desktop — not panels sliding in from the side. */}
+          <PageTitleInTopBarContext.Provider value={isMobile}>
+          {(activeSheet === 'notes' || activeSheet === 'links') && (
+            <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[880px] flex-1 flex-col md:min-h-[100dvh] [&>*]:flex-1">
+              {activeSheet === 'links'
+                ? <LinksView titleSlot={librarySwitcher} />
+                : <StickyNotesView titleSlot={librarySwitcher} />}
+            </div>
+          )}
+          {(activeSheet === 'dues' || activeSheet === 'habits') && (
+            <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[880px] flex-1 flex-col md:min-h-[100dvh] [&>*]:flex-1">
+              {activeSheet === 'habits'
+                ? <HabitsView titleSlot={upcomingSwitcher} />
+                : (
+                  <DuesView
+                    onBack={() => setActiveSheet(null)}
+                    onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
+                    voiceSheetOpen={voiceSheetOpen}
+                    initialMode="deadline"
+                    lockedMode
+                    titleSlot={upcomingSwitcher}
+                  />
+                )}
+            </div>
+          )}
+          </PageTitleInTopBarContext.Provider>
+
+          {!activeSheet && activeTab === 'profile' && (
           <ProfileView
             stats={profileStats}
             moments={moments}
@@ -867,38 +867,6 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
           <DueNotifications dues={dues} onNavigateToDues={openDues} />
         </AppSectionErrorBoundary>
       )}
-
-      {/* Library = Notes + Links; Upcoming = Deadlines + Habits. Each pair shares
-          one nav entry and one sheet, switched from the sheet title. */}
-      <AppSideSheet
-        open={activeSheet === 'notes' || activeSheet === 'links'}
-        onOpenChange={(open) => setActiveSheet(open ? 'notes' : null)}
-        maxWidthClass="sm:max-w-[720px]"
-      >
-        {activeSheet === 'links'
-          ? <LinksView titleSlot={librarySwitcher} />
-          : <StickyNotesView titleSlot={librarySwitcher} />}
-      </AppSideSheet>
-
-      <AppSideSheet
-        open={activeSheet === 'dues' || activeSheet === 'habits'}
-        onOpenChange={(open) => setActiveSheet(open ? 'dues' : null)}
-        maxWidthClass="sm:max-w-[780px]"
-        expandable={false}
-      >
-        {activeSheet === 'habits'
-          ? <HabitsView titleSlot={upcomingSwitcher} />
-          : (
-            <DuesView
-              onBack={() => setActiveSheet(null)}
-              onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
-              voiceSheetOpen={voiceSheetOpen}
-              initialMode="deadline"
-              lockedMode
-              titleSlot={upcomingSwitcher}
-            />
-          )}
-      </AppSideSheet>
 
       <AppSectionErrorBoundary label="VoiceInputSheet">
         <VoiceInputSheet

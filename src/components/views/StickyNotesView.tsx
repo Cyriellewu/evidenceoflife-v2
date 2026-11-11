@@ -669,7 +669,7 @@ export function StickyNotesView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[hsl(var(--surface-soft))]">
+    <div className="flex h-full flex-col bg-background">
       <SheetHeader
         title={titleSlot ?? t('notes.header')}
         subtitle={lang === 'zh' ? '小清单、图片和需要记住的事。' : 'Small lists, images, and things to remember.'}
@@ -826,7 +826,7 @@ export function StickyNotesView({ titleSlot }: { titleSlot?: ReactNode } = {}) {
         )}
       </div>
 
-      <div className="flex-shrink-0 bg-gradient-to-t from-[hsl(var(--surface-soft))] via-[hsl(var(--surface-soft)/0.96)] to-[hsl(var(--surface-soft)/0)] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="flex-shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         <Composer
           value={newNoteTitle}
           onChange={setNewNoteTitle}
