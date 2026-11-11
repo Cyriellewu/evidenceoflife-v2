@@ -14,7 +14,7 @@ import { StorageImage } from '@/components/StorageImage';
 
 const WEEKDAYS_CN = ['日', '一', '二', '三', '四', '五', '六'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const HOUR_HEIGHT = 60;
+const HOUR_HEIGHT = 72;
 
 interface TimeEvent {
   id: string;

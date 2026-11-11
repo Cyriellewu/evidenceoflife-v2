@@ -22,7 +22,7 @@ function getSubtitle(text?: string | null): string {
 
 const WEEKDAYS_CN = ['日', '一', '二', '三', '四', '五', '六'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const HOUR_HEIGHT = 60; // px per hour
+const HOUR_HEIGHT = 72; // px per hour
 
 interface TimeEvent {
   id: string;
