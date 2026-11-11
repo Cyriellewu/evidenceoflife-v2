@@ -17,6 +17,7 @@ import {
   clearRouteDay,
   getRoutePoints,
   isRouteRecordingEnabled,
+  distanceM,
   localDayKey,
   setRouteRecordingEnabled,
   type RoutePoint,
@@ -52,8 +53,21 @@ function stopsForDay(moments: Moment[], dayKey: string): Stop[] {
 }
 
 /** Numbered stop pin. Inherits the app font; white ring like the other map pins. */
-const stopIconHtml = (n: number) =>
-  `<div style="width:22px;height:22px;border-radius:999px;background:${LIFE_MAP_COLOR};color:#fff;font:600 12px/22px inherit;text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${n}</div>`;
+const stopIconHtml = (label: string) => {
+  const w = label.length > 2 ? 30 : 22;
+  return `<div style="min-width:${w}px;height:22px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:${LIFE_MAP_COLOR};color:#fff;font:600 12px/18px inherit;text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${label}</div>`;
+};
+
+/** Stops within ~80 m share one pin ("2–3") instead of stacking on top of each other. */
+function groupStops(stops: Stop[]): { lat: number; lng: number; label: string }[] {
+  const groups: { lat: number; lng: number; first: number; last: number }[] = [];
+  stops.forEach((s, i) => {
+    const near = groups.find(g => distanceM(g, s) < 80);
+    if (near) near.last = i + 1;
+    else groups.push({ lat: s.lat, lng: s.lng, first: i + 1, last: i + 1 });
+  });
+  return groups.map(g => ({ lat: g.lat, lng: g.lng, label: g.first === g.last ? String(g.first) : `${g.first}–${g.last}` }));
+}
 
 /** The demo must never read or start a real track on this device. */
 function useRouteOwner(): string | undefined {
@@ -117,7 +131,7 @@ function useRouteMap(
     if (!mapEl.current || mapRef.current) return;
     const map = L.map(mapEl.current, {
       zoomControl: false,
-      attributionControl: interactive,
+      attributionControl: true, // OpenStreetMap data needs visible credit, also on the mini map
       dragging: interactive,
       scrollWheelZoom: interactive,
       doubleClickZoom: interactive,
@@ -144,9 +158,10 @@ function useRouteMap(
     if (latlngs.length > 1) {
       L.polyline(latlngs, { color: LIFE_MAP_COLOR, weight: 4, opacity: 0.85, lineJoin: 'round' }).addTo(layer);
     }
-    stops.forEach((s, i) => {
-      L.marker([s.lat, s.lng], {
-        icon: L.divIcon({ className: '', html: stopIconHtml(i + 1), iconSize: [22, 22], iconAnchor: [11, 11] }),
+    groupStops(stops).forEach(g => {
+      const w = g.label.length > 2 ? 30 : 22;
+      L.marker([g.lat, g.lng], {
+        icon: L.divIcon({ className: '', html: stopIconHtml(g.label), iconSize: [w, 22], iconAnchor: [w / 2, 11] }),
         interactive: false,
       }).addTo(layer);
     });
@@ -187,13 +202,15 @@ export function DayRouteCard({ moments, allMoments, dayKey }: { moments: Moment[
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="block w-full overflow-hidden rounded-2xl border border-border/40 bg-card text-left transition-colors hover:border-border/70"
+        className="block w-full rounded-2xl border border-border/40 bg-card p-4 text-left transition-colors hover:border-border/70"
       >
-        <div className="flex items-baseline justify-between gap-2 px-4 pb-2 pt-3">
-          <span className="text-[13px] font-semibold text-foreground">{zh ? (isToday ? '今天的路线' : '这天的路线') : (isToday ? "Today's route" : 'Route')}</span>
-          <span className="text-[11px] text-muted-foreground">{summary}</span>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[17px] font-semibold tracking-tight text-foreground">{zh ? (isToday ? '今天的路线' : '这天的路线') : (isToday ? "Today's route" : 'Route')}</span>
+          <span className="text-[13px] text-muted-foreground">{summary}</span>
         </div>
-        <RouteMiniMap path={path} stops={stops} />
+        <div className="mt-3 overflow-hidden rounded-xl">
+          <RouteMiniMap path={path} stops={stops} />
+        </div>
       </button>
       {open && <DayRouteSheet moments={allMoments ?? moments} initialDayKey={dayKey} onClose={() => setOpen(false)} />}
     </>
@@ -204,7 +221,13 @@ export function DayRouteCard({ moments, allMoments, dayKey }: { moments: Moment[
 function RouteMiniMap({ path, stops }: { path: { lat: number; lng: number }[]; stops: Stop[] }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   useRouteMap(mapEl, path, stops, null, false);
-  return <div ref={mapEl} className="pointer-events-none h-44 w-full" />;
+  // The basemap is dimmed and desaturated so the route, not the road network, reads first.
+  return (
+    <div
+      ref={mapEl}
+      className="pointer-events-none h-40 w-full !bg-background [&_.leaflet-tile-pane]:opacity-70 [&_.leaflet-tile-pane]:saturate-50 [&_.leaflet-control-attribution]:!bg-background/60 [&_.leaflet-control-attribution]:!text-[9px] [&_.leaflet-control-attribution]:!leading-tight [&_.leaflet-control-attribution]:!text-muted-foreground"
+    />
+  );
 }
 
 export function DayRouteSheet({ moments, onClose, initialDayKey }: { moments: Moment[]; onClose: () => void; initialDayKey?: string }) {
