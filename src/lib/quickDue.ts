@@ -35,7 +35,13 @@ function onWeekday(now: Date, weekday: number, nextWeek: boolean): Date {
 }
 
 function cleanup(text: string): string {
-  return text.replace(/\s{2,}/g, ' ').replace(/^[\s,，、:：-]+|[\s,，、:：-]+$/g, '').trim();
+  return text
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s,，、:：-]+|[\s,，、:：-]+$/g, '')
+    // The date was cut out, so drop the word that pointed at it:
+    // "renew passport by Dec 1" → "renew passport", not "renew passport by".
+    .replace(/\s+(by|due|on|before|until|at)$/i, '')
+    .trim();
 }
 
 function takeTime(text: string): { rest: string; time: string | null } {
