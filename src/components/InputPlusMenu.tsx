@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Plus, MapPin, Bell, X, Image, Clock, Link2 } from 'lucide-react';
+import { Plus, MapPin, Bell, X, Image, Clock, Link2, AudioLines } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ComposerPlusMenu } from '@/components/composer/ComposerPlusMenu';
 import { EmojiGrid } from '@/components/today/EmojiGrid';
@@ -73,6 +73,8 @@ interface InputPlusMenuProps {
   autoDetectedTags?: string[];
   // Photos
   onPhotoClick?: () => void;
+  /** "Speak and sort it for me": the voice sheet that files moments / tasks / deadlines. */
+  onSmartVoice?: () => void;
   photoCount?: number;
   // Links
   onAddLink?: (url: string) => Promise<boolean> | boolean;
@@ -94,7 +96,7 @@ export function InputPlusMenu({
   selectedLocation, onLocationChange,
   availableTags, selectedTags, onTagsChange,
   autoDetectedTags = [],
-  onPhotoClick, photoCount = 0,
+  onPhotoClick, photoCount = 0, onSmartVoice,
   onAddLink, linkCount = 0,
   reminderConfig, onReminderChange, showReminder = true,
   showTime = false, startTime, endTime, onStartTimeChange, onEndTimeChange,
@@ -129,6 +131,12 @@ export function InputPlusMenu({
     >
         {activePanel === 'main' && (
           <div className="p-2 space-y-0.5">
+            {onSmartVoice && (
+              <button onClick={() => { setMenuOpen(false); onSmartVoice(); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary transition-colors text-left">
+                <AudioLines size={16} className="text-muted-foreground flex-shrink-0" />
+                <span className="text-sm flex-1">{lang === 'zh' ? '说一段，帮我分好类' : 'Speak — sort it for me'}</span>
+              </button>
+            )}
             {/* Photo */}
             {onPhotoClick && (
               <button onClick={() => { onPhotoClick(); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary transition-colors text-left">

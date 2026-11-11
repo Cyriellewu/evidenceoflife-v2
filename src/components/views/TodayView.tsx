@@ -1296,6 +1296,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           placeholder={t('today.placeholder')}
           textareaRef={textareaRef}
           sendLabel={lang === 'zh' ? '发送' : 'Send'}
+          dictation
+          dictationLang={lang === 'zh' ? 'zh-CN' : 'en-US'}
           attachments={(selectedTags.length > 0 || autoDetectedTags.length > 0 || selectedPhotos.length > 0 || selectedLinks.length > 0 || isResolvingLink || selectedLocation) ? (
             <div className="space-y-2 [&>*]:!px-0 [&>*]:!pt-0">
         {(selectedTags.length > 0 || autoDetectedTags.length > 0) && (
@@ -1386,6 +1388,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               onTagsChange={setSelectedTags}
               autoDetectedTags={autoDetectedTags}
               onPhotoClick={handlePhotoClick}
+              onSmartVoice={onOpenVoiceSheet}
               photoCount={selectedPhotos.length}
               onAddLink={addLinkPreview}
               linkCount={selectedLinks.length}
@@ -1406,11 +1409,6 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                   ariaLabel={lang === 'zh' ? '添加照片' : 'Add photo'}
                 >
                   <Camera size={17} />
-                </ComposerIconButton>
-              )}
-              {onOpenVoiceSheet && (
-                <ComposerIconButton onClick={onOpenVoiceSheet} ariaLabel={lang === 'zh' ? '语音输入' : 'Voice input'}>
-                  <Mic size={17} />
                 </ComposerIconButton>
               )}
               {!isMobile && (
