@@ -217,6 +217,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'recap.endTime': { zh: '结束', en: 'End' },
   'recap.missed': { zh: '没赶上', en: 'Skipped' },
   'recap.notes': { zh: '备注', en: 'Notes' },
+  'recap.addNote': { zh: '加备注', en: 'Add note' },
   'recap.active': { zh: '活跃', en: 'active' },
   'recap.timeline': { zh: '时间线', en: 'Timeline' },
   'recap.moments': { zh: '个瞬间', en: 'moments' },
