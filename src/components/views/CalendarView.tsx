@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, type CSSProperties } from 'react';
+import { StorageImage } from '@/components/StorageImage';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDateLocale } from '@/hooks/useDateLocale';
@@ -49,6 +50,7 @@ type DayEventChip = {
   color: string;
   type: 'moment' | 'todo' | 'imported';
   timeLabel?: string;
+  photos?: string[];
 };
 
 interface CalendarViewProps {
@@ -267,7 +269,8 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     dayRecords.forEach((record, dateStr) => {
       const existing = map.get(dateStr) || [];
       record.moments.forEach((m) => {
-        const label = m.emoji || (m.text ? m.text.slice(0, 48) : '');
+        const hasPhotos = (m.photos?.length ?? 0) > 0;
+        const label = m.emoji || (m.text ? m.text.slice(0, 48) : '') || (hasPhotos ? (lang === 'zh' ? '照片' : 'Photo') : '');
         if (!label) return;
         const title = m.text || m.emoji || '';
         const workType = getWorkType({ entity: 'moment', id: m.id, text: title, tags: m.tags });
@@ -280,6 +283,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           color,
           type: 'moment',
           timeLabel: timeOf(m.timer_started_at) || timeOf(m.createdAt),
+          photos: hasPhotos ? m.photos : undefined,
         });
       });
       if (existing.length > 0) map.set(dateStr, existing);
@@ -299,7 +303,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     });
 
     return map;
-  }, [effectiveTodos, dayRecords, importedEvents, isDarkMode, getWorkType]);
+  }, [effectiveTodos, dayRecords, importedEvents, isDarkMode, getWorkType, lang]);
 
   const monthFocusKey = format(monthFocusDate, 'yyyy-MM-dd');
   const monthFocusEvents = dayEvents.get(monthFocusKey) || [];
@@ -803,6 +807,20 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                                 : (lang === 'zh' ? '瞬间' : 'Moment'),
                           ].filter(Boolean).join(' · ')}
                         </span>
+                        {ev.photos && ev.photos.length > 0 && (
+                          <span className="mt-2 flex gap-1.5">
+                            {ev.photos.slice(0, 4).map((photo, i) => (
+                              <span key={`${photo}-${i}`} className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary/50">
+                                <StorageImage src={photo} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                                {i === 3 && ev.photos!.length > 4 && (
+                                  <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[12px] font-medium text-white">
+                                    +{ev.photos!.length - 4}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </span>
+                        )}
                       </span>
                       <ChevronRight size={14} className="mt-1 shrink-0 text-muted-foreground/45" />
                     </button>
