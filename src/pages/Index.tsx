@@ -31,6 +31,7 @@ import { VoiceInputSheet } from '@/components/VoiceInputSheet';
 import { useMoments } from '@/hooks/useMoments';
 import { useTodos, type Todo } from '@/hooks/useTodos';
 import { buildSessionMomentDraft } from '@/lib/focusTimer';
+import { clearPauseState as clearSharedPauseState, onPauseChange, pauseStates as sharedPauseStates, setPauseState as setSharedPauseState } from '@/lib/pauseStore';
 import { usePrevDayTodos } from '@/hooks/usePrevDayTodos';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
 import { useProfile } from '@/hooks/useProfile';
@@ -177,8 +178,10 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const [globalFocusId, setGlobalFocusId] = useState<string | null>(null);
   // Recap prompt shown right after a focus session ends (natural capture trigger)
   const [focusRecap, setFocusRecap] = useState<{ momentId: string | null; title: string; workingSec: number; completed: boolean } | null>(null);
-  const pauseStatesRef = useRef<Map<string, { pausedAt: number | null; totalPausedMs: number }>>(new Map());
+  // Same Map PlanView uses (src/lib/pauseStore.ts): one pause store, persisted.
+  const pauseStatesRef = useRef(sharedPauseStates);
   const [pauseStateVersion, setPauseStateVersion] = useState(0);
+  useEffect(() => onPauseChange(() => setPauseStateVersion(v => v + 1)), []);
 
   const {
     moments,
@@ -427,12 +430,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   void pauseStateVersion;
 
   const handleFocusPauseStateChange = useCallback((todoId: string, pauseState: { pausedAt: number | null; totalPausedMs: number }) => {
-    if (pauseState.pausedAt === null && pauseState.totalPausedMs === 0) {
-      pauseStatesRef.current.delete(todoId);
-    } else {
-      pauseStatesRef.current.set(todoId, pauseState);
-    }
-    setPauseStateVersion(v => v + 1);
+    setSharedPauseState(todoId, pauseState); // persists + notifies every view
   }, []);
 
   const handleAddMoment = useCallback(async (data: {
@@ -734,8 +732,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 });
               } finally {
                 setGlobalFocusId(null);
-                pauseStatesRef.current.delete(focusTodo.id);
-                setPauseStateVersion(v => v + 1);
+                clearSharedPauseState(focusTodo.id);
                 if (workingSec > 0) {
                   setFocusRecap({
                     momentId: createdMomentId,
@@ -752,8 +749,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               const snap = focusTodo;
               // Close immediately — don't wait for the DB round-trip
               setGlobalFocusId(null);
-              pauseStatesRef.current.delete(snap.id);
-              setPauseStateVersion(v => v + 1);
+              clearSharedPauseState(snap.id);
               try {
                 let createdMomentId: string | null = null;
                 if (snap.timer_started_at && workingSec > 0) {
@@ -784,8 +780,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
             onCancel={async () => {
               await updateTodo(focusTodo.id, { timer_started_at: null, timer_ended_at: null });
               setGlobalFocusId(null);
-              pauseStatesRef.current.delete(focusTodo.id);
-              setPauseStateVersion(v => v + 1);
+              clearSharedPauseState(focusTodo.id);
             }}
             onUpdateStartTime={async (newStartedAt) => {
               await updateTodo(focusTodo.id, { timer_started_at: newStartedAt });
