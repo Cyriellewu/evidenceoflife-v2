@@ -1,3 +1,4 @@
+import { DayRouteCard } from '@/components/views/DayRouteSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { trackEvent } from '@/lib/analytics';
 import { useMemo, useState, useRef, useCallback, useEffect, ChangeEvent } from 'react';
@@ -1524,6 +1525,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 onAddHabit={(title) => { void addDue(title, undefined, 'Uncategorized', true); }}
               />
               <LifeReplay items={timelineItems} lang={lang} dateKey={format(selectedDate, 'yyyy-MM-dd')} />
+              <DayRouteCard moments={todayMoments} allMoments={historyMoments} dayKey={format(selectedDate, 'yyyy-MM-dd')} />
               <OnThisDayCard
                 moments={historyMoments ?? []}
                 selectedDate={selectedDate}

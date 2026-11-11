@@ -53,21 +53,15 @@ function stopsForDay(moments: Moment[], dayKey: string): Stop[] {
 const stopIconHtml = (n: number) =>
   `<div style="width:22px;height:22px;border-radius:999px;background:${LIFE_MAP_COLOR};color:#fff;font:600 12px/22px inherit;text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${n}</div>`;
 
-export function DayRouteSheet({ moments, onClose }: { moments: Moment[]; onClose: () => void }) {
-  const { lang } = useLanguage();
-  const zh = lang === 'zh';
+/** The demo must never read or start a real track on this device. */
+function useRouteOwner(): string | undefined {
   const { user, isDemo } = useAuth();
-  const { formatDate } = useDateLocale();
-  // The demo must never read or start a real track on this device.
-  const owner = isDemo ? undefined : user?.id;
-  const todayKey = localDayKey(Date.now());
-  const [dayKey, setDayKey] = useState(todayKey);
-  const [recording, setRecording] = useState(() => isRouteRecordingEnabled(owner));
-  const [tick, setTick] = useState(0);
-  const mapEl = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
+  return isDemo ? undefined : user?.id;
+}
 
+/** One day's stops (moments with a location) + recorded points, merged in time order. */
+function useDayRoute(moments: Moment[], dayKey: string, owner: string | undefined, live: boolean) {
+  const [tick, setTick] = useState(0);
   const stops = useMemo(() => stopsForDay(moments, dayKey), [moments, dayKey]);
   // Re-read recorded points when the day changes or new ones land.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,37 +71,44 @@ export function DayRouteSheet({ moments, onClose }: { moments: Moment[]; onClose
       .sort((a, b) => a.t - b.t),
     [tracked, stops],
   );
-  // With nothing for the day, open on the last place you recorded, not a fixed city.
-  const fallbackCenter = useMemo<[number, number] | null>(() => {
-    let best: Moment | null = null;
-    for (const m of moments) {
-      if (!m.location) continue;
-      if (!best || (m.createdAt || '') > (best.createdAt || '')) best = m;
-    }
-    return best?.location ? [best.location.lat, best.location.lng] : null;
-  }, [moments]);
-
-  // Pick up points the recorder stores while this sheet is open.
+  // Pick up points the recorder stores while this is on screen.
   useEffect(() => {
-    if (!recording) return;
+    if (!live) return;
     const id = window.setInterval(() => setTick(n => n + 1), 30_000);
     return () => window.clearInterval(id);
-  }, [recording]);
+  }, [live]);
+  const refresh = () => setTick(n => n + 1);
+  return { stops, tracked, path, refresh };
+}
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+/** Draws a route into a Leaflet map mounted on `mapEl`. */
+function useRouteMap(
+  mapEl: React.RefObject<HTMLDivElement>,
+  path: { lat: number; lng: number }[],
+  stops: Stop[],
+  fallbackCenter: [number, number] | null,
+  interactive: boolean,
+) {
+  const mapRef = useRef<L.Map | null>(null);
+  const layerRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
-    const map = L.map(mapEl.current, { zoomControl: false, attributionControl: true }).setView([20, 0], 2);
+    const map = L.map(mapEl.current, {
+      zoomControl: false,
+      attributionControl: interactive,
+      dragging: interactive,
+      scrollWheelZoom: interactive,
+      doubleClickZoom: interactive,
+      touchZoom: interactive,
+      boxZoom: interactive,
+      keyboard: interactive,
+    }).setView([20, 0], 2);
     addBasemap(map);
     mapRef.current = map;
     layerRef.current = L.layerGroup().addTo(map);
     return () => { map.remove(); mapRef.current = null; layerRef.current = null; };
-  }, []);
+  }, [mapEl, interactive]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -125,23 +126,97 @@ export function DayRouteSheet({ moments, onClose }: { moments: Moment[]; onClose
     stops.forEach((s, i) => {
       L.marker([s.lat, s.lng], {
         icon: L.divIcon({ className: '', html: stopIconHtml(i + 1), iconSize: [22, 22], iconAnchor: [11, 11] }),
+        interactive: false,
       }).addTo(layer);
     });
     if (stops.length === 0) {
       // Recorded track only: mark where the day started and where it ends.
       const dot = (ll: L.LatLng) =>
-        L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: LIFE_MAP_COLOR, fillOpacity: 1 }).addTo(layer);
+        L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: LIFE_MAP_COLOR, fillOpacity: 1, interactive: false }).addTo(layer);
       dot(latlngs[0]);
       if (latlngs.length > 1) dot(latlngs[latlngs.length - 1]);
     }
-    map.fitBounds(L.latLngBounds(latlngs), { padding: [36, 36], maxZoom: 16 });
+    map.fitBounds(L.latLngBounds(latlngs), { padding: [28, 28], maxZoom: 16 });
   }, [path, stops, fallbackCenter]);
+}
+
+/**
+ * Desktop Recap side card: the selected day's route as a small, still map.
+ * Hidden when the day has no locations. Click opens the full Day route sheet.
+ */
+export function DayRouteCard({ moments, allMoments, dayKey }: { moments: Moment[]; allMoments?: Moment[]; dayKey: string }) {
+  const { lang } = useLanguage();
+  const zh = lang === 'zh';
+  const owner = useRouteOwner();
+  const isToday = dayKey === localDayKey(Date.now());
+  const live = isToday && isRouteRecordingEnabled(owner);
+  const { stops, tracked, path } = useDayRoute(moments, dayKey, owner, live);
+  const [open, setOpen] = useState(false);
+
+  if (path.length === 0) return null;
+  const summary = [
+    stops.length > 0 ? (zh ? `${stops.length} 个地点` : `${stops.length} ${stops.length === 1 ? 'place' : 'places'}`) : '',
+    tracked.length > 0 ? (zh ? `${tracked.length} 个位置点` : `${tracked.length} points`) : '',
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="block w-full overflow-hidden rounded-2xl border border-border/40 bg-card text-left transition-colors hover:border-border/70"
+      >
+        <div className="flex items-baseline justify-between gap-2 px-4 pb-2 pt-3">
+          <span className="text-[13px] font-semibold text-foreground">{zh ? (isToday ? '今天的路线' : '这天的路线') : (isToday ? "Today's route" : 'Route')}</span>
+          <span className="text-[11px] text-muted-foreground">{summary}</span>
+        </div>
+        <RouteMiniMap path={path} stops={stops} />
+      </button>
+      {open && <DayRouteSheet moments={allMoments ?? moments} initialDayKey={dayKey} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/** Mounted only once there is a route, so Leaflet always gets a sized container. */
+function RouteMiniMap({ path, stops }: { path: { lat: number; lng: number }[]; stops: Stop[] }) {
+  const mapEl = useRef<HTMLDivElement | null>(null);
+  useRouteMap(mapEl, path, stops, null, false);
+  return <div ref={mapEl} className="pointer-events-none h-44 w-full" />;
+}
+
+export function DayRouteSheet({ moments, onClose, initialDayKey }: { moments: Moment[]; onClose: () => void; initialDayKey?: string }) {
+  const { lang } = useLanguage();
+  const zh = lang === 'zh';
+  const { formatDate } = useDateLocale();
+  const owner = useRouteOwner();
+  const todayKey = localDayKey(Date.now());
+  const [dayKey, setDayKey] = useState(initialDayKey ?? todayKey);
+  const [recording, setRecording] = useState(() => isRouteRecordingEnabled(owner));
+  const mapEl = useRef<HTMLDivElement | null>(null);
+  const { stops, tracked, path, refresh } = useDayRoute(moments, dayKey, owner, recording);
+
+  // With nothing for the day, open on the last place you recorded, not a fixed city.
+  const fallbackCenter = useMemo<[number, number] | null>(() => {
+    let best: Moment | null = null;
+    for (const m of moments) {
+      if (!m.location) continue;
+      if (!best || (m.createdAt || '') > (best.createdAt || '')) best = m;
+    }
+    return best?.location ? [best.location.lat, best.location.lng] : null;
+  }, [moments]);
+  useRouteMap(mapEl, path, stops, fallbackCenter, true);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const toggleRecording = (on: boolean) => {
     if (!owner) return;
     if (on && navigator.geolocation) {
       // Ask now, from the tap, so the permission prompt has context.
-      navigator.geolocation.getCurrentPosition(() => setTick(n => n + 1), () => {}, { timeout: 15_000 });
+      navigator.geolocation.getCurrentPosition(() => refresh(), () => {}, { timeout: 15_000 });
     }
     setRouteRecordingEnabled(owner, on);
     setRecording(on);
@@ -150,7 +225,7 @@ export function DayRouteSheet({ moments, onClose }: { moments: Moment[]; onClose
   const clearDay = () => {
     if (!owner) return;
     clearRouteDay(owner, dayKey);
-    setTick(n => n + 1);
+    refresh();
   };
 
   const isToday = dayKey === todayKey;
