@@ -11,6 +11,7 @@ import { useDateLocale } from '@/hooks/useDateLocale';
 import { Switch } from '@/components/ui/switch';
 import { StorageImage } from '@/components/StorageImage';
 import { addBasemap, LIFE_MAP_COLOR } from '@/lib/mapBasemap';
+import { deleteServerRouteDay, fetchServerRoutePoints, mergeRoutePoints } from '@/lib/routeSync';
 import {
   clearRouteDay,
   getRoutePoints,
@@ -65,7 +66,21 @@ function useDayRoute(moments: Moment[], dayKey: string, owner: string | undefine
   const stops = useMemo(() => stopsForDay(moments, dayKey), [moments, dayKey]);
   // Re-read recorded points when the day changes or new ones land.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const tracked = useMemo<RoutePoint[]>(() => getRoutePoints(owner, dayKey), [owner, dayKey, tick]);
+  const local = useMemo<RoutePoint[]>(() => getRoutePoints(owner, dayKey), [owner, dayKey, tick]);
+  // Points other devices uploaded for this day (cached; one small query per day).
+  const [server, setServer] = useState<{ key: string; points: RoutePoint[] }>({ key: '', points: [] });
+  useEffect(() => {
+    if (!owner) return;
+    let cancelled = false;
+    void fetchServerRoutePoints(owner, dayKey)
+      .then(points => { if (!cancelled) setServer({ key: `${owner}:${dayKey}`, points }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [owner, dayKey, tick]);
+  const tracked = useMemo(
+    () => mergeRoutePoints(local, server.key === `${owner}:${dayKey}` ? server.points : []),
+    [local, server, owner, dayKey],
+  );
   const path = useMemo(
     () => [...tracked.map(p => ({ t: p.t, lat: p.lat, lng: p.lng })), ...stops.map(s => ({ t: s.t, lat: s.lat, lng: s.lng }))]
       .sort((a, b) => a.t - b.t),
@@ -225,7 +240,7 @@ export function DayRouteSheet({ moments, onClose, initialDayKey }: { moments: Mo
   const clearDay = () => {
     if (!owner) return;
     clearRouteDay(owner, dayKey);
-    refresh();
+    void deleteServerRouteDay(owner, dayKey).finally(refresh);
   };
 
   const isToday = dayKey === todayKey;
