@@ -9,7 +9,8 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react';
-import { ArrowUp, Loader2 } from 'lucide-react';
+import { ArrowUp, Check, Loader2, Mic, X } from 'lucide-react';
+import { useDictation } from '@/hooks/useDictation';
 import { cn, isEnterSubmit } from '@/lib/utils';
 import { LINE_HEIGHT_PX, composerHeight, isTouchComposer } from './composerLayout';
 
@@ -62,6 +63,14 @@ export interface ComposerProps {
   /** data-testid for the textarea. */
   testId?: string;
   ariaLabel?: string;
+  /**
+   * Inline dictation: a mic in the bottom row; while listening the text row
+   * shows a waveform and live words, with ✕ (discard) and ✓ (insert).
+   * Hidden when the browser has no speech recognition.
+   */
+  dictation?: boolean;
+  /** BCP-47 language for dictation, e.g. "zh-CN" or "en-US". */
+  dictationLang?: string;
 }
 
 export function Composer({
@@ -89,7 +98,16 @@ export function Composer({
   className,
   testId,
   ariaLabel,
+  dictation,
+  dictationLang = 'zh-CN',
 }: ComposerProps) {
+  const dict = useDictation(dictationLang);
+  const listening = dict.state !== 'idle';
+  const insertDictation = () => {
+    const spoken = dict.finish();
+    if (spoken) onChange(value.trim() ? `${value.replace(/\s+$/, '')} ${spoken}` : spoken);
+    requestAnimationFrame(() => innerRef.current?.focus());
+  };
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
   useImperativeHandle(textareaRef, () => innerRef.current, []);
   const sendable = (canSubmit ?? value.trim().length > 0) && !loading && !disabled;
@@ -124,6 +142,9 @@ export function Composer({
       {above}
       <div className="overflow-hidden rounded-[24px] border border-border/60 bg-[hsl(var(--toolbar-background))] shadow-[0_8px_28px_-14px_hsl(var(--foreground)/0.22)]">
         {attachments && <div className="px-3 pt-3">{attachments}</div>}
+        {listening && (
+          <DictationPanel finals={dict.finals} interim={dict.interim} pulse={dict.pulse} error={dict.error} />
+        )}
         <textarea
           ref={innerRef}
           value={value}
@@ -139,13 +160,35 @@ export function Composer({
           autoFocus={autoFocus}
           rows={1}
           enterKeyHint={isTouchComposer() ? 'enter' : 'send'}
-          className="block w-full resize-none bg-transparent px-4 pt-3 text-[16px] leading-[22px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50 sm:text-[15px]"
+          className={cn('block w-full resize-none bg-transparent px-4 pt-3 text-[16px] leading-[22px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50 sm:text-[15px]', listening && '!hidden')}
           style={{ minHeight: LINE_HEIGHT_PX, overflowY: 'hidden' }}
         />
         <div className="flex items-center gap-1 px-2 pb-2 pt-1">
+          {listening ? (
+            <>
+              <div className="flex-1" />
+              <ComposerIconButton onClick={dict.cancel} ariaLabel="Discard dictation">
+                <X size={18} />
+              </ComposerIconButton>
+              <button
+                type="button"
+                onClick={insertDictation}
+                aria-label="Insert dictation"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90"
+              >
+                <Check size={18} strokeWidth={2.6} />
+              </button>
+            </>
+          ) : (
+          <>
           <div className="flex min-w-0 items-center gap-1">{leading}</div>
           <div className="flex-1" />
           <div className="flex flex-shrink-0 items-center gap-1">
+            {dictation && dict.supported && (
+              <ComposerIconButton onClick={dict.start} ariaLabel="Dictate" testId="composer-dictate">
+                <Mic size={17} />
+              </ComposerIconButton>
+            )}
             {trailing}
             {!hideSend && (
               <button
@@ -165,6 +208,8 @@ export function Composer({
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
         {expand && <div className="border-t border-border/45 px-3 py-2">{expand}</div>}
       </div>
@@ -207,5 +252,42 @@ export function ComposerIconButton({
     >
       {children}
     </button>
+  );
+}
+
+/** Live dictation: a waveform that moves when speech arrives, and the words so far. */
+function DictationPanel({ finals, interim, pulse, error }: { finals: string; interim: string; pulse: number; error: string | null }) {
+  const BARS = 32;
+  const bars = Array.from({ length: BARS }, (_, i) => {
+    // Deterministic "random" height per bar that changes with each result.
+    const seed = Math.sin((pulse + 1) * 12.9898 + i * 78.233) * 43758.5453;
+    const r = seed - Math.floor(seed);
+    const center = 1 - Math.abs(i - BARS / 2) / (BARS / 2);
+    return pulse === 0 ? 3 : Math.max(3, Math.round(4 + r * 18 * (0.45 + center * 0.55)));
+  });
+  return (
+    <div className="px-4 pt-3" aria-live="polite">
+      <div className="flex h-7 items-center gap-[3px]" aria-hidden>
+        {bars.map((h, i) => (
+          <span
+            key={i}
+            className="w-[3px] rounded-full bg-foreground/70 transition-[height] duration-150 ease-out"
+            style={{ height: h }}
+          />
+        ))}
+      </div>
+      <p className="mt-2 min-h-[22px] text-[16px] leading-[22px] text-foreground sm:text-[15px]">
+        {error ? (
+          <span className="text-muted-foreground">Mic unavailable — check the browser permission.</span>
+        ) : finals || interim ? (
+          <>
+            {finals}
+            {interim && <span className="text-muted-foreground"> {interim}</span>}
+          </>
+        ) : (
+          <span className="text-muted-foreground">Listening…</span>
+        )}
+      </p>
+    </div>
   );
 }

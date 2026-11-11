@@ -20,6 +20,9 @@ interface SheetComposerProps {
   onPaste?: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
   /** Optional className for the outer wrapper. */
   className?: string;
+  /** Inline dictation (see Composer). */
+  dictation?: boolean;
+  dictationLang?: string;
 }
 
 /**
@@ -45,6 +48,8 @@ export const SheetComposer = forwardRef<HTMLTextAreaElement, SheetComposerProps>
     loading,
     onPaste,
     className,
+    dictation,
+    dictationLang,
   },
   inputRef,
 ) {
@@ -63,6 +68,8 @@ export const SheetComposer = forwardRef<HTMLTextAreaElement, SheetComposerProps>
       loading={loading}
       onPaste={onPaste}
       textareaRef={inputRef}
+      dictation={dictation}
+      dictationLang={dictationLang}
       sendLabel="Submit"
       className={cn(
         'sticky bottom-2 z-40 mx-auto max-w-[720px] mb-[env(safe-area-inset-bottom)]',
