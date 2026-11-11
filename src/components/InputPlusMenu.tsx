@@ -7,7 +7,7 @@ import { LocationPopover } from '@/components/LocationPopover';
 import { useLanguage } from '@/hooks/useLanguage';
 
 // Auto-tag detection keywords
-const AUTO_TAG_RULES: { keywords: string[]; tag: string }[] = [
+const AUTO_TAG_RULES: { keywords: string[]; tag: string; unless?: RegExp }[] = [
   { keywords: ['gym', 'workout', 'exercise', '健身', '运动', '锻炼', '跑步'], tag: '🏋️ Gym' },
   { keywords: ['study', 'learn', '学习', '看书', '读书', '复习'], tag: '📚 Study' },
   { keywords: ['cook', 'dinner', 'lunch', 'breakfast', '做饭', '吃饭', '晚餐', '午餐', '早餐', 'dine'], tag: '🍳 Dine' },
@@ -18,15 +18,27 @@ const AUTO_TAG_RULES: { keywords: string[]; tag: string }[] = [
   { keywords: ['meeting', 'interview', '开会', '面试', '会议'], tag: '💼 Work' },
   { keywords: ['code', 'program', '编程', '写代码', '开发'], tag: '💻 Code' },
   { keywords: ['paint', 'draw', 'art', '画画', '绘画', '艺术'], tag: '🎨 Art' },
-  { keywords: ['call', 'phone', '打电话', '电话'], tag: '📞 Call' },
+  // "Called a shuttle / an uber" is a ride, not a phone call.
+  { keywords: ['call', 'phone', 'facetime', '打电话', '电话'], tag: '📞 Call', unless: /\b(shuttle|uber|lyft|taxi|cab|car|ride|bus)\b|叫车|打车/ },
   { keywords: ['toothbrush', 'filter', '牙刷', '滤芯', '更换'], tag: '🔄 Replace' },
 ];
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** English keywords match at the start of a word, so "walk" still finds
+ *  "walking" but "art" no longer matches "start" and "shop" not "workshop".
+ *  Chinese has no word spaces, so it matches anywhere. */
+function hasKeyword(lower: string, kw: string): boolean {
+  if (/^[a-zà-ÿ]/.test(kw)) return new RegExp(`(?<![a-zà-ÿ])${escapeRe(kw)}`).test(lower);
+  return lower.includes(kw);
+}
 
 export function detectAutoTags(text: string): string[] {
   const lower = text.toLowerCase();
   const detected: string[] = [];
   AUTO_TAG_RULES.forEach(rule => {
-    if (rule.keywords.some(kw => lower.includes(kw))) {
+    if (rule.unless?.test(lower)) return;
+    if (rule.keywords.some(kw => hasKeyword(lower, kw))) {
       detected.push(rule.tag);
     }
   });
