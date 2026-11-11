@@ -1,3 +1,4 @@
+import { isRouteRecordingEnabled, startRouteRecorder } from '@/lib/routeRecorder';
 import { useState, useCallback, useEffect, useMemo, useRef, Component, type ErrorInfo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -124,6 +125,18 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const demoFixedDate = useMemo(() => new Date('2026-04-08T12:00:00'), []);
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const { user, isDemo } = useAuth();
+  // Day route: record location while the app is open, once the user turned it
+  // on in Map → Day route. Points stay on this device (see routeRecorder).
+  const [routeRecording, setRouteRecording] = useState(isRouteRecordingEnabled);
+  useEffect(() => {
+    const sync = () => setRouteRecording(isRouteRecordingEnabled());
+    window.addEventListener('eol:route-recording-change', sync);
+    return () => window.removeEventListener('eol:route-recording-change', sync);
+  }, []);
+  useEffect(() => {
+    if (!routeRecording || isDemo || landingDemoMode) return;
+    return startRouteRecorder();
+  }, [routeRecording, isDemo, landingDemoMode]);
   // New accounts (first 72h) start on Plan with a short guide instead of an
   // empty Recap. Decided once, synchronously, from account age — never from
   // "no data loaded", which a failed fetch would fake for existing users.
