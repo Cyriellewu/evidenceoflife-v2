@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, type CSSProperties } from 'react';
 import { StorageImage } from '@/components/StorageImage';
+import { parseSubtitleDetail } from '@/components/views/today/todayHelpers';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDateLocale } from '@/hooks/useDateLocale';
@@ -51,6 +52,8 @@ type DayEventChip = {
   type: 'moment' | 'todo' | 'imported';
   timeLabel?: string;
   photos?: string[];
+  /** a moment's notes (text after the detail separator), shown as a second line */
+  detail?: string;
 };
 
 interface CalendarViewProps {
@@ -277,9 +280,11 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
         const color = getActivityAccentColor({ title, tags: m.tags, isDarkMode })
           || WORK_TYPE_META[workType]?.color
           || '#D5AE4C';
+        const { subtitle, detail } = parseSubtitleDetail(m.text);
         existing.push({
           id: m.id,
-          label: m.text || m.emoji || label,
+          label: subtitle.trim() || m.emoji || label,
+          detail: detail?.trim() || undefined,
           color,
           type: 'moment',
           timeLabel: timeOf(m.timer_started_at) || timeOf(m.createdAt),
@@ -306,7 +311,12 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
   }, [effectiveTodos, dayRecords, importedEvents, isDarkMode, getWorkType, lang]);
 
   const monthFocusKey = format(monthFocusDate, 'yyyy-MM-dd');
-  const monthFocusEvents = dayEvents.get(monthFocusKey) || [];
+  // Chronological, like a day: timed items by time, untimed ones last.
+  const monthFocusEvents = useMemo(
+    () => [...(dayEvents.get(monthFocusKey) || [])].sort((a, b) =>
+      (a.timeLabel ?? '99:99').localeCompare(b.timeLabel ?? '99:99')),
+    [dayEvents, monthFocusKey],
+  );
 
   // Search — smart, multi-term, fuzzy-ish ranking across text, tags, location, type
   const searchResults = useMemo(() => {
@@ -436,7 +446,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
               </button>
               <h1 className={cn(
                 'min-w-0 truncate text-center whitespace-nowrap leading-none font-semibold tracking-tight',
-                compact ? 'text-[16px] tracking-[-0.02em]' : 'text-[22px] sm:text-[24px] font-display',
+                compact ? 'text-[17px] tracking-[-0.02em]' : 'text-[24px] font-display',
               )}>
                 {getHeaderTitle()}
               </h1>
@@ -486,12 +496,14 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           }
           return (
             <>
-              <div className="flex items-center justify-between px-4 py-2.5 gap-2 lg:mx-auto lg:max-w-[1480px] lg:px-8">
+              {/* One row: title, view switcher, tools. Two stacked rows ate a
+                  sixth of the screen before any calendar showed. */}
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 lg:mx-auto lg:max-w-[1480px] lg:px-8">
                 {titleNav(false)}
-                {tools}
-              </div>
-              <div className="flex justify-center px-4 pb-2">
-                {switcher}
+                <div className="flex items-center gap-2">
+                  {switcher}
+                  {tools}
+                </div>
               </div>
             </>
           );
@@ -512,11 +524,11 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                     onClick={() => { setCurrentDate(day); setViewMode('day'); }}
                     className="flex-1 flex flex-col items-center py-2 hover:bg-secondary/30 transition-colors"
                   >
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                    <span className="text-[13px] font-medium text-muted-foreground">
                       {lang === 'zh' ? WEEKDAYS_CN[day.getDay()] : format(day, 'EEE')}
                     </span>
                     <span className={cn(
-                      'w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5',
+                      'w-8 h-8 rounded-full flex items-center justify-center text-[17px] font-semibold mt-0.5',
                       dayIsToday && 'bg-primary text-primary-foreground',
                     )}>
                       {format(day, 'd')}
@@ -528,23 +540,6 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           );
         })()}
 
-        {/* Day view sub-header — sticky so it stays visible while time grid scrolls */}
-        {viewMode === 'day' && (
-          <div className="px-5 py-2.5 border-b border-border/30 flex items-center gap-3">
-            <div className={cn(
-              'w-10 h-10 rounded-full flex flex-col items-center justify-center flex-shrink-0',
-              isToday(currentDate) ? 'bg-primary text-primary-foreground' : 'bg-secondary'
-            )}>
-              <span className="text-[9px] font-medium uppercase leading-none">{format(currentDate, 'EEE')}</span>
-              <span className="text-[16px] font-bold leading-none">{format(currentDate, 'd')}</span>
-            </div>
-            <div>
-              <h2 className="text-[14px] font-semibold">{format(currentDate, 'MMMM d, yyyy')}</h2>
-              <p className="text-xs text-muted-foreground">{dayEventCount} events</p>
-            </div>
-          </div>
-        )}
-
         {/* Search bar */}
         {showSearch && (
           <div className="px-4 pb-2">
@@ -554,7 +549,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search moments & tasks..."
-                className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
+                className="flex-1 bg-transparent text-[15px] focus:outline-none placeholder:text-muted-foreground"
                 autoFocus
               />
               <button onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="text-muted-foreground hover:text-foreground">
@@ -564,7 +559,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
             {searchQuery.trim() && (
               <div className="mt-2 max-h-60 overflow-y-auto space-y-1">
                 {searchResults.length === 0 ? (
-                  <p className="text-xs text-muted-foreground/50 text-center py-3">No results</p>
+                  <p className="text-[13px] text-muted-foreground/60 text-center py-3">No results</p>
                 ) : (
                   searchResults.map((r, i) => (
                     <div
@@ -580,11 +575,11 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                           setViewMode('month');
                         }}
                       >
-                        <span className="text-[10px] font-mono text-muted-foreground w-20 flex-shrink-0">{r.date}</span>
-                        <span className={cn("text-xs", r.type === 'todo' ? 'text-primary' : 'text-foreground')}>
+                        <span className="text-[13px] tabular-nums text-muted-foreground w-24 flex-shrink-0">{r.date}</span>
+                        <span className={cn("text-[13px]", r.type === 'todo' ? 'text-primary' : 'text-foreground')}>
                           {r.type === 'todo' ? '☑️' : r.type === 'imported' ? '📅' : '📝'}
                         </span>
-                        <span className="text-sm truncate">{r.text}</span>
+                        <span className="text-[15px] truncate">{r.text}</span>
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteEvent(r.id, r.type); }}
@@ -671,14 +666,14 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           <div className="shrink-0 px-2 sm:px-3 lg:min-w-0 lg:flex-1 lg:px-0">
             <div className="grid grid-cols-7 mb-0.5">
               {(lang === 'zh' ? WEEKDAYS_CN : weekDays).map((day, i) => (
-                <div key={i} className="py-1.5 text-center text-[11px] font-medium text-muted-foreground/55">
+                <div key={i} className="py-1.5 text-center text-[13px] font-medium text-muted-foreground/60">
                   {day}
                 </div>
               ))}
             </div>
 
             <div
-              className="grid grid-cols-7 lg:auto-rows-[minmax(4.5rem,calc((100dvh-13rem)/var(--cal-weeks)))]"
+              className="grid grid-cols-7 lg:auto-rows-[minmax(4.5rem,calc((100dvh-9.5rem)/var(--cal-weeks)))]"
               style={{ '--cal-weeks': Math.max(1, Math.ceil(days.length / 7)) } as CSSProperties}
             >
               {days.map(day => {
@@ -740,12 +735,12 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           <div className="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-border/35 px-3 pt-3 lg:mt-0 lg:w-[400px] lg:flex-none lg:border-l lg:border-t-0 lg:pl-8 lg:pr-0 lg:pt-1">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[13px] font-semibold tracking-tight text-foreground">
+                <p className="text-[17px] font-semibold tracking-tight text-foreground">
                   {lang === 'zh'
                     ? format(monthFocusDate, 'M月d日')
                     : format(monthFocusDate, 'EEEE, MMM d')}
                 </p>
-                <p className="text-[11px] text-muted-foreground/70">
+                <p className="text-[13px] text-muted-foreground/70">
                   {monthFocusEvents.length === 0
                     ? (lang === 'zh' ? '这一天还没有记录' : 'No events')
                     : lang === 'zh'
@@ -759,7 +754,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                   setCurrentDate(monthFocusDate);
                   setViewMode('day');
                 }}
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border/40 px-3 py-1 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
               >
                 {lang === 'zh' ? '日视图' : 'Day'}
                 <ChevronRight size={12} />
@@ -773,7 +768,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                 className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border/45 bg-secondary/20 px-4 py-8 text-center text-muted-foreground/70 transition-colors hover:bg-secondary/35"
               >
                 <CalendarDays size={18} className="opacity-60" />
-                <span className="text-[12px]">
+                <span className="text-[13px]">
                   {lang === 'zh' ? '点这里添加一条记录' : 'Tap to add something'}
                 </span>
               </button>
@@ -794,10 +789,15 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                         style={{ backgroundColor: ev.color }}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] font-medium leading-snug text-foreground">
+                        <span className="block text-[15px] font-medium leading-snug text-foreground">
                           {ev.label}
                         </span>
-                        <span className="mt-0.5 block text-[11px] text-muted-foreground/65">
+                        {ev.detail && (
+                          <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-muted-foreground">
+                            {ev.detail}
+                          </span>
+                        )}
+                        <span className="mt-0.5 block text-[13px] text-muted-foreground/65">
                           {[
                             ev.timeLabel,
                             ev.type === 'todo'
@@ -829,12 +829,6 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
               </ul>
             )}
 
-            {/* Desktop-only denser chip preview for multi-day skim */}
-            {!isMobile && (
-              <p className="pb-2 pt-1 text-center text-[10px] text-muted-foreground/45">
-                {lang === 'zh' ? '双击日期打开日视图' : 'Double-click a date to open Day view'}
-              </p>
-            )}
           </div>
         </div>
       )}

@@ -385,7 +385,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
               style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
               <div className="w-12 flex-shrink-0 pr-1 -mt-2 text-right">
-                <span className="text-[10px] text-muted-foreground font-mono">
+                <span className="text-[12px] tabular-nums text-muted-foreground">
                   {hour === 0 ? '' : format(new Date(2000, 0, 1, hour), 'h a')}
                 </span>
               </div>
@@ -456,7 +456,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
                           <p
                             className="min-w-0 truncate leading-tight"
                             style={{
-                              fontSize: '10px',
+                              fontSize: '12px',
                               fontWeight: 500,
                               color: getActivityTextColor(e.color, isDarkMode, 'strong'),
                             }}
@@ -478,7 +478,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
                         className="absolute left-1 right-1 bg-primary/5 border border-dashed border-primary/40 rounded-lg z-20 pointer-events-none"
                         style={{ top: `${topPx}px`, height: `${heightPx}px` }}
                       >
-                        <p className="text-[9px] text-primary/50 font-medium px-1 pt-0.5 truncate">
+                        <p className="text-[12px] text-primary/60 font-medium px-1 pt-0.5 truncate">
                           {lang === 'zh' ? '新建日程' : 'New event'}
                         </p>
                       </div>
@@ -502,7 +502,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
                           style={{ top: `${topPx + heightPx + 4}px`, width: '200px' }}
                           onPointerDown={e => e.stopPropagation()}
                         >
-                          <p className="text-[10px] text-muted-foreground font-mono">{startTime} – {endTime}</p>
+                          <p className="text-[13px] tabular-nums text-muted-foreground">{startTime} – {endTime}</p>
                           <input
                             ref={draftInputRef}
                             value={draftTitle}
@@ -512,14 +512,14 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
                               if (e.key === 'Escape') cancelWeekDraft();
                             }}
                             placeholder={lang === 'zh' ? '日程标题...' : 'Event title...'}
-                            className="w-full bg-secondary/50 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+                            className="w-full bg-secondary/50 rounded-lg px-2 py-1.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                             autoFocus
                           />
                           <div className="flex items-center gap-1.5 justify-end">
-                            <button onClick={cancelWeekDraft} className="text-[11px] px-2 py-1 rounded-md text-muted-foreground hover:bg-secondary transition-colors">
+                            <button onClick={cancelWeekDraft} className="text-[13px] px-2 py-1 rounded-md text-muted-foreground hover:bg-secondary transition-colors">
                               {lang === 'zh' ? '取消' : 'Cancel'}
                             </button>
-                            <button onClick={confirmWeekDraft} className="text-[11px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium">
+                            <button onClick={confirmWeekDraft} className="text-[13px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium">
                               {lang === 'zh' ? '创建' : 'Create'}
                             </button>
                           </div>
