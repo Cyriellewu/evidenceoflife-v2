@@ -1,3 +1,4 @@
+import { cleanFillerWords } from '@/lib/fillerWords';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
 
 export const DETAIL_SEPARATOR = '\n---DETAIL---\n';
@@ -105,12 +106,9 @@ export function shouldSummarize(text: string): boolean {
 }
 
 export function cleanDetailText(text: string): string {
-  return text
-    .replace(/\r/g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/[，、。！？,.!?]*\s*(呃|啊|嗯|那个|然后呢|就是说|对吧|嘛|吧|呢|哦|哈|嘿|喂|额|唔|诶|哎)\s*/gi, ' ')
-    .replace(/\s+([,.!?，。！？])/g, '$1')
-    .trim();
+  // Same filler rules as dictation (src/lib/fillerWords.ts): real words that
+  // contain filler characters (对面, 这就是, phone) are left alone.
+  return cleanFillerWords(text.replace(/\r/g, '').replace(/\s+/g, ' '));
 }
 
 export function lightlyPolishRecapText(text: string): string {
