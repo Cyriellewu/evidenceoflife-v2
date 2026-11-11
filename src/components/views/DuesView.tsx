@@ -1,3 +1,4 @@
+import { ComposerPlusMenu } from '@/components/composer/ComposerPlusMenu';
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { addDays, differenceInDays, format, isSaturday, isSunday, nextMonday, nextSaturday, parseISO } from 'date-fns';
 import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
@@ -646,17 +647,14 @@ export function DuesView({
           }}
           className="static order-first mb-4 mt-1 max-w-none"
           leading={
-            <Popover open={showPlusMenu} onOpenChange={setShowPlusMenu}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Attach"
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
-                >
-                  <Plus size={16} />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-2 space-y-1.5" align="start" side="top">
+            <ComposerPlusMenu
+              open={showPlusMenu}
+              onOpenChange={setShowPlusMenu}
+              active={pendingPhotos.length > 0}
+              label={lang === 'zh' ? '添加' : 'Add'}
+              width="w-60"
+            >
+              <div className="space-y-1.5 p-2">
                 <button onClick={() => { photoInputRef.current?.click(); setShowPlusMenu(false); }}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors">
                   <Camera size={14} className="text-muted-foreground" />{t('dues.photo')}
@@ -676,8 +674,8 @@ export function DuesView({
                     <button onClick={() => void handleAddPendingLink()} className="text-[12px] text-primary hover:underline w-full text-left px-1" disabled={addingPendingLink}>{t('dues.addBtn')}</button>
                   )}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </div>
+            </ComposerPlusMenu>
           }
           trailing={
             onOpenVoiceSheet ? (
@@ -685,9 +683,9 @@ export function DuesView({
                 type="button"
                 onClick={onOpenVoiceSheet}
                 aria-label="Voice input"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
               >
-                <Mic size={14} />
+                <Mic size={17} />
               </button>
             ) : null
           }

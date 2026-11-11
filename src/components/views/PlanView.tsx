@@ -1,4 +1,5 @@
 import { Composer, ComposerIconButton } from '@/components/composer/Composer';
+import { ComposerPlusMenu } from '@/components/composer/ComposerPlusMenu';
 import { isTouchComposer } from '@/components/composer/composerLayout';
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -3533,17 +3534,14 @@ export function PlanView({
                 }}
                 leading={
                   <>
-                  {/* ➕ menu button */}
-                  <div className="relative">
-                    <button onClick={(e) => { e.stopPropagation(); setPlusMenuOpen(prev => !prev); }}
-                      aria-label={lang === 'zh' ? '更多选项' : 'More options'}
-                      className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
-                        plusMenuOpen ? "bg-[hsl(var(--surface-inset))] text-foreground" : "bg-transparent hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground"
-                      )}>
-                      <Plus size={18} />
-                    </button>
-                    {plusMenuOpen && (
-                      <div className="absolute bottom-12 left-0 bg-card border border-border rounded-2xl shadow-xl p-2.5 min-w-[264px] z-[70] animate-scale-in font-normal" onClick={e => e.stopPropagation()}>
+                  <ComposerPlusMenu
+                    open={plusMenuOpen}
+                    onOpenChange={setPlusMenuOpen}
+                    active={reminderConfig.enabled || recurringUntilDone || quickSegmentOverride != null}
+                    label={lang === 'zh' ? '更多选项' : 'More options'}
+                    width="w-[280px]"
+                  >
+                    <div className="p-2.5 font-normal" onClick={e => e.stopPropagation()}>
                         <p className="px-1 pb-1.5 text-[13px] font-medium text-muted-foreground">
                           {tLang('plan.timeSlot') || 'Time slot'}
                         </p>
@@ -3622,9 +3620,8 @@ export function PlanView({
                           <span>{tLang('plan.repeatDaily') || 'Repeat daily'}</span>
                           {recurringUntilDone && <Check size={14} className="ml-auto flex-shrink-0" />}
                         </button>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  </ComposerPlusMenu>
                   </>
                 }
                 trailing={
