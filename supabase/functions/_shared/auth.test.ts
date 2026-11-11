@@ -2,7 +2,7 @@
 // environment (no database, no live Supabase). Run with:
 //   deno test --allow-env --allow-net supabase/functions/_shared/auth.test.ts
 //
-// --allow-net is only needed the first time to fetch the esm.sh import that
+// --allow-net is only needed the first time to fetch the npm package that
 // auth.ts references; the pure functions under test make no network calls.
 
 import {
