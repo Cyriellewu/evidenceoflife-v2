@@ -86,8 +86,8 @@ async function pruneOldRows(owner: string) {
 type CacheEntry = { points: RoutePoint[]; fetchedAt: number; inflight?: Promise<RoutePoint[]> };
 const cache = new Map<string, CacheEntry>();
 
-async function fetchPage(day: string, afterIso: string | null, from: number) {
-  let q = supabase.from('route_points').select('t,lat,lng').eq('day', day);
+async function fetchPage(owner: string, day: string, afterIso: string | null, from: number) {
+  let q = supabase.from('route_points').select('t,lat,lng').eq('user_id', owner).eq('day', day);
   if (afterIso) q = q.gt('t', afterIso);
   return q.order('t', { ascending: true }).range(from, from + PAGE - 1);
 }
@@ -105,8 +105,9 @@ export async function fetchServerRoutePoints(owner: string, day: string): Promis
   const run = (async () => {
     const fresh: RoutePoint[] = [];
     for (let from = 0; ; from += PAGE) {
-      const { data, error } = await fetchPage(day, afterIso, from);
-      if (error || !data) break;
+      const { data, error } = await fetchPage(owner, day, afterIso, from);
+      // Throw so a failed read isn't cached as "this day has no points".
+      if (error || !data) throw error ?? new Error('route points read failed');
       for (const r of data) fresh.push({ t: new Date(r.t).getTime(), lat: r.lat, lng: r.lng });
       if (data.length < PAGE) break;
     }
@@ -124,9 +125,10 @@ export async function fetchServerRoutePoints(owner: string, day: string): Promis
 }
 
 /** Remove a day's points everywhere (server + cache). */
-export async function deleteServerRouteDay(owner: string, day: string) {
+export async function deleteServerRouteDay(owner: string, day: string): Promise<boolean> {
   cache.delete(`${owner}:${day}`);
-  await supabase.from('route_points').delete().eq('user_id', owner).eq('day', day);
+  const { error } = await supabase.from('route_points').delete().eq('user_id', owner).eq('day', day);
+  return !error;
 }
 
 /** Merge local and server points for one day, de-duplicated by timestamp. */

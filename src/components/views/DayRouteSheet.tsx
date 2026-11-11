@@ -9,6 +9,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useAuth } from '@/hooks/useAuth';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
 import { StorageImage } from '@/components/StorageImage';
 import { addBasemap, LIFE_MAP_COLOR } from '@/lib/mapBasemap';
 import { deleteServerRouteDay, fetchServerRoutePoints, mergeRoutePoints } from '@/lib/routeSync';
@@ -73,7 +74,12 @@ function useDayRoute(moments: Moment[], dayKey: string, owner: string | undefine
     if (!owner) return;
     let cancelled = false;
     void fetchServerRoutePoints(owner, dayKey)
-      .then(points => { if (!cancelled) setServer({ key: `${owner}:${dayKey}`, points }); })
+      .then(points => {
+        if (cancelled) return;
+        const key = `${owner}:${dayKey}`;
+        // Same cached array → keep state, so the map doesn't redraw and re-fit.
+        setServer(prev => (prev.key === key && prev.points === points ? prev : { key, points }));
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [owner, dayKey, tick]);
@@ -164,7 +170,9 @@ export function DayRouteCard({ moments, allMoments, dayKey }: { moments: Moment[
   const zh = lang === 'zh';
   const owner = useRouteOwner();
   const isToday = dayKey === localDayKey(Date.now());
-  const live = isToday && isRouteRecordingEnabled(owner);
+  // Today keeps polling (cache-throttled to one small query per 5 min) so a
+  // route the phone records shows up here even when this device isn't recording.
+  const live = isToday && !!owner;
   const { stops, tracked, path } = useDayRoute(moments, dayKey, owner, live);
   const [open, setOpen] = useState(false);
 
@@ -240,7 +248,10 @@ export function DayRouteSheet({ moments, onClose, initialDayKey }: { moments: Mo
   const clearDay = () => {
     if (!owner) return;
     clearRouteDay(owner, dayKey);
-    void deleteServerRouteDay(owner, dayKey).finally(refresh);
+    void deleteServerRouteDay(owner, dayKey).then(ok => {
+      if (!ok) toast.error(zh ? '云端的位置点没删掉，请稍后再试' : "Couldn't clear the synced points. Try again later.");
+      refresh();
+    });
   };
 
   const isToday = dayKey === todayKey;
