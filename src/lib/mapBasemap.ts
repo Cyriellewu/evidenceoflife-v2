@@ -1,5 +1,8 @@
 import L from 'leaflet';
 
+/** Warm accent used for Life Map marks and the day route. */
+export const LIFE_MAP_COLOR = '#e8825a';
+
 interface TileSource {
   url: string;
   subdomains?: string;

@@ -15,9 +15,13 @@ export interface RoutePoint {
   acc?: number;
 }
 
-const POINTS_KEY = 'eol:route-points:v1';
-const ENABLED_KEY = 'eol:route-recording:v1';
+// Keyed per account so another sign-in on the same browser never sees or
+// continues someone else's track.
+const pointsKey = (owner: string) => `eol:route-points:v1:${owner}`;
+const enabledKey = (owner: string) => `eol:route-recording:v1:${owner}`;
 const KEEP_DAYS = 30;
+/** Hard cap per day so the track can't crowd out other local storage. */
+export const MAX_POINTS_PER_DAY = 1500;
 /** Ignore fixes worse than this (metres). */
 export const MAX_ACCURACY_M = 150;
 /** Record when moved at least this far… */
@@ -52,9 +56,9 @@ export function localDayKey(t: number): string {
 
 type Store = Record<string, RoutePoint[]>;
 
-function readStore(): Store {
+function readStore(owner: string): Store {
   try {
-    const raw = localStorage.getItem(POINTS_KEY);
+    const raw = localStorage.getItem(pointsKey(owner));
     const parsed = raw ? JSON.parse(raw) : {};
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
@@ -62,24 +66,26 @@ function readStore(): Store {
   }
 }
 
-function writeStore(store: Store) {
+function writeStore(owner: string, store: Store) {
   try {
-    localStorage.setItem(POINTS_KEY, JSON.stringify(store));
+    localStorage.setItem(pointsKey(owner), JSON.stringify(store));
   } catch {
     /* storage full or blocked — recording is best-effort */
   }
 }
 
-export function getRoutePoints(dayKey: string): RoutePoint[] {
-  const pts = readStore()[dayKey];
+export function getRoutePoints(owner: string | undefined, dayKey: string): RoutePoint[] {
+  if (!owner) return [];
+  const pts = readStore(owner)[dayKey];
   return Array.isArray(pts) ? pts : [];
 }
 
 /** Append a fix if it passes `shouldRecordPoint`; prunes days older than KEEP_DAYS. */
-export function addRoutePoint(point: RoutePoint): boolean {
-  const store = readStore();
+export function addRoutePoint(owner: string, point: RoutePoint): boolean {
+  const store = readStore(owner);
   const key = localDayKey(point.t);
   const day = Array.isArray(store[key]) ? store[key] : [];
+  if (day.length >= MAX_POINTS_PER_DAY) return false;
   if (!shouldRecordPoint(day[day.length - 1], point)) return false;
   day.push({
     lat: Math.round(point.lat * 1e5) / 1e5,
@@ -90,28 +96,29 @@ export function addRoutePoint(point: RoutePoint): boolean {
   store[key] = day;
   const cutoff = localDayKey(point.t - KEEP_DAYS * 86400000);
   for (const k of Object.keys(store)) if (k < cutoff) delete store[k];
-  writeStore(store);
+  writeStore(owner, store);
   return true;
 }
 
-export function clearRouteDay(dayKey: string) {
-  const store = readStore();
+export function clearRouteDay(owner: string, dayKey: string) {
+  const store = readStore(owner);
   delete store[dayKey];
-  writeStore(store);
+  writeStore(owner, store);
 }
 
-export function isRouteRecordingEnabled(): boolean {
+export function isRouteRecordingEnabled(owner: string | undefined): boolean {
+  if (!owner) return false;
   try {
-    return localStorage.getItem(ENABLED_KEY) === '1';
+    return localStorage.getItem(enabledKey(owner)) === '1';
   } catch {
     return false;
   }
 }
 
-export function setRouteRecordingEnabled(on: boolean) {
+export function setRouteRecordingEnabled(owner: string, on: boolean) {
   try {
-    if (on) localStorage.setItem(ENABLED_KEY, '1');
-    else localStorage.removeItem(ENABLED_KEY);
+    if (on) localStorage.setItem(enabledKey(owner), '1');
+    else localStorage.removeItem(enabledKey(owner));
   } catch {
     /* ignore */
   }
@@ -122,7 +129,7 @@ export function setRouteRecordingEnabled(on: boolean) {
  * Watch position while the page is visible. Returns a stop function.
  * `onPoint` fires for every fix that was stored.
  */
-export function startRouteRecorder(onPoint?: (p: RoutePoint) => void): () => void {
+export function startRouteRecorder(owner: string, onPoint?: (p: RoutePoint) => void): () => void {
   if (typeof navigator === 'undefined' || !navigator.geolocation) return () => {};
   let watchId: number | null = null;
 
@@ -136,7 +143,7 @@ export function startRouteRecorder(onPoint?: (p: RoutePoint) => void): () => voi
           t: pos.timestamp || Date.now(),
           acc: pos.coords.accuracy,
         };
-        if (addRoutePoint(p)) onPoint?.(p);
+        if (addRoutePoint(owner, p)) onPoint?.(p);
       },
       () => { /* denied or unavailable — stay quiet */ },
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 30_000 },

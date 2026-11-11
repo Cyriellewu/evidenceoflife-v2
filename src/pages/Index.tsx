@@ -127,16 +127,17 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const { user, isDemo } = useAuth();
   // Day route: record location while the app is open, once the user turned it
   // on in Map → Day route. Points stay on this device (see routeRecorder).
-  const [routeRecording, setRouteRecording] = useState(isRouteRecordingEnabled);
+  const [routeRecording, setRouteRecording] = useState(() => isRouteRecordingEnabled(user?.id));
   useEffect(() => {
-    const sync = () => setRouteRecording(isRouteRecordingEnabled());
+    const sync = () => setRouteRecording(isRouteRecordingEnabled(user?.id));
+    sync();
     window.addEventListener('eol:route-recording-change', sync);
     return () => window.removeEventListener('eol:route-recording-change', sync);
-  }, []);
+  }, [user?.id]);
   useEffect(() => {
-    if (!routeRecording || isDemo || landingDemoMode) return;
-    return startRouteRecorder();
-  }, [routeRecording, isDemo, landingDemoMode]);
+    if (!routeRecording || !user?.id || isDemo || landingDemoMode) return;
+    return startRouteRecorder(user.id);
+  }, [routeRecording, user?.id, isDemo, landingDemoMode]);
   // New accounts (first 72h) start on Plan with a short guide instead of an
   // empty Recap. Decided once, synchronously, from account age — never from
   // "no data loaded", which a failed fetch would fake for existing users.

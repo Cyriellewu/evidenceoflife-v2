@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useRef, useCallback, Component, type Erro
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X, MapPinned, Smartphone, Route } from 'lucide-react';
 import { DayRouteSheet } from '@/components/views/DayRouteSheet';
+import { isRouteRecordingEnabled } from '@/lib/routeRecorder';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
 import { buildWidgetKeyPayload, copyAsync } from '@/lib/widgetExport';
@@ -9,7 +11,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
 import { Moment } from '@/types';
-import { addBasemap } from '@/lib/mapBasemap';
+import { addBasemap, LIFE_MAP_COLOR } from '@/lib/mapBasemap';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PageHeader } from '@/components/ui/page-header';
@@ -132,7 +134,6 @@ const normalizeMunicipalityDistrict = (name: string, isZh: boolean): string => {
 
 
 // Warm orange accent for life map
-const LIFE_MAP_COLOR = '#e8825a';
 const DETAIL_MAP_ENABLED = true;
 const MAP_SAFE_MODE = false;
 const HEATMAP_ENABLED = false;
@@ -480,6 +481,14 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const { t, lang } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>('world');
   const [showDayRoute, setShowDayRoute] = useState(false);
+  const { user: routeUser } = useAuth();
+  const [routeRecording, setRouteRecording] = useState(() => isRouteRecordingEnabled(routeUser?.id));
+  useEffect(() => {
+    const sync = () => setRouteRecording(isRouteRecordingEnabled(routeUser?.id));
+    sync();
+    window.addEventListener('eol:route-recording-change', sync);
+    return () => window.removeEventListener('eol:route-recording-change', sync);
+  }, [routeUser?.id]);
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [placeQuery, setPlaceQuery] = useState('');
   // Phone top bar (MobileNavChrome) exposes an empty centre slot to portal into.
@@ -1847,8 +1856,14 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 mobileNavSlot ? 'w-8 px-0' : 'px-3',
               )}
               aria-label={lang === 'zh' ? '一天的路线' : 'Day route'}
+              title={lang === 'zh' ? '一天的路线' : 'Day route'}
             >
-              <Route size={13} />
+              <span className="relative inline-flex">
+                <Route size={13} />
+                {routeRecording && (
+                  <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                )}
+              </span>
               {!mobileNavSlot && (lang === 'zh' ? '一天的路线' : 'Day route')}
             </Button>
             <Button

@@ -20,9 +20,11 @@ describe('shouldRecordPoint', () => {
 describe('addRoutePoint', () => {
   beforeEach(() => localStorage.clear());
   it('stores points per local day', () => {
-    expect(addRoutePoint(p(40.8, -73.96))).toBe(true);
-    expect(addRoutePoint(p(40.8, -73.96, 1))).toBe(false);
-    expect(addRoutePoint(p(40.81, -73.96, 5))).toBe(true);
-    expect(getRoutePoints(localDayKey(base))).toHaveLength(2);
+    expect(addRoutePoint('u1', p(40.8, -73.96))).toBe(true);
+    expect(addRoutePoint('u1', p(40.8, -73.96, 1))).toBe(false);
+    expect(addRoutePoint('u1', p(40.81, -73.96, 5))).toBe(true);
+    expect(getRoutePoints('u1', localDayKey(base))).toHaveLength(2);
+    expect(getRoutePoints('u2', localDayKey(base))).toHaveLength(0);
+    expect(getRoutePoints(undefined, localDayKey(base))).toHaveLength(0);
   });
 });
