@@ -22,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { showUndoToast } from '@/lib/undoToast';
 import { toast } from 'sonner';
-import { AUTO_STOP_TIMER_HOURS, planAutoStop } from '@/lib/focusTimer';
+import { AUTO_STOP_TIMER_HOURS, LONG_BREAK_MINUTES, planAutoStop } from '@/lib/focusTimer';
 import { onPauseChange, pauseStates as sharedPauseStates, savePauseStates } from '@/lib/pauseStore';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -2587,7 +2587,8 @@ export function PlanView({
   }, [getInheritedPlanActualRange, onAddMoment]);
 
   // Forgotten-timer guard: a focus timer running 8h+ was almost certainly left
-  // on. planAutoStop (src/lib/focusTimer.ts) closes the session at the last
+  // on, and a break of 30m+ means the session is over (it ends where the break
+  // began). planAutoStop (src/lib/focusTimer.ts) closes the session at the last
   // real work (the pause, if paused) with at most 8h of work. It is stored the
   // same way as "Save and continue": one session moment, the total banked on
   // the task, the task left open. Runs on load and every minute, so a timer
@@ -2617,10 +2618,15 @@ export function PlanView({
           const h = Math.floor(plan.sessionSec / 3600);
           const m = Math.floor((plan.sessionSec % 3600) / 60);
           const logged = h > 0 ? `${h}h ${m}m` : `${m}m`;
+          const endedAt = format(new Date(plan.endISO), 'HH:mm');
           toast(
-            lang === 'zh'
-              ? `「${todo.title}」的计时开了超过 ${AUTO_STOP_TIMER_HOURS} 小时，已自动停止，记了 ${logged}。可以在时间轴上调整。`
-              : `"${todo.title}" was left running over ${AUTO_STOP_TIMER_HOURS}h. It was stopped and logged as ${logged}; adjust it on the timeline.`,
+            plan.reason === 'long-break'
+              ? (lang === 'zh'
+                ? `「${todo.title}」休息超过 ${LONG_BREAK_MINUTES} 分钟，这段在 ${endedAt} 结束，记了 ${logged}。`
+                : `"${todo.title}": the break ran past ${LONG_BREAK_MINUTES} min, so this session ended at ${endedAt} with ${logged} of focus.`)
+              : (lang === 'zh'
+                ? `「${todo.title}」的计时开了超过 ${AUTO_STOP_TIMER_HOURS} 小时，已自动停止，记了 ${logged}。可以在时间轴上调整。`
+                : `"${todo.title}" was left running over ${AUTO_STOP_TIMER_HOURS}h. It was stopped and logged as ${logged}; adjust it on the timeline.`),
             { duration: 10000 },
           );
         })();

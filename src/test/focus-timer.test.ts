@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   AUTO_STOP_TIMER_HOURS,
+  LONG_BREAK_MINUTES,
   buildSessionMomentDraft,
   findDuplicateSessionMoment,
   isMomentTimerRunning,
@@ -62,6 +63,36 @@ describe('auto-stop (timer left on: the 26h pill)', () => {
     const plan = planAutoStop({ timer_started_at: iso(start) }, { pausedAt: null, totalPausedMs: H }, now)!;
     expect(plan.sessionSec).toBe(8 * 3600);
     expect(plan.endISO).toBe(iso(start + 9 * H));
+  });
+});
+
+describe('long break ends the session (191:13 "resting")', () => {
+  const M = 60_000;
+  it('keeps a short break running', () => {
+    const start = now - H;
+    expect(planAutoStop({ timer_started_at: iso(start) }, { pausedAt: now - (LONG_BREAK_MINUTES - 1) * M, totalPausedMs: 0 }, now)).toBeNull();
+  });
+
+  it('ends a long break where it began, with only the worked minutes', () => {
+    const start = now - 4 * H;
+    const pausedAt = start + 34 * M;
+    const plan = planAutoStop({ timer_started_at: iso(start), timer_seconds: 300 }, { pausedAt, totalPausedMs: 0 }, now)!;
+    expect(plan.reason).toBe('long-break');
+    expect(plan.endISO).toBe(iso(pausedAt));
+    expect(plan.sessionSec).toBe(34 * 60);
+    expect(plan.totalSec).toBe(300 + 34 * 60);
+  });
+
+  it('subtracts earlier, finished breaks from the worked time', () => {
+    const start = now - 2 * H;
+    const pausedAt = start + 50 * M;
+    const plan = planAutoStop({ timer_started_at: iso(start) }, { pausedAt, totalPausedMs: 10 * M }, now)!;
+    expect(plan.sessionSec).toBe(40 * 60);
+    expect(plan.endISO).toBe(iso(pausedAt));
+  });
+
+  it('labels an 8h runaway as forgotten', () => {
+    expect(planAutoStop({ timer_started_at: iso(now - 9 * H) }, undefined, now)!.reason).toBe('forgotten');
   });
 });
 
