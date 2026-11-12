@@ -2356,7 +2356,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             className={cn(
               "absolute flex items-center gap-1 z-30 rounded-md px-1 py-0.5 bg-card/90 shadow-sm ring-1 ring-border/50 backdrop-blur-sm",
               isResumeBlockSelected ? "opacity-100" : keepActionsVisible ? "opacity-100" : "opacity-0 group-hover/block:opacity-100",
-              veryCompactLayout ? "-top-8 right-0" : "top-1 right-1"
+              // A live block sits on the now line, whose time label is pinned top-right:
+              // drop the bar below the block there so the two never overlap.
+              veryCompactLayout ? (isTimerActive ? "top-full mt-1 right-0" : "-top-8 right-0") : "top-1 right-1"
             )}
             data-block-action="true"
             onMouseDown={e => e.stopPropagation()}
