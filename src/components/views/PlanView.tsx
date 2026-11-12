@@ -1003,8 +1003,8 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   className={cn(
                     "flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded transition-colors",
                     stepRunning
-                      ? "text-primary hover:bg-primary/8"
-                      : "text-muted-foreground/60 hover:text-primary hover:bg-primary/8"
+                      ? "text-foreground/70 hover:bg-[hsl(var(--surface-soft-hover))]"
+                      : "text-muted-foreground/60 hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))]"
                   )}
                   title={stepRunning
                     ? (lang === 'zh' ? '停止步骤计时' : 'Stop step timer')
@@ -1014,11 +1014,14 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                     : (lang === 'zh' ? '继续步骤计时' : 'Resume step timer')}
                 >
                   {stepRunning ? (
-                    <span className="font-mono text-[11px] tabular-nums leading-none">{stepLiveLabel}</span>
+                    <>
+                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary/80" />
+                      <span className="text-[12px] tabular-nums leading-none">{stepLiveLabel}</span>
+                    </>
                   ) : (
                     <>
                       <Timer size={11} strokeWidth={1.75} />
-                      <span className="font-mono text-[10px] tabular-nums leading-none">{fmtSec(stepElapsed)}</span>
+                      <span className="text-[12px] tabular-nums leading-none">{fmtSec(stepElapsed)}</span>
                     </>
                   )}
                 </button>
@@ -1026,12 +1029,12 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                 <button
                   type="button"
                   onClick={openPlanEditor}
-                  className="flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded text-muted-foreground/55 transition-colors hover:text-primary hover:bg-primary/8"
+                  className="flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded text-muted-foreground/55 transition-colors hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))]"
                   title={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
                   aria-label={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
                 >
                   <Clock size={11} strokeWidth={1.75} />
-                  <span className="font-mono text-[10px] tabular-nums leading-none">{planLabel}</span>
+                  <span className="text-[12px] tabular-nums leading-none">{planLabel}</span>
                 </button>
               ) : null}
 
@@ -1173,16 +1176,12 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   }
                   setEditingStepId(null);
                 }}
-                className={cn(
-                  "flex-1 min-w-0 bg-transparent text-[13px] leading-relaxed focus:outline-none",
-                  "border-b border-primary/40 text-foreground"
-                )}
+                className="flex-1 min-w-0 bg-transparent p-0 text-[13px] leading-relaxed text-foreground caret-primary focus:outline-none"
               />
             ) : (
               <button
                 type="button"
                 onClick={() => { setEditingStepId(step.id); setEditingStepTitle(step.title); }}
-                title={lang === 'zh' ? '点击编辑步骤' : 'Click to edit step'}
                 className={cn(
                   "flex-1 min-w-0 truncate text-left text-[13px] leading-relaxed bg-transparent border-none p-0",
                   "cursor-text hover:text-foreground transition-colors",
@@ -1207,20 +1206,25 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
           </div>
           )}
           {isEditingPlan && (
-            <div className="flex items-center gap-1 pl-6 pb-1" onClick={e => e.stopPropagation()}>
-              <input
-                type="time"
-                value={planStart}
-                onChange={e => setPlanStart(e.target.value)}
-                className="bg-secondary rounded px-1 py-0.5 text-xs font-mono w-[70px] focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <span className="text-muted-foreground text-xs">→</span>
-              <input
-                type="time"
-                value={planEnd}
-                onChange={e => setPlanEnd(e.target.value)}
-                className="bg-secondary rounded px-1 py-0.5 text-xs font-mono w-[70px] focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+            <div className="flex items-center gap-2 pl-6 pb-1.5" onClick={e => e.stopPropagation()}>
+              <div className="inline-flex h-7 items-center gap-1 rounded-full bg-secondary/40 pl-2.5 pr-2 text-[12px] tabular-nums text-foreground">
+                <Clock size={12} className="flex-shrink-0 text-muted-foreground" />
+                <input
+                  type="time"
+                  value={planStart}
+                  onChange={e => setPlanStart(e.target.value)}
+                  aria-label={lang === 'zh' ? '开始时间' : 'Start time'}
+                  className="min-w-[4.75rem] bg-transparent text-[12px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+                />
+                <span className="text-muted-foreground">–</span>
+                <input
+                  type="time"
+                  value={planEnd}
+                  onChange={e => setPlanEnd(e.target.value)}
+                  aria-label={lang === 'zh' ? '结束时间' : 'End time'}
+                  className="min-w-[4.75rem] bg-transparent text-[12px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => { onUpdateStepPlanTime(step.id, planStart, planEnd); setPlanTimeStepId(null); }}
