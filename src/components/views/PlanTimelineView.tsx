@@ -728,7 +728,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         const current = items[i];
         const next = items[i + 1];
         const gapMin = next.startMin - current.endMin;
-        if (gapMin <= 0 || gapMin > 240) continue;
+        // Same task (or same title) is one piece of work: connect it however far
+        // apart the sessions are, so a plan at noon and a timer at 8pm read as one.
+        if (gapMin <= 0) continue;
         map.set(current.id, {
           downHeight: Math.max(8, minToY(next.startMin) - minToY(current.endMin)),
           gapMin,
@@ -847,6 +849,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     // Title tap opens rename — don't steal it as a block move.
     if ((e.target as HTMLElement).closest('[data-block-title="true"]')) return;
+    // Hover action buttons (timer, rename, …) must get their click; capturing the
+    // pointer here retargeted it to the block, so "start timer" sometimes did nothing.
+    if ((e.target as HTMLElement).closest('[data-block-action="true"]')) return;
     if (block.source === 'imported') return;
     // Moment blocks have a single (actual) span — drag/resize edits that span.
     if (block.source === 'moment') {
@@ -2085,7 +2090,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           const planDashColor = hollowPlanFrame
             ? plannedStrokeColor
             : colorWithAlpha(isDarkMode ? 0.5 : edgeAlpha(0.34));
-          const planDashWidth = hollowPlanFrame ? 1.25 : 1;
+          const planDashWidth = hollowPlanFrame ? 1.75 : 1.5;
           const planBackdrop = isCompletedPlanOnly
             ? (isDarkMode
                 ? `linear-gradient(180deg, ${colorWithAlpha(0.24)} 0%, ${colorWithAlpha(0.18)} 100%)`
@@ -2121,14 +2126,30 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                       border: `1px solid ${colorWithAlpha(isDarkMode ? 0.55 : 0.45)}`,
                       boxSizing: 'border-box',
                     }
-                    : {
-                      // Real CSS dashed border so the outline keeps the block's
-                      // rounded corners (gradient stripes left the corners open).
-                      border: `${planDashWidth}px dashed ${planDashColor}`,
-                      boxSizing: 'border-box',
-                    }),
+                    : {}),
                 }}
-              />
+              >
+                {!isCompletedPlanOnly && (
+                  // SVG dashes (not CSS `dashed`) so the dash is long and the gaps
+                  // open — a 1px CSS dash read as a dense dotted line. The stroke is
+                  // centred on the rect edge, so draw it at 2× and let the SVG clip
+                  // the outer half: the inner half keeps the rounded corners.
+                  <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
+                    <rect
+                      x="0"
+                      y="0"
+                      width="100%"
+                      height="100%"
+                      rx={blockRadius}
+                      ry={blockRadius}
+                      fill="none"
+                      stroke={planDashColor}
+                      strokeWidth={planDashWidth * 2}
+                      strokeDasharray="7 5"
+                    />
+                  </svg>
+                )}
+              </div>
               {showPlanMiniLabel && (
                 <div
                   className="absolute left-3 top-3 rounded-full bg-background/90 px-2 py-[2px] font-semibold uppercase tracking-[0.06em] shadow-sm"
@@ -2401,7 +2422,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             >
               <Pencil size={14} />
             </button>
-            {isTodo && hasPlan && onUnscheduleTodo && !block.isCompleted && (
+            {isTodo && hasPlan && onUnscheduleTodo && (
               <button
                 onClick={() => onUnscheduleTodo(block.id)}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
@@ -2411,7 +2432,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 <ArrowLeft size={14} />
               </button>
             )}
-            {isTodo && hasPlan && hasActual && !isTimerActive && (
+            {isTodo && hasActual && !isTimerActive && (
               <button
                 onClick={() => onUpdateTodo(block.id, CLEAR_ACTUAL_TIME)}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
@@ -2419,16 +2440,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 aria-label={lang === 'zh' ? '清除实际时间' : 'Clear actual time'}
               >
                 <RotateCcw size={14} />
-              </button>
-            )}
-            {block.source === 'todo' && (
-              <button
-                onClick={() => removeBlockFromTimeline(block)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"
-                title={lang === 'zh' ? '从时间轴移除' : 'Remove from timeline'}
-                aria-label={lang === 'zh' ? '从时间轴移除' : 'Remove from timeline'}
-              >
-                <Trash2 size={14} />
               </button>
             )}
             {block.source === 'moment' && onDeleteMoment && (
