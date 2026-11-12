@@ -6,6 +6,7 @@ Evidence of Life is an ADHD-friendly visual planning and life-memory system that
 
 **[Live demo](https://evidenceoflife-v2.vercel.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)** · **[Agents](AGENTS.md)**
 
+[![CI](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -72,7 +73,8 @@ See [docs/PRODUCT_PHILOSOPHY.md](docs/PRODUCT_PHILOSOPHY.md) for the full model.
 
 ## Early validation
 
-Evidence of Life has been tested by approximately **30–40 early users** and has
+Evidence of Life has been tested by **30+ early users** (31 registered accounts, including the maintainer's own, in
+the current Supabase project as of October 2026) and has
 evolved through direct, informal feedback — especially around visual timeline
 planning, drag-and-drop scheduling, lower-friction capture, reminders, understanding
 where time goes, and map-based memory. Earlier feedback was not consistently archived
