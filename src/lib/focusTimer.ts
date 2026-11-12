@@ -32,6 +32,8 @@ export interface TimerFields {
 
 /** A focus timer running this long was left on by mistake. */
 export const AUTO_STOP_TIMER_HOURS = 8;
+/** A break this long means the session is over: it ends where the break began. */
+export const LONG_BREAK_MINUTES = 30;
 
 const toMs = (iso: string | null | undefined): number | null => {
   if (!iso) return null;
@@ -66,6 +68,8 @@ export interface AutoStopPlan {
   sessionSec: number;
   /** value to store in timer_seconds */
   totalSec: number;
+  /** why it stopped: left running, or a break that never ended */
+  reason: 'forgotten' | 'long-break';
 }
 
 /**
@@ -75,17 +79,22 @@ export interface AutoStopPlan {
  *   - paused → at the pause
  *   - not paused → after `capHours` of work (pauses added back)
  * and its worked time is capped at `capHours`.
+ * A break of `breakMinutes` or more also ends the session, at the moment the
+ * break began: the record shows the work that actually happened, not a
+ * session that sat paused for hours.
  */
 export function planAutoStop(
   t: TimerFields,
   pause: PauseState | undefined,
   now: number,
   capHours = AUTO_STOP_TIMER_HOURS,
+  breakMinutes = LONG_BREAK_MINUTES,
 ): AutoStopPlan | null {
   if (!isTimerRunning(t, now)) return null;
   const start = toMs(t.timer_started_at)!;
   const capMs = capHours * 3600 * 1000;
-  if (now - start < capMs) return null;
+  const longBreak = pause?.pausedAt != null && now - pause.pausedAt >= breakMinutes * 60_000;
+  if (now - start < capMs && !longBreak) return null;
 
   const finishedPauses = Math.max(0, pause?.totalPausedMs ?? 0);
   const lastWork = pause?.pausedAt != null ? Math.min(pause.pausedAt, now) : now;
@@ -97,6 +106,7 @@ export function planAutoStop(
     endISO: new Date(endMs).toISOString(),
     sessionSec,
     totalSec: Math.max(0, t.timer_seconds ?? 0) + sessionSec,
+    reason: longBreak ? 'long-break' : 'forgotten',
   };
 }
 

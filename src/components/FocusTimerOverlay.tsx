@@ -6,6 +6,7 @@ import { Todo } from '@/hooks/useTodos';
 import { autoClassifyTag, TAG_CATEGORY_COLORS } from '@/lib/autoTag';
 import { useLanguage } from '@/hooks/useLanguage';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
+import { LONG_BREAK_MINUTES } from '@/lib/focusTimer';
 
 export interface PauseState {
   pausedAt: number | null;
@@ -483,7 +484,7 @@ export function FocusTimerOverlay({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ backgroundColor: treeColor }} />
                 <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: treeColor }} />
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/55">
+              <span className="text-[13px] font-medium text-muted-foreground/70">
                 {lang === 'zh' ? '休息中' : 'On a break'}
               </span>
             </div>
@@ -505,11 +506,15 @@ export function FocusTimerOverlay({
                   style={{ background: `radial-gradient(circle at 50% 45%, ${colorWithAlpha(treeColor, 0.14)}, transparent 70%)` }}
                 />
                 <div className="relative z-10 flex flex-col items-center">
-                  <span className="font-mono text-[40px] font-light leading-none tabular-nums tracking-[0.02em] text-foreground/90">
-                    {pad(Math.floor(restSec / 60))}:{pad(restSec % 60)}
+                  <span className="text-[40px] font-light leading-none tabular-nums text-foreground/90">
+                    {restSec >= 3600
+                      ? `${Math.floor(restSec / 3600)}:${pad(Math.floor((restSec % 3600) / 60))}:${pad(restSec % 60)}`
+                      : `${pad(Math.floor(restSec / 60))}:${pad(restSec % 60)}`}
                   </span>
-                  <span className="mt-2 text-[11px] tracking-[0.05em] text-muted-foreground/50">
-                    {lang === 'zh' ? '已休息' : 'resting'}
+                  <span className="mt-2 text-[12px] text-muted-foreground/60">
+                    {lang === 'zh'
+                      ? `超过 ${LONG_BREAK_MINUTES} 分钟会自动结束`
+                      : `Ends on its own after ${LONG_BREAK_MINUTES} min`}
                   </span>
                 </div>
               </div>
