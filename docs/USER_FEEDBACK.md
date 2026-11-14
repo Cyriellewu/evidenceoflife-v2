@@ -5,7 +5,8 @@ qualitative summary, not formal research.
 
 ## Honest status
 
-Evidence of Life has been tested by approximately **30–40 early users** and has
+Evidence of Life has been tested by **30+ early users** (31 registered accounts, including the maintainer's own, in
+the current Supabase project as of October 2026) and has
 evolved through direct, informal feedback — particularly around visual timeline
 planning, drag-and-drop scheduling, reminders, lower-friction capture, and
 map-based memory.
