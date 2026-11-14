@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cleanFillerWords } from '@/lib/fillerWords';
+import { joinSpoken, readDictationLang, saveDictationLang, type DictationLang } from '@/lib/dictationLang';
 
 /**
  * Inline dictation for the composer — the browser's free Web Speech API.
@@ -46,12 +47,22 @@ export function readResults(e: EventLike): { finals: string; interim: string } {
 
 /** Text to insert: joined, fillers removed, spacing normalised. */
 export function dictationText(finals: string, interim: string): string {
-  return cleanFillerWords(`${finals} ${interim}`.replace(/\s+/g, ' ').trim());
+  // Collapse whitespace, then drop any space that sits next to a Chinese
+  // character (engines and our own joining used to leave "我 今天 去了").
+  const text = joinSpoken(finals, interim)
+    .replace(/\s+/g, ' ')
+    // (no lookbehind: older iOS Safari can't parse it)
+    .replace(/([\u3000-\u303f\u3400-\u9fff\uff00-\uffef]) /g, '$1')
+    .replace(/ (?=[\u3000-\u303f\u3400-\u9fff\uff00-\uffef])/g, '')
+    .trim();
+  return cleanFillerWords(text);
 }
 
 export type DictationState = 'idle' | 'listening' | 'error';
 
-export function useDictation(lang: string) {
+export function useDictation(hintLang: string) {
+  const [lang, setLangState] = useState<DictationLang>(() => readDictationLang(hintLang));
+  const langRef = useRef(lang);
   const [state, setState] = useState<DictationState>('idle');
   const [finals, setFinals] = useState('');
   const [interim, setInterim] = useState('');
@@ -59,6 +70,8 @@ export function useDictation(lang: string) {
   /** Bumps on every result, so the waveform can react to speech. */
   const [pulse, setPulse] = useState(0);
   const recRef = useRef<RecognitionLike | null>(null);
+  const interimRef = useRef('');
+  useEffect(() => { interimRef.current = interim; }, [interim]);
   const keepRef = useRef(false);
 
   const stopRec = useCallback((abort: boolean) => {
@@ -77,17 +90,17 @@ export function useDictation(lang: string) {
     }
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback((keepText = false) => {
     const C = getCtor();
     if (!C) return;
     stopRec(true);
     const rec = new C();
-    rec.lang = lang;
+    rec.lang = langRef.current;
     rec.continuous = true;
     rec.interimResults = true;
     rec.onresult = (e) => {
       const { finals: f, interim: i } = readResults(e);
-      if (f) setFinals((prev) => `${prev}${prev && !/\s$/.test(prev) ? ' ' : ''}${f}`);
+      if (f) setFinals((prev) => joinSpoken(prev, f));
       setInterim(i);
       setPulse((n) => n + 1);
     };
@@ -106,7 +119,7 @@ export function useDictation(lang: string) {
     };
     recRef.current = rec;
     keepRef.current = true;
-    setFinals('');
+    if (!keepText) setFinals('');
     setInterim('');
     setError(null);
     setState('listening');
@@ -116,7 +129,18 @@ export function useDictation(lang: string) {
       setState('error');
       setError('start-failed');
     }
-  }, [lang, stopRec]);
+  }, [stopRec]);
+
+  /** Switch the listening language (remembered); keeps what was heard so far. */
+  const setLang = useCallback((next: DictationLang) => {
+    langRef.current = next;
+    setLangState(next);
+    saveDictationLang(next);
+    if (recRef.current) {
+      setFinals((prev) => joinSpoken(prev, interimRef.current));
+      start(true);
+    }
+  }, [start]);
 
   /** Stop and return the cleaned text. */
   const finish = useCallback((): string => {
@@ -137,5 +161,8 @@ export function useDictation(lang: string) {
 
   useEffect(() => () => stopRec(true), [stopRec]);
 
-  return { state, finals, interim, error, pulse, start, finish, cancel, supported: isDictationSupported() };
+  return {
+    state, finals, interim, error, pulse, lang, setLang,
+    start: () => start(false), finish, cancel, supported: isDictationSupported(),
+  };
 }
