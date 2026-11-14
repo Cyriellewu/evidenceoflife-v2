@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { Composer } from '@/components/composer/Composer';
 import { dictationText, readResults } from '@/hooks/useDictation';
+import { defaultDictationLang, joinSpoken } from '@/lib/dictationLang';
 
 type Handler = ((e: unknown) => void) | null;
 class FakeRecognition {
@@ -30,6 +31,21 @@ describe('dictation helpers', () => {
   });
 });
 
+describe('dictation language and Chinese spacing', () => {
+  it('defaults to Chinese when the device lists Chinese, even with an English UI', () => {
+    expect(defaultDictationLang(['en-US', 'zh-CN'], 'en-US')).toBe('zh-CN');
+    expect(defaultDictationLang(['zh-Hans-CN'], 'en-US')).toBe('zh-CN');
+    expect(defaultDictationLang(['en-GB'], 'en-US')).toBe('en-US');
+  });
+
+  it('never puts spaces inside Chinese, keeps them between English words', () => {
+    expect(joinSpoken('我今天', '去了图书馆')).toBe('我今天去了图书馆');
+    expect(joinSpoken('Note:', 'coffee')).toBe('Note: coffee');
+    expect(joinSpoken('开会', 'with Sam')).toBe('开会with Sam');
+    expect(dictationText('我 今天 去了', '图书馆')).toBe('我今天去了图书馆');
+  });
+});
+
 describe('Composer dictation', () => {
   afterEach(() => { delete w.webkitSpeechRecognition; });
 
@@ -48,6 +64,20 @@ describe('Composer dictation', () => {
     expect(screen.getByText(/coffee with Sam/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Insert dictation' }));
     expect((screen.getByPlaceholderText('Write') as HTMLTextAreaElement).value).toBe('Note: Coffee with Sam');
+  });
+
+  it('switches the listening language and remembers it', () => {
+    w.webkitSpeechRecognition = FakeRecognition;
+    localStorage.removeItem('eol-dictation-lang');
+    render(<Harness />);
+    fireEvent.click(screen.getByTestId('composer-dictate'));
+    expect(FakeRecognition.last?.lang).toBe('en-US');
+    act(() => FakeRecognition.last!.emit([{ text: 'hello', final: true }]));
+    fireEvent.click(screen.getByTestId('dictation-lang'));
+    expect(FakeRecognition.last?.lang).toBe('zh-CN');
+    expect(localStorage.getItem('eol-dictation-lang')).toBe('zh-CN');
+    expect(screen.getByText(/hello/)).toBeInTheDocument(); // kept across the switch
+    localStorage.removeItem('eol-dictation-lang');
   });
 
   it('✕ discards what was heard', () => {

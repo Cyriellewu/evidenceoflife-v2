@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { ArrowUp, Check, Loader2, Mic, X } from 'lucide-react';
 import { useDictation } from '@/hooks/useDictation';
+import { joinSpoken } from '@/lib/dictationLang';
 import { cn, isEnterSubmit } from '@/lib/utils';
 import { LINE_HEIGHT_PX, composerHeight, isTouchComposer } from './composerLayout';
 
@@ -105,7 +106,7 @@ export function Composer({
   const listening = dict.state !== 'idle';
   const insertDictation = () => {
     const spoken = dict.finish();
-    if (spoken) onChange(value.trim() ? `${value.replace(/\s+$/, '')} ${spoken}` : spoken);
+    if (spoken) onChange(joinSpoken(value, spoken));
     requestAnimationFrame(() => innerRef.current?.focus());
   };
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -166,6 +167,16 @@ export function Composer({
         <div className="flex items-center gap-1 px-2 pb-2 pt-1">
           {listening ? (
             <>
+              {/* Listening language — its own choice, not the UI language. */}
+              <button
+                type="button"
+                onClick={() => dict.setLang(dict.lang === 'zh-CN' ? 'en-US' : 'zh-CN')}
+                aria-label={dict.lang === 'zh-CN' ? 'Listening for Chinese. Switch to English' : 'Listening for English. Switch to Chinese'}
+                data-testid="dictation-lang"
+                className="ml-1 inline-flex h-8 items-center rounded-full bg-[hsl(var(--surface-inset))] px-3 text-[13px] font-medium text-foreground/80 transition-colors hover:text-foreground"
+              >
+                {dict.lang === 'zh-CN' ? '中文' : 'English'}
+              </button>
               <div className="flex-1" />
               <ComposerIconButton onClick={dict.cancel} ariaLabel="Discard dictation">
                 <X size={18} />
