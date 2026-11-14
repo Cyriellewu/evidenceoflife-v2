@@ -2,7 +2,7 @@ import { ComposerPlusMenu } from '@/components/composer/ComposerPlusMenu';
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { addDays, differenceInDays, format, isSaturday, isSunday, nextMonday, nextSaturday, parseISO } from 'date-fns';
 import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
-import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ChevronDown, ChevronUp, Mic, AudioLines } from 'lucide-react';
+import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ChevronDown, ChevronUp, Mic } from 'lucide-react';
 import { cn, isImeComposing, isImeEnter } from '@/lib/utils';
 import {
   normalizeUrl,
@@ -45,7 +45,7 @@ export function DuesView({
   titleSlot,
 }: {
   onBack?: () => void;
-  onOpenVoiceSheet?: () => void;
+  onOpenVoiceSheet?: (seedText?: string) => void;
   voiceSheetOpen?: boolean;
   initialMode?: DuesViewMode;
   lockedMode?: boolean;
@@ -655,12 +655,6 @@ export function DuesView({
               width="w-60"
             >
               <div className="space-y-1.5 p-2">
-                {onOpenVoiceSheet && (
-                  <button onClick={() => { setShowPlusMenu(false); onOpenVoiceSheet(); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors">
-                    <AudioLines size={14} className="text-muted-foreground" />{lang === 'zh' ? '说一段，帮我分好类' : 'Speak — sort it for me'}
-                  </button>
-                )}
                 <button onClick={() => { photoInputRef.current?.click(); setShowPlusMenu(false); }}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors">
                   <Camera size={14} className="text-muted-foreground" />{t('dues.photo')}
@@ -685,6 +679,7 @@ export function DuesView({
           }
           dictation
           dictationLang={lang === 'zh' ? 'zh-CN' : 'en-US'}
+          onSortDictation={onOpenVoiceSheet}
           attachments={(pendingLinks.length > 0 || pendingPhotos.length > 0) ? (
             <div className="flex flex-wrap gap-2 pb-2">
               {pendingLinks.map((link, i) => (

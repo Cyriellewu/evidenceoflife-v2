@@ -87,9 +87,11 @@ export interface VoiceInputSheetProps {
   onAddDue?: (title: string, dueDate?: string, isHabit?: boolean) => void;
   selectedDate: string;
   todayEvents?: { time: string; title: string; duration?: string }[];
+  /** Words already dictated in a composer: sort these instead of listening again. */
+  seedText?: string | null;
 }
 
-export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, onAddDue, selectedDate, todayEvents }: VoiceInputSheetProps) {
+export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, onAddDue, selectedDate, todayEvents, seedText }: VoiceInputSheetProps) {
   const { t } = useLanguage();
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState('');
@@ -102,6 +104,7 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
   const accumulatedRef = useRef('');
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startListeningRef = useRef<() => void>(() => {});
+  const classifyRef = useRef<(text: string) => void>(() => {});
   const conversationHistoryRef = useRef<ConversationEntry[]>([]);
   const isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
@@ -112,7 +115,10 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
       setInterimText('');
       accumulatedRef.current = '';
       conversationHistoryRef.current = [];
-      setTimeout(() => startListeningRef.current(), 100);
+      // Opened with words from the composer's mic: sort them right away.
+      // Otherwise start listening, as before.
+      if (seedText) setTimeout(() => classifyRef.current(seedText), 0);
+      else setTimeout(() => startListeningRef.current(), 100);
     } else {
       recognitionRef.current?.stop();
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -124,7 +130,7 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
       recognitionRef.current?.stop();
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [open]);
+  }, [open, seedText]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -226,6 +232,8 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
       setLoading(false);
     }
   }, [selectedDate, todayEvents]);
+
+  useEffect(() => { classifyRef.current = (text: string) => { void classify(text); }; }, [classify]);
 
   const stopListening = useCallback(() => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }

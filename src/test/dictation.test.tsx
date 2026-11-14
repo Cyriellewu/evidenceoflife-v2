@@ -80,6 +80,21 @@ describe('Composer dictation', () => {
     localStorage.removeItem('eol-dictation-lang');
   });
 
+  it('one mic: "Sort it" hands the words to the smart sorter instead of inserting', () => {
+    w.webkitSpeechRecognition = FakeRecognition;
+    const onSort = vi.fn();
+    function SortHarness() {
+      const [v, setV] = useState('');
+      return <Composer value={v} onChange={setV} onSubmit={() => {}} placeholder="Write" dictation dictationLang="en-US" onSortDictation={onSort} />;
+    }
+    render(<SortHarness />);
+    fireEvent.click(screen.getByTestId('composer-dictate'));
+    act(() => FakeRecognition.last!.emit([{ text: 'buy milk and call mom', final: true }]));
+    fireEvent.click(screen.getByTestId('dictation-sort'));
+    expect(onSort).toHaveBeenCalledWith('buy milk and call mom');
+    expect((screen.getByPlaceholderText('Write') as HTMLTextAreaElement).value).toBe('');
+  });
+
   it('✕ discards what was heard', () => {
     w.webkitSpeechRecognition = FakeRecognition;
     render(<Harness />);

@@ -142,6 +142,12 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     return window.matchMedia('(max-width: 767px)').matches ? 'recap' : 'plan';
   });
   const [voiceSheetOpen, setVoiceSheetOpen] = useState(false);
+  // Words already dictated in a composer, handed to the smart sorter.
+  const [voiceSeed, setVoiceSeed] = useState<string | null>(null);
+  const openVoiceSheet = useCallback((seedText?: string) => {
+    setVoiceSeed(seedText?.trim() ? seedText.trim() : null);
+    setVoiceSheetOpen(true);
+  }, []);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Pending "focus this place on the map" request, carried into MapView when we jump there.
   const [mapFocus, setMapFocus] = useState<{ name: string; lat: number; lng: number; token: number } | null>(null);
@@ -604,7 +610,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               bedtimeHour={dayTimeOverride?.bedtime_hour ?? profile?.bedtime_hour ?? 23}
               bedtimeMinute={dayTimeOverride?.bedtime_minute ?? profile?.bedtime_minute ?? 30}
               homepageImageUrl={profile?.homepage_image_url ?? undefined}
-              onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
+              onOpenVoiceSheet={openVoiceSheet}
               voiceSheetOpen={voiceSheetOpen}
             />
             {todayMode === 'plan' && (
@@ -620,7 +626,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 prevDayTodos={prevDayTodos}
                 prevDayMoments={prevDayMoments}
                 onViewDues={openDues}
-                onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
+                onOpenVoiceSheet={openVoiceSheet}
                 voiceSheetOpen={voiceSheetOpen}
                 overlayOpen={!!activeSheet}
                 onSwitchToRecap={() => setTodayMode('recap')}
@@ -677,7 +683,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 : (
                   <DuesView
                     onBack={() => setActiveSheet(null)}
-                    onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
+                    onOpenVoiceSheet={openVoiceSheet}
                     voiceSheetOpen={voiceSheetOpen}
                     initialMode="deadline"
                     lockedMode
@@ -867,6 +873,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
         <VoiceInputSheet
           open={voiceSheetOpen}
           onOpenChange={setVoiceSheetOpen}
+          seedText={voiceSeed}
           onAddMoment={handleAddMoment}
           onAddTodo={(title, seg) => addTodo(title, seg as Parameters<typeof addTodo>[1])}
           onAddDue={(title, dueDate, _isHabit) => addDue(title, _isHabit ? undefined : dueDate)}
