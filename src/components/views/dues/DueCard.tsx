@@ -850,7 +850,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                     <Target size={13} className="text-muted-foreground" />{due.title}
                   </button>
                   <div className="border-t border-border/50 my-1" />
-                  <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider px-2 py-0.5">Steps</p>
+                  <p className="text-[11px] text-muted-foreground/50 px-2 py-0.5">Steps</p>
                   {due.steps.filter(s => !s.is_completed).map(step => (
                     <button key={step.id} onClick={() => onAddToToday(due.id, step.title)}
                       className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors text-muted-foreground">

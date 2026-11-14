@@ -584,7 +584,7 @@ export function FocusTimerOverlay({
           onClick={e => e.stopPropagation()}
         >
           <div className="text-center">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground/52">
+            <p className="text-[11px] text-muted-foreground/52">
               {isPaused
                 ? (lang === 'zh' ? '已暂停' : 'Paused')
                 : accumulatedSec > 0
@@ -769,7 +769,7 @@ export function FocusTimerOverlay({
                       >
                         <ChevronLeft size={14} />
                       </button>
-                      <span className="min-w-0 flex-1 truncate px-1 text-center text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground sm:min-w-[46px] sm:flex-none sm:text-[10px]">
+                      <span className="min-w-0 flex-1 truncate px-1 text-center text-[11px] font-semibold text-muted-foreground sm:min-w-[46px] sm:flex-none sm:text-[11px]">
                         {dayLabelForOffset(effectiveEndDayOffset)}
                       </span>
                       <button
@@ -854,7 +854,7 @@ export function FocusTimerOverlay({
                 </button>
                 <div className="rounded-[18px] border border-border/60 bg-[hsl(var(--surface-contrast)/0.78)] px-3.5 py-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--text-soft))]">
+                    <span className="text-[11px] text-[hsl(var(--text-soft))]">
                       {lang === 'zh' ? '完成进度' : 'Progress'}
                     </span>
                     <span className={cn(

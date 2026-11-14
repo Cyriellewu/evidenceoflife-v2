@@ -175,7 +175,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
             </button>
             {showWorkTypeMenu && (
               <div className="absolute left-0 top-full mt-2 z-20 min-w-[180px] rounded-2xl border border-border bg-card p-2 shadow-xl">
-                <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/55">Task Type</p>
+                <p className="px-2 pb-1 text-[11px] text-muted-foreground/55">Task Type</p>
                 <div className="space-y-1">
                   {(['deep', 'shallow', 'admin', 'errand', 'recovery'] as WorkType[]).map((type) => {
                     const meta = WORK_TYPE_META[type];
@@ -226,7 +226,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
         {/* Reminders panel */}
         {showReminderPanel && (
           <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 space-y-2.5">
-            <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">
+            <p className="text-[11px] font-medium text-muted-foreground/70">
               {lang === 'zh' ? '提醒' : 'Reminders'}
             </p>
 

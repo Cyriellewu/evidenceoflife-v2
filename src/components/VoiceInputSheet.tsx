@@ -422,7 +422,7 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
                       {/* Type badge */}
                       <div className="flex items-center gap-2">
                         <button onClick={() => !item.confirmed && toggleItemType(item.id)}
-                          className={cn("text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full transition-colors", getTypeColor(item.result.type), !item.confirmed && "cursor-pointer hover:opacity-80")}>
+                          className={cn("text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors", getTypeColor(item.result.type), !item.confirmed && "cursor-pointer hover:opacity-80")}>
                           {getTypeLabel(item.result.type, item.result.is_habit)}
                         </button>
                         {item.result.emoji && <span className="text-base">{item.result.emoji}</span>}

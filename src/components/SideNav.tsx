@@ -191,7 +191,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
             <span className={cn(
               isPanel
                 ? 'mb-1 mt-1 px-2.5 text-[12px] font-medium text-muted-foreground/70'
-                : 'mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45',
+                : 'mb-0.5 px-3 text-[11px] font-semibold text-muted-foreground/45',
             )}>
               {t('sidenav.dailyLoop')}
             </span>
@@ -266,7 +266,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
                     'mb-0.5 block',
                     isPanel
                       ? 'mt-1 px-2.5 text-[12px] font-medium text-muted-foreground/70'
-                      : 'px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45',
+                      : 'px-3 text-[11px] font-semibold text-muted-foreground/45',
                   )}>
                     {t(group.labelKey)}
                   </span>
@@ -347,7 +347,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange, variant = 'rail' 
               className="w-full rounded-[14px] border border-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
             >
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 font-medium">
+                <span className="text-[11px] text-muted-foreground/50 font-medium">
                   {t('plan.comingUp')}
                 </span>
                 <ChevronRight size={12} className="text-muted-foreground/40" />

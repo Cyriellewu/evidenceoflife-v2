@@ -50,7 +50,7 @@ export function LinkPreviewCard({ preview, onRemove, onCardClick, compact = fals
           <div className={cn("line-clamp-2 text-foreground", compact ? "text-[13px] font-medium" : "text-[14px] font-medium")}>
             {title}
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/65">
+          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground/65">
             <Globe size={10} />
             <span className="truncate">{siteName}</span>
           </div>
