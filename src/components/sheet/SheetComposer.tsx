@@ -23,6 +23,7 @@ interface SheetComposerProps {
   /** Inline dictation (see Composer). */
   dictation?: boolean;
   dictationLang?: string;
+  onSortDictation?: (text: string) => void;
 }
 
 /**
@@ -50,6 +51,7 @@ export const SheetComposer = forwardRef<HTMLTextAreaElement, SheetComposerProps>
     className,
     dictation,
     dictationLang,
+    onSortDictation,
   },
   inputRef,
 ) {
@@ -70,6 +72,7 @@ export const SheetComposer = forwardRef<HTMLTextAreaElement, SheetComposerProps>
       textareaRef={inputRef}
       dictation={dictation}
       dictationLang={dictationLang}
+      onSortDictation={onSortDictation}
       sendLabel="Submit"
       className={cn(
         'sticky bottom-2 z-40 mx-auto max-w-[720px] mb-[env(safe-area-inset-bottom)]',

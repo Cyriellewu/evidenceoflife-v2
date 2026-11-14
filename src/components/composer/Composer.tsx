@@ -9,7 +9,7 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react';
-import { ArrowUp, Check, Loader2, Mic, X } from 'lucide-react';
+import { ArrowUp, Check, Loader2, Mic, Sparkles, X } from 'lucide-react';
 import { useDictation } from '@/hooks/useDictation';
 import { joinSpoken } from '@/lib/dictationLang';
 import { cn, isEnterSubmit } from '@/lib/utils';
@@ -72,6 +72,12 @@ export interface ComposerProps {
   dictation?: boolean;
   /** BCP-47 language for dictation, e.g. "zh-CN" or "en-US". */
   dictationLang?: string;
+  /**
+   * While dictating, offer "Sort it": hand the words to the smart sorter
+   * (moments / tasks / deadlines) instead of inserting them. This replaces the
+   * separate "Speak — sort it for me" entry, so there is one mic.
+   */
+  onSortDictation?: (text: string) => void;
 }
 
 export function Composer({
@@ -101,6 +107,7 @@ export function Composer({
   ariaLabel,
   dictation,
   dictationLang = 'zh-CN',
+  onSortDictation,
 }: ComposerProps) {
   const dict = useDictation(dictationLang);
   const listening = dict.state !== 'idle';
@@ -178,6 +185,18 @@ export function Composer({
                 {dict.lang === 'zh-CN' ? '中文' : 'English'}
               </button>
               <div className="flex-1" />
+              {onSortDictation && (
+                <button
+                  type="button"
+                  onClick={() => { const spoken = dict.finish(); if (spoken) onSortDictation(spoken); }}
+                  aria-label="Sort it for me"
+                  data-testid="dictation-sort"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-foreground/80 transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                >
+                  <Sparkles size={14} />
+                  {dict.lang === 'zh-CN' ? '帮我分类' : 'Sort it'}
+                </button>
+              )}
               <ComposerIconButton onClick={dict.cancel} ariaLabel="Discard dictation">
                 <X size={18} />
               </ComposerIconButton>

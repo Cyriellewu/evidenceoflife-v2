@@ -4,7 +4,7 @@ import { isTouchComposer } from '@/components/composer/composerLayout';
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { MAX_PHOTO_PICK_BYTES } from '@/lib/photoValidation';
-import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock, AudioLines } from 'lucide-react';
+import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, isEnterSubmit, isImeComposing, isImeEnter } from '@/lib/utils';
 import { mergeCarriedTodos, presentCarryOnTimeline } from '@/lib/carryTodos';
@@ -1409,7 +1409,7 @@ export function PlanView({
   date?: string;
   onViewDues?: () => void;
   onViewFullTimeline?: () => void;
-  onOpenVoiceSheet?: () => void;
+  onOpenVoiceSheet?: (seedText?: string) => void;
   voiceSheetOpen?: boolean;
   overlayOpen?: boolean;
   onSwitchToRecap?: () => void;
@@ -3540,6 +3540,7 @@ export function PlanView({
                 sendLabel={lang === 'zh' ? '添加任务' : 'Add task'}
                 dictation
                 dictationLang={lang === 'zh' ? 'zh-CN' : 'en-US'}
+                onSortDictation={onOpenVoiceSheet}
                 onKeyDown={e => {
                   if (e.key === 'Tab' && taskSuggestions.length > 0 && !e.shiftKey) { e.preventDefault(); acceptSuggestion(taskSuggestions[0].title); return; }
                   if (e.key === 'Escape' && taskSuggestions.length > 0) { e.preventDefault(); setSuggestionsDismissed(true); }
@@ -3554,18 +3555,6 @@ export function PlanView({
                     width="w-[280px]"
                   >
                     <div className="p-2.5 font-normal" onClick={e => e.stopPropagation()}>
-                        {onOpenVoiceSheet && (
-                          <>
-                            <button
-                              onClick={() => { setPlusMenuOpen(false); onOpenVoiceSheet(); }}
-                              className="mb-1 flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] text-foreground transition-colors hover:bg-secondary"
-                            >
-                              <AudioLines size={15} className="text-muted-foreground" />
-                              <span>{lang === 'zh' ? '说一段，帮我分好类' : 'Speak — sort it for me'}</span>
-                            </button>
-                            <div className="my-2 border-t border-border/40" />
-                          </>
-                        )}
                         <p className="px-1 pb-1.5 text-[13px] font-medium text-muted-foreground">
                           {tLang('plan.timeSlot') || 'Time slot'}
                         </p>
