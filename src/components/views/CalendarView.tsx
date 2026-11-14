@@ -44,6 +44,7 @@ import { getActivityAccentColor } from '@/lib/activityColors';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 type DayEventChip = {
   id: string;
@@ -273,9 +274,9 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       const existing = map.get(dateStr) || [];
       record.moments.forEach((m) => {
         const hasPhotos = (m.photos?.length ?? 0) > 0;
-        const label = m.emoji || (m.text ? m.text.slice(0, 48) : '') || (hasPhotos ? (lang === 'zh' ? '照片' : 'Photo') : '');
+        const label = m.emoji || (m.text ? momentTitle(m.text).slice(0, 48) : '') || (hasPhotos ? (lang === 'zh' ? '照片' : 'Photo') : '');
         if (!label) return;
-        const title = m.text || m.emoji || '';
+        const title = momentTitle(m.text) || m.emoji || '';
         const workType = getWorkType({ entity: 'moment', id: m.id, text: title, tags: m.tags });
         const color = getActivityAccentColor({ title, tags: m.tags, isDarkMode })
           || WORK_TYPE_META[workType]?.color
@@ -351,7 +352,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     dayRecords.forEach((record, dateStr) => {
       record.moments.forEach(m => {
         const score = scoreOf([m.text, m.emoji, m.location?.name, ...(m.tags || [])]);
-        if (score >= 0) hits.push({ id: m.id, date: dateStr, type: 'moment', text: m.text || m.emoji || '', score });
+        if (score >= 0) hits.push({ id: m.id, date: dateStr, type: 'moment', text: momentTitle(m.text) || m.emoji || '', score });
       });
     });
 

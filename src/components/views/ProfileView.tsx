@@ -19,6 +19,7 @@ import { Todo } from '@/hooks/useTodos';
 import { ImportedEvent } from '@/hooks/useImportedEvents';
 import { StorageImage } from "@/components/StorageImage";
 import { SettingsPanel } from '@/components/profile/SettingsPanel';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 interface ProfileViewProps {
   stats: {
@@ -112,7 +113,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
         m.photos?.forEach(url => {
           if (!url || seen.has(url)) return;
           seen.add(url);
-          out.push({ url, date: m.createdAt || m.date, momentText: m.text?.split('---DETAIL---')[0]?.trim() || m.emoji || '' });
+          out.push({ url, date: m.createdAt || m.date, momentText: momentTitle(m.text) || m.emoji || '' });
         });
       });
     return out;
@@ -292,7 +293,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                         </p>
                         <p className="mt-0.5 line-clamp-2 text-[15px] leading-snug text-foreground">
                           {memory.emoji && <span className="mr-1">{memory.emoji}</span>}
-                          {memory.text?.split('---DETAIL---')[0] || (zh ? '一条记录' : 'A moment')}
+                          {momentTitle(memory.text) || (zh ? '一条记录' : 'A moment')}
                         </p>
                       </div>
                       {memory.photos.length > 0 && (
@@ -345,7 +346,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
               <p className="text-[12px] tabular-nums text-muted-foreground">{t('profile.memory')} · {randomMemory.date}</p>
               <p className="mt-1 text-[15px] leading-relaxed text-foreground/85">
                 {randomMemory.emoji && <span className="mr-1.5">{randomMemory.emoji}</span>}
-                {randomMemory.text?.split('---DETAIL---')[0] || ''}
+                {momentTitle(randomMemory.text)}
               </p>
             </div>
           ) : (

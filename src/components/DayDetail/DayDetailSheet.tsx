@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { StorageImage } from "@/components/StorageImage";
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 interface DayDetailSheetProps {
   open: boolean;
@@ -377,7 +378,7 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                     
                     {moment.text && (
                       <p className="text-foreground text-sm leading-relaxed">
-                        <span>{moment.text}</span>
+                        <span>{momentTitle(moment.text)}</span>
                         {shouldShowSampleTag(moment) && (
                           <span className="ml-1 text-xs text-muted-foreground font-sans">(sample)</span>
                         )}

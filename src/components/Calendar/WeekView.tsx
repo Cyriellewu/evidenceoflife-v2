@@ -11,6 +11,7 @@ import { getActivityAccentColor, getActivityTextColor, getCalendarBlockChrome } 
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
 import { StorageImage } from '@/components/StorageImage';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 const WEEKDAYS_CN = ['日', '一', '二', '三', '四', '五', '六'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -256,7 +257,7 @@ export function WeekView({ currentDate, dayRecords, todos, importedEvents, onDay
       if (record) {
         record.moments.forEach(m => {
           const display = getMomentDisplayTime(m);
-          const title = m.text || m.emoji || '';
+          const title = momentTitle(m.text) || m.emoji || '';
           const workType = getWorkType({ entity: 'moment', id: m.id, text: title, tags: m.tags });
           const color = getActivityAccentColor({ title, tags: m.tags, isDarkMode })
             || WORK_TYPE_META[workType]?.color

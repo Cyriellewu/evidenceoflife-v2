@@ -23,6 +23,7 @@ import { StorageImage } from "@/components/StorageImage";
 import { CityLandmark, LifeMapMark, landmarkFor } from "@/components/CityLandmark";
 import { resolveMomentPhotoUrls } from "@/lib/momentPhotos";
 import { isNewYorkCity, loadNewYorkNeighborhoods, areaColorIndexes, localizedAreaName, visitedAreas, type NeighborhoodCollection } from '@/lib/neighborhoods';
+import { momentTitle, parseSubtitleDetail } from '@/components/views/today/todayHelpers';
 
 interface MapViewProps {
   moments: Moment[];
@@ -2396,7 +2397,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                                 </div>
                                 {visit.text && (
                                   <p className="mt-1.5 whitespace-pre-wrap text-[14px] leading-6 text-foreground/80">
-                                    {visit.text}
+                                    {/* Title, then the note on its own line — never the raw marker. */}
+                                    {[momentTitle(visit.text), parseSubtitleDetail(visit.text).detail?.trim()].filter(Boolean).join('\n')}
                                   </p>
                                 )}
                                 {visit.photos.length > 0 && (

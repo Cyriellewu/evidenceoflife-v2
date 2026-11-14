@@ -3,6 +3,7 @@ import { Clock3, MapPin, ArrowRight } from 'lucide-react';
 import type { Moment } from '@/types';
 import { useLanguage } from '@/hooks/useLanguage';
 import { StorageImage } from '@/components/StorageImage';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 interface OnThisDayCardProps {
   // The full moment history across all dates.
@@ -127,7 +128,7 @@ export function OnThisDayCard({ moments, selectedDate, onRevisit }: OnThisDayCar
 
   const { moment } = memory;
   const thumb = moment.photos && moment.photos.length > 0 ? moment.photos[0] : null;
-  const text = moment.text?.trim();
+  const text = momentTitle(moment.text);
   const place = moment.location?.name;
 
   return (
