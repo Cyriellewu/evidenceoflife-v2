@@ -22,6 +22,7 @@ import {
   setRouteRecordingEnabled,
   type RoutePoint,
 } from '@/lib/routeRecorder';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 interface Stop {
   id: string;
@@ -43,7 +44,7 @@ function stopsForDay(moments: Moment[], dayKey: string): Stop[] {
         t: iso ? parseISO(iso).getTime() : 0,
         lat: m.location!.lat,
         lng: m.location!.lng,
-        text: m.text || m.emoji || '',
+        text: momentTitle(m.text) || m.emoji || '',
         place: m.location!.name,
         photo: m.photos?.[0],
       };

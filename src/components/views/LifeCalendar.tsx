@@ -9,6 +9,7 @@ import { Moment, DayRecord } from '@/types';
 import { autoClassifyTag, TAG_CATEGORY_COLORS, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 interface LifeCalendarProps {
   allMoments: Moment[];
@@ -336,7 +337,7 @@ export function LifeCalendar({ allMoments, dayRecords, getMomentsForDate, onClos
                 const tag = m.tags?.[0] || autoClassifyTag(m.text || '') || 'life';
                 const color = TAG_CATEGORY_COLORS[tag] || '#F59E0B';
                 const icon = TAG_CATEGORY_ICONS[tag] || '📌';
-                const title = m.text || m.emoji || '';
+                const title = momentTitle(m.text) || m.emoji || '';
                 let duration = '';
                 if (m.timer_seconds && m.timer_seconds > 0) {
                   const min = Math.round(m.timer_seconds / 60);

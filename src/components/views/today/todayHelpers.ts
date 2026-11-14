@@ -92,12 +92,21 @@ export function getImportedEventEffectiveEnd(event: ImportedEvent): string | nul
   return event.timer_ended_at || event.end_time;
 }
 
+/** The marker between a moment's title and its note. Some writers saved it
+ *  without the surrounding newlines, so match it with any whitespace around. */
+const DETAIL_MARKER_RE = /\s*---DETAIL---\s*/;
+
 /** Parse text that may contain a subtitle/detail separator */
 export function parseSubtitleDetail(text?: string | null): { subtitle: string; detail: string | null } {
   if (!text) return { subtitle: '', detail: null };
-  const idx = text.indexOf(DETAIL_SEPARATOR);
-  if (idx === -1) return { subtitle: text, detail: null };
-  return { subtitle: text.substring(0, idx), detail: text.substring(idx + DETAIL_SEPARATOR.length) };
+  const m = DETAIL_MARKER_RE.exec(text);
+  if (!m) return { subtitle: text, detail: null };
+  return { subtitle: text.substring(0, m.index), detail: text.substring(m.index + m[0].length) };
+}
+
+/** What to show as a moment's title anywhere outside its editor: never the raw marker or note. */
+export function momentTitle(text?: string | null): string {
+  return parseSubtitleDetail(text).subtitle.trim();
 }
 
 /** Check if text is long enough to warrant auto-summarization */

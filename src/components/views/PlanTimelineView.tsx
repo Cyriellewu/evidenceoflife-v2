@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { parseISO, format, isToday as isTodayFn } from 'date-fns';
 import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer, RotateCcw } from 'lucide-react';
+import { DETAIL_SEPARATOR } from '@/components/views/today/todayHelpers';
 import { cn, isEnterSubmit, isImeEnter } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { Moment } from '@/types';
@@ -1439,7 +1440,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     if (!trimmed || trimmed === block.title) return;
     const momentId = parseMomentBlockId(block.id);
     if (momentId) {
-      onUpdateMoment?.(momentId, { text: trimmed } as Partial<Moment>);
+      // Keep the moment's note: the block title is only the part before it.
+      const text = block.note?.trim() ? `${trimmed}${DETAIL_SEPARATOR}${block.note.trim()}` : trimmed;
+      onUpdateMoment?.(momentId, { text } as Partial<Moment>);
       return;
     }
     onRenameTodo?.(block.id, trimmed);

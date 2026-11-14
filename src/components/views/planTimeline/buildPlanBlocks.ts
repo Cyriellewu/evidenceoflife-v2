@@ -6,6 +6,7 @@ import { ImportedEvent } from '@/hooks/useImportedEvents';
 import { PLAN_TIMELINE_WAKE_TOTAL_MIN as WAKE_TOTAL_MIN } from '@/lib/planTimelineDayBounds';
 import { TimeBlock, getTagIcon } from './planTimelinePrimitives';
 import { buildStepSegmentsByParent } from '@/lib/stepTimelineSegments';
+import { parseSubtitleDetail } from '@/components/views/today/todayHelpers';
 
 const DAY_MIN = 1440; // 24:00 — end of a calendar day on the timeline axis
 
@@ -508,9 +509,11 @@ function buildRawBlocks(
     // gives the natural "two work strips with empty space between" reading
     // the user expects, and the parent todo's live actual fill (if it's
     // currently running) keeps tracking only the current session.
+    const { subtitle: momentTitleText, detail: momentNote } = parseSubtitleDetail(m.text);
     blocks.push({
       id: `moment-${m.id}`,
-      title: m.text || m.emoji || 'Moment',
+      title: momentTitleText.trim() || m.emoji || 'Moment',
+      note: momentNote,
       startMin,
       endMin: Math.max(endMin, startMin + 5),
       type: 'plan',

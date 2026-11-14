@@ -16,6 +16,7 @@ import {
 import { PLAN_TIMELINE_BED_TOTAL_MIN, PLAN_TIMELINE_WAKE_TOTAL_MIN } from '@/lib/planTimelineDayBounds';
 import type { PlanTimelineRhythmPalette } from '@/lib/planTimelineRhythmPresets';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 interface PlanDriftProps {
   allTodos?: Todo[];
@@ -197,7 +198,7 @@ export function computeDrift(allTodos: Todo[], completedTodos: Todo[], moments: 
       const em = e.getHours() * 60 + e.getMinutes();
       if (em > sm) wallActualSlots.push({ startMin: sm, endMin: em, tag });
       const existing = catActual.get(tag) || { min: 0, items: [] };
-      const subtitle = m.text?.split('\n---DETAIL---\n')[0] || '';
+      const subtitle = momentTitle(m.text);
       existing.items.push(subtitle || m.emoji || 'moment');
       catActual.set(tag, existing);
     }
@@ -361,7 +362,7 @@ function buildExecutionSlots(
       const sm = s.getHours() * 60 + s.getMinutes();
       const em = e.getHours() * 60 + e.getMinutes();
       if (em > sm) {
-        const subtitle = m.text?.split('\n---DETAIL---\n')[0]?.trim();
+        const subtitle = momentTitle(m.text);
         const emo = m.emoji?.trim();
         const label = subtitle || emo || undefined;
         actual.push({

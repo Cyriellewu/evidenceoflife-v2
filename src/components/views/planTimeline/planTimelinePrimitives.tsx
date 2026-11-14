@@ -319,6 +319,8 @@ export function getSmartDuration(title: string, tags?: string[]): number {
 }
 
 export interface TimeBlock {
+  /** Moment blocks: the note after the title (kept so a rename doesn't drop it). */
+  note?: string | null;
   id: string;
   title: string;
   startMin: number;

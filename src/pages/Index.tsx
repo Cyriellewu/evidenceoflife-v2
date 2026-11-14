@@ -40,6 +40,7 @@ import { showUndoToast } from '@/lib/undoToast';
 import { extractLeadingEmoji } from '@/lib/emoji';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { FocusRecapPrompt, type FocusRecapDraft } from '@/components/FocusRecapPrompt';
+import { momentTitle } from '@/components/views/today/todayHelpers';
 
 function isActivelyRunningTodo(todo: { timer_started_at: string | null; timer_ended_at: string | null }) {
   if (!todo.timer_started_at || todo.timer_ended_at) return false;
@@ -894,7 +895,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
             ...dateMoments
               .map(m => ({
                 time: safeTimeLabel(m.timer_started_at),
-                title: m.text || m.emoji || 'Moment',
+                title: momentTitle(m.text) || m.emoji || 'Moment',
                 duration: m.timer_seconds ? `${Math.floor(m.timer_seconds / 60)}m` : undefined,
               }))
               .filter((event): event is { time: string; title: string; duration: string | undefined } => Boolean(event.time))

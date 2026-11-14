@@ -12,13 +12,9 @@ import { getActivityAccentColor, getActivityTextColor, getCalendarBlockChrome } 
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
 import { StorageImage } from "@/components/StorageImage";
+import { momentTitle } from "@/components/views/today/todayHelpers";
 
-const DETAIL_SEPARATOR = '\n---DETAIL---\n';
-function getSubtitle(text?: string | null): string {
-  if (!text) return '';
-  const idx = text.indexOf(DETAIL_SEPARATOR);
-  return idx === -1 ? text : text.substring(0, idx);
-}
+const getSubtitle = (text?: string | null): string => momentTitle(text);
 
 const WEEKDAYS_CN = ['日', '一', '二', '三', '四', '五', '六'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
