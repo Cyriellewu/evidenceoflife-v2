@@ -221,7 +221,7 @@ function FocusingOverlay({ taskTitle, elapsed, isPaused, onTogglePause, onStop, 
 
   return (
     <div className="fixed inset-0 z-50 bg-background/92 backdrop-blur-md flex flex-col items-center justify-center gap-10 animate-fade-in cursor-pointer" onClick={onMinimize}>
-      <p className="text-xs text-muted-foreground/60 tracking-[0.3em] uppercase">{isPaused ? 'Paused' : 'Focusing'}</p>
+      <p className="text-xs text-muted-foreground/60">{isPaused ? 'Paused' : 'Focusing'}</p>
       <p className="text-base font-medium text-foreground/80">{taskTitle}</p>
       <div className="relative w-56 h-56 flex items-center justify-center">
         <SecondTick elapsed={isPaused ? 0 : elapsed} size={224} />
@@ -281,7 +281,7 @@ function TimerCompletionOverlay({ taskTitle, elapsed, startedAt, onConfirm, onCa
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="w-[320px] bg-card border border-border rounded-2xl p-6 space-y-5 shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="text-center space-y-1">
-          <p className="text-xs text-muted-foreground/60 tracking-[0.2em] uppercase">Session complete</p>
+          <p className="text-xs text-muted-foreground/60">Session complete</p>
           <p className="text-base font-medium text-foreground">{taskTitle}</p>
         </div>
         <div className="text-center">
@@ -713,7 +713,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   e.stopPropagation();
                   setDaily(false);
                 }}
-                className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/[0.12] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary/90 transition-colors hover:bg-primary/[0.2]"
+                className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/[0.12] px-1.5 py-0.5 text-[11px] font-semibold text-primary/90 transition-colors hover:bg-primary/[0.2]"
                 title={tLang('plan.dailyBadgeHint')}
                 aria-label={tLang('plan.stopRepeatDaily')}
               >
@@ -723,7 +723,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
             )}
             {carriedFromDate && (
               <span
-                className="flex-shrink-0 rounded-full bg-amber-500/[0.14] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-amber-600/90 dark:text-amber-400/85"
+                className="flex-shrink-0 rounded-full bg-amber-500/[0.14] px-1.5 py-0.5 font-mono text-[11px] text-amber-600/90 dark:text-amber-400/85"
                 title={lang === 'zh' ? '从往日延续 · 还没做' : 'Carried over from a past day'}
               >
                 {format(new Date(`${carriedFromDate}T00:00:00`), lang === 'zh' ? 'M月d日' : 'MMM d')}
@@ -823,7 +823,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-40 rounded-2xl p-1.5">
-                  <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+                  <div className="mb-1 px-2 py-1 text-[11px] font-semibold text-muted-foreground/70">
                     Work Type
                   </div>
                   <div className="space-y-1">

@@ -117,7 +117,7 @@ export function CircularTimeRing({
       {/* Time chips */}
       <div className="w-full grid grid-cols-2 gap-2">
         <div className="flex flex-col items-center gap-1 rounded-2xl bg-muted/40 px-3 py-2.5 border border-border/40">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/55">
+          <span className="text-[11px] font-semibold text-muted-foreground/55">
             {lang === 'zh' ? '睡觉' : 'Bedtime'}
           </span>
           <span className="text-[1.05rem] font-bold tabular-nums leading-none text-foreground">
@@ -125,7 +125,7 @@ export function CircularTimeRing({
           </span>
         </div>
         <div className="flex flex-col items-center gap-1 rounded-2xl bg-muted/40 px-3 py-2.5 border border-border/40">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/55">
+          <span className="text-[11px] font-semibold text-muted-foreground/55">
             {lang === 'zh' ? '起床' : 'Wake up'}
           </span>
           <span className="text-[1.05rem] font-bold tabular-nums leading-none text-foreground">

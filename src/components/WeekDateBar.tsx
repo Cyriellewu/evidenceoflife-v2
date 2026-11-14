@@ -240,7 +240,7 @@ export function WeekDateBar({ selectedDate, onDateSelect, recordedDates, onTaskM
                 )}
                 <span
                   className={cn(
-                    'text-[11px] uppercase leading-tight tracking-wide transition-colors',
+                    'text-[11px] leading-tight transition-colors',
                     isCurrentDay
                       ? 'font-medium text-foreground'
                       : 'font-medium text-muted-foreground/55 group-hover:text-muted-foreground/80'

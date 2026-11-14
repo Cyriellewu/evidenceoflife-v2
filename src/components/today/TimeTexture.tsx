@@ -337,7 +337,7 @@ export function TimeTexture({
         </div>
         {plannedRows.length > 0 && (
           <div className="mb-2">
-            <p className="mb-1 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">{t('drift.execPlanned')}</p>
+            <p className="mb-1 text-[11px] font-medium text-muted-foreground/70">{t('drift.execPlanned')}</p>
             {showPlannedParallel && (
               <p className="mb-1 text-[9px] text-muted-foreground/75">{t('drift.execParallel')}</p>
             )}
@@ -364,7 +364,7 @@ export function TimeTexture({
         )}
         {!hoverFutureBucket && actualRowsForTip.length > 0 && (
           <div>
-            <p className="mb-1 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">{t('drift.execFocused')}</p>
+            <p className="mb-1 text-[11px] font-medium text-muted-foreground/70">{t('drift.execFocused')}</p>
             {showActualParallel && (
               <p className="mb-1 text-[9px] text-muted-foreground/75">{t('drift.execParallel')}</p>
             )}

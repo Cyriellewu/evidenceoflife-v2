@@ -1033,7 +1033,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center gap-10 animate-fade-in cursor-pointer"
           onClick={() => setShowMomentTimerOverlay(false)}
         >
-          <p className="text-xs text-muted-foreground/60 tracking-[0.3em] uppercase">
+          <p className="text-xs text-muted-foreground/60">
             {momentTimerPaused ? 'Paused' : 'Focusing'}
           </p>
           <p className="text-base font-medium text-foreground/80">{timerMomentTitle}</p>
@@ -1959,7 +1959,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                             <span aria-hidden="true" className="w-[18px] flex-shrink-0 text-center text-[13px] leading-none">
                               {phaseIcon}
                             </span>
-                            <span data-testid="recap-phase" className="text-[12px] font-medium uppercase tracking-[0.1em] text-muted-foreground/60">
+                            <span data-testid="recap-phase" className="text-[12px] font-medium text-muted-foreground/60">
                               {phase}
                             </span>
                             <div className="flex-1 h-px bg-border/50" />

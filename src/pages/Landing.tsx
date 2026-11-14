@@ -354,7 +354,7 @@ export default function Landing() {
                 <div className="pointer-events-none absolute right-[-15%] top-[-30%] h-[320px] w-[320px] rounded-full bg-[radial-gradient(closest-side,rgb(var(--lp-terracotta)/0.28),transparent)] blur-2xl" />
 
                 <div className="relative">
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[rgb(var(--lp-terracotta))]">{t('landing.promise.eyebrow')}</p>
+                  <p className="text-sm font-semibold text-[rgb(var(--lp-terracotta))]">{t('landing.promise.eyebrow')}</p>
                   <h3 className="mt-4 text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
                     {t('landing.promise.h3')}
                   </h3>

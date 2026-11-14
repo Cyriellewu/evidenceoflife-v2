@@ -38,7 +38,7 @@ export function MomentTimerSummary({ title, elapsed, startedAt, onConfirm, onCan
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center animate-fade-in">
       <div className="w-[320px] bg-card border border-border rounded-2xl p-6 space-y-5 shadow-xl">
         <div className="text-center space-y-1">
-          <p className="text-xs text-muted-foreground/60 tracking-[0.2em] uppercase">Session complete</p>
+          <p className="text-xs text-muted-foreground/60">Session complete</p>
           <p className="text-base font-medium text-foreground">{title}</p>
         </div>
         <div className="text-center">

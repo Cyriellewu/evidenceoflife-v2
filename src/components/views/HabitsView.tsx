@@ -264,7 +264,7 @@ function SummaryHero({
             / {total} {lang === 'zh' ? '已打卡' : 'today'}
           </span>
         </div>
-        <p className="mt-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+        <p className="mt-1.5 text-[10.5px] font-semibold text-muted-foreground/70">
           {lang === 'zh' ? '本周节奏' : 'This week'}
         </p>
       </div>

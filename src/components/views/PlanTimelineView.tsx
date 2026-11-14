@@ -2152,10 +2152,10 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               </div>
               {showPlanMiniLabel && (
                 <div
-                  className="absolute left-3 top-3 rounded-full bg-background/90 px-2 py-[2px] font-semibold uppercase tracking-[0.06em] shadow-sm"
+                  className="absolute left-3 top-3 rounded-full bg-background/90 px-2 py-[2px] font-semibold shadow-sm"
                   style={{ fontSize: pillFontSize, color: colorWithAlpha(0.7) }}
                 >
-                  PLAN
+                  Plan
                 </div>
               )}
             </div>
@@ -2249,18 +2249,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               )}
               {showActualMiniLabel && (
                 <div
-                  className="absolute left-2 bottom-2 rounded-full bg-background/88 px-1.5 py-[1px] font-medium uppercase tracking-[0.06em] shadow-sm"
+                  className="absolute left-2 bottom-2 rounded-full bg-background/88 px-1.5 py-[1px] font-medium shadow-sm"
                   style={{ fontSize: pillFontSize }}
                 >
-                  {isTimerActive ? 'doing' : block.isCompleted ? 'done' : 'actual'}
+                  {isTimerActive ? 'Doing' : block.isCompleted ? 'Done' : 'Actual'}
                 </div>
               )}
               {showCompactActualMiniLabel && (
                 <div
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-medium leading-none uppercase tracking-[0.05em]"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-medium leading-none"
                   style={{ color: blockColor, fontSize: microLayout ? '9px' : slimBarLayout ? '10px' : '11px' }}
                 >
-                  done
+                  Done
                 </div>
               )}
             </div>
@@ -3630,7 +3630,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 </p>
                 <div className="mt-3 rounded-[16px] border-2 border-dashed border-[hsl(var(--primary)/0.24)] bg-[hsl(var(--primary)/0.05)] px-3 py-2.5 text-left">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-[7px] bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                    <span className="rounded-[7px] bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground/80">
                       Plan
                     </span>
                     <span className="truncate text-[14px] font-medium text-foreground/85">

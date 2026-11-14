@@ -625,7 +625,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
       {/* Missed tasks — kept; the histogram only shows what happened, not what didn't */}
       {drift.missedTasks.length > 0 && (
         <div className="mt-2 space-y-0.5">
-          <p className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground/40 mb-0.5">{t('drift.missed')}</p>
+          <p className="text-[11px] text-muted-foreground/40 mb-0.5">{t('drift.missed')}</p>
           {drift.missedTasks.slice(0, 3).map((task, i) => (
             <div key={i} className="flex items-center gap-1.5">
               <span className="w-[4px] h-[4px] rounded-full flex-shrink-0" style={{ backgroundColor: task.tag ? TAG_CATEGORY_COLORS[task.tag] || '#8E8E93' : '#8E8E93' }} />
