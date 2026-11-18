@@ -15,7 +15,65 @@ type SearchOpts = {
   q: string;
   limit?: number;
   coords?: GeoCoords | null;
+  /** Photon only: restrict to this box [minLon, minLat, maxLon, maxLat]. */
+  bbox?: [number, number, number, number];
 };
+
+/** "Near me" for search: about 60 km around the person. */
+export const LOCAL_SEARCH_RADIUS_M = 60_000;
+
+export function bboxAround(c: GeoCoords, radiusM = LOCAL_SEARCH_RADIUS_M): [number, number, number, number] {
+  const dLat = radiusM / 111_320;
+  const dLng = radiusM / (111_320 * Math.max(0.2, Math.cos((c.lat * Math.PI) / 180)));
+  return [c.lng - dLng, c.lat - dLat, c.lng + dLng, c.lat + dLat];
+}
+
+const fold = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const compactFold = (v: string) => fold(v).replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * Does a place name actually match what was typed? Free geocoders answer any
+ * query with *something* nearby ("ha noi pho" → "Lake Tahoe Vacation Resort"),
+ * so results that share no real word with the query are dropped. Accents are
+ * ignored ("Phở" matches "pho"); words of 1–2 Latin letters ("ha") are too
+ * common to count on their own.
+ */
+export function placeMatchesQuery(name: string, q: string): boolean {
+  const nameC = compactFold(name);
+  const qC = compactFold(q);
+  if (!nameC || !qC) return false;
+  if (nameC.includes(qC)) return true;
+  const words = fold(q).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return words.some(w => (/[^\p{ASCII}]/u.test(w) || w.length >= 3) && nameC.includes(compactFold(w)));
+}
+
+/**
+ * Merge result lists: places near the person first (closest first), then the
+ * rest (closest first), without duplicates. A famous Hilton 4,000 km away
+ * never outranks the one down the road.
+ */
+export function mergeSearchResults(
+  lists: GeoPlaceResult[][],
+  origin: GeoCoords | null,
+  limit: number,
+  nearM = LOCAL_SEARCH_RADIUS_M,
+): GeoPlaceResult[] {
+  const seen = new Set<string>();
+  const all: GeoPlaceResult[] = [];
+  for (const list of lists) {
+    for (const r of list) {
+      const key = `${r.name.toLowerCase()}|${r.lat.toFixed(3)}|${r.lng.toFixed(3)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const distance_m = origin ? Math.round(haversineMeters(origin, { lat: r.lat, lng: r.lng })) : r.distance_m;
+      all.push(distance_m === undefined ? r : { ...r, distance_m });
+    }
+  }
+  if (!origin) return all.slice(0, limit);
+  const near = all.filter(r => (r.distance_m ?? Infinity) <= nearM).sort((a, b) => a.distance_m! - b.distance_m!);
+  const far = all.filter(r => (r.distance_m ?? Infinity) > nearM).sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
+  return [...near, ...far].slice(0, limit);
+}
 
 type ReverseOpts = {
   lat: number;
@@ -152,7 +210,10 @@ async function photonSearch(opts: SearchOpts): Promise<GeoPlaceResult[]> {
   if (opts.coords) {
     params.set('lat', String(opts.coords.lat));
     params.set('lon', String(opts.coords.lng));
+    // Lean harder on "near me" than Photon's default.
+    params.set('location_bias_scale', '0.1');
   }
+  if (opts.bbox) params.set('bbox', opts.bbox.map(n => n.toFixed(5)).join(','));
   const json = (await fetchJson(`https://photon.komoot.io/api/?${params.toString()}`)) as {
     features?: Array<{
       geometry?: { coordinates?: [number, number] };
@@ -295,7 +356,9 @@ async function photonNearby(coords: GeoCoords, lang?: string): Promise<GeoPlaceR
     : ['cafe', 'restaurant', 'park'];
   const batches = await Promise.all(
     queries.map((q) =>
-      searchPlaces({ q, limit: 4, coords }).catch(() => [] as GeoPlaceResult[]),
+      // Category words ("cafe") stay a plain Photon call in a small box — the
+      // full near-first search (with OSM name lookups) is for typed queries.
+      photonSearch({ q, limit: 4, coords, bbox: bboxAround(coords, 3_000) }).catch(() => [] as GeoPlaceResult[]),
     ),
   );
   return batches.flat();
@@ -305,9 +368,47 @@ async function photonNearby(coords: GeoCoords, lang?: string): Promise<GeoPlaceR
  * Prefer free no-key Photon; fall back to the Nominatim edge proxy.
  * Neither path requires a paid API key.
  */
+/** Named places matching the query within ~30 km, from OSM directly (catches hotels/clubs Photon misses). */
+async function overpassNameSearch(q: string, coords: GeoCoords, limit = 10): Promise<GeoPlaceResult[]> {
+  // Only letters, digits, spaces, ' and - reach the Overpass query: nothing
+  // that could end the string or act as a regex operator, so no escaping needed.
+  const safe = q.replace(/[^\p{L}\p{N}\s'-]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (safe.length < 2) return [];
+  const r = 30_000;
+  const query = `[out:json][timeout:6];nwr["name"~"${safe}",i](around:${r},${coords.lat},${coords.lng});out center ${limit * 3};`;
+  const body = new URLSearchParams({ data: query });
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const json = (await fetchJson(endpoint, { method: 'POST', body }, 6_000)) as { elements?: OverpassElement[] };
+      return mapOverpassElements(json.elements ?? [], coords, limit);
+    } catch {
+      /* next mirror */
+    }
+  }
+  return [];
+}
+
+const within = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+  Promise.race([p.catch(() => fallback), new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
+
 export async function searchPlaces(opts: SearchOpts): Promise<GeoPlaceResult[]> {
   const q = opts.q.trim();
   if (q.length < 2) return [];
+  const limit = opts.limit ?? 8;
+  // Knowing where the person is: ask for places around them first (Photon in a
+  // box around them + OSM by name nearby), then the wider world, and rank
+  // near-first. Without coords, behave as before.
+  if (opts.coords) {
+    const [local, nameNear, global] = await Promise.all([
+      within(photonSearch({ ...opts, q, limit: 12, bbox: bboxAround(opts.coords) }), 5_000, [] as GeoPlaceResult[]),
+      within(overpassNameSearch(q, opts.coords), 4_500, [] as GeoPlaceResult[]),
+      within(photonSearch({ ...opts, q, limit: 8 }), 5_000, [] as GeoPlaceResult[]),
+    ]);
+    const relevant = (list: GeoPlaceResult[]) => list.filter(r => placeMatchesQuery(r.name, q));
+    const merged = mergeSearchResults([relevant(local), relevant(nameNear), relevant(global)], opts.coords, limit);
+    if (merged.length > 0) return merged;
+    return relevant(await edgeSearch(opts).catch(() => [] as GeoPlaceResult[]));
+  }
   try {
     const photon = await photonSearch(opts);
     if (photon.length > 0) return photon;

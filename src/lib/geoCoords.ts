@@ -2,12 +2,17 @@ const GEO_COORDS_KEY = 'eol-geo-coords';
 
 export type GeoCoords = { lat: number; lng: number };
 
-export function readCachedGeoCoords(): GeoCoords | null {
+/** A saved position older than this is treated as unknown (people travel; an
+ *  app left open for days must not search around yesterday's city). */
+export const GEO_COORDS_MAX_AGE_MS = 15 * 60_000;
+
+export function readCachedGeoCoords(now = Date.now()): GeoCoords | null {
   try {
     const raw = sessionStorage.getItem(GEO_COORDS_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { lat?: number; lng?: number };
+    const parsed = JSON.parse(raw) as { lat?: number; lng?: number; at?: number };
     if (typeof parsed.lat !== 'number' || typeof parsed.lng !== 'number') return null;
+    if (typeof parsed.at !== 'number' || now - parsed.at > GEO_COORDS_MAX_AGE_MS) return null;
     return { lat: parsed.lat, lng: parsed.lng };
   } catch {
     return null;
