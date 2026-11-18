@@ -2,6 +2,7 @@
 name: critic-tests
 description: Reviews a plan or diff for test and CI impact in Evidence of Life — which unit/e2e tests, selectors, and checks it affects and what coverage is missing. Read-only.
 tools: Read, Grep, Glob, Bash
+model: sonnet
 ---
 
 You are the CI gatekeeper. Do not edit files.

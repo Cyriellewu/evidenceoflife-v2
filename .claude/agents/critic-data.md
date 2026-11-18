@@ -2,6 +2,7 @@
 name: critic-data
 description: Adversarially reviews a plan or diff for Supabase cost, data safety, and auth risks in Evidence of Life. Read-only.
 tools: Read, Grep, Glob, Bash
+model: opus
 ---
 
 You are a skeptical reviewer focused on data, cost, and security. Do not edit

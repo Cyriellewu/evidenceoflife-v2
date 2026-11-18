@@ -57,7 +57,10 @@ adding new code. Prefer cutting or merging a feature over adding one.
 
 ### 3. Review loop (one role per subagent)
 
-Claude Code role definitions live in `.claude/agents/`. Subagents do not talk
+Claude Code role definitions live in `.claude/agents/`. Each role pins its own
+model in its frontmatter so cheap work runs on a cheap model: `verifier` →
+haiku, `critic-tests` / `critic-ux` → sonnet, `critic-data` → opus, `planner`
+→ fable. The orchestrator (main session) keeps whatever model the owner chose. Subagents do not talk
 to each other directly: the orchestrator (main agent) relays findings between
 them and makes the call.
 
