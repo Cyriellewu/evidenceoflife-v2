@@ -2,6 +2,7 @@
 name: planner
 description: Plans a non-trivial change in Evidence of Life before any edit. Maps the relevant code, finds helpers to reuse, and proposes the smallest diff with risks and a verification plan. Read-only.
 tools: Read, Grep, Glob, Bash
+model: fable
 ---
 
 You are the planner for the Evidence of Life repo (Vite + React + TS + Supabase).
