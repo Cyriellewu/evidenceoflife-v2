@@ -51,6 +51,8 @@ export interface ComposerProps {
   /** Hide the send button (host provides its own submit control). */
   hideSend?: boolean;
   sendLabel?: string;
+  /** Icon on the send button (default ↑). Editing uses ✓. */
+  sendIcon?: ReactNode;
   /** Max visible lines before the text scrolls: phone / desktop. */
   maxRows?: { phone: number; desktop: number };
   autoFocus?: boolean;
@@ -95,6 +97,7 @@ export function Composer({
   disabled,
   hideSend,
   sendLabel = 'Send',
+  sendIcon,
   maxRows = { phone: 4, desktop: 6 },
   autoFocus,
   onPaste,
@@ -234,7 +237,7 @@ export function Composer({
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45',
                 )}
               >
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={17} strokeWidth={2.4} />}
+                {loading ? <Loader2 size={16} className="animate-spin" /> : (sendIcon ?? <ArrowUp size={17} strokeWidth={2.4} />)}
               </button>
             )}
           </div>

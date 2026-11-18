@@ -99,7 +99,7 @@ test.describe('synthetic demo', () => {
     expect(await page.getByTestId('recap-phase').first().evaluate((element) => window.getComputedStyle(element).fontSize)).toBe('12px');
   });
 
-  test('a moment has one editor: "Add note" opens it on the note field', async ({ page }) => {
+  test('editing a moment uses the composer: one box, title on the first line, note below', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 844 });
     await page.goto('/demo-app');
     await expect(page.getByText('Public demo').filter({ visible: true })).toBeVisible({ timeout: 20_000 });
@@ -107,14 +107,16 @@ test.describe('synthetic demo', () => {
     const card = page.locator('[class~="group/card"]').filter({ hasText: 'cathedral steps' }).first();
     await card.getByTestId('recap-notes-toggle').click();
 
-    const note = page.getByRole('textbox', { name: 'Note' });
-    await expect(note).toBeFocused();
-    // Title and note are edited in the same form.
-    await expect(page.getByRole('textbox', { name: 'Title' })).toBeVisible();
-    await note.fill('Light was soft on the stone.');
+    const box = page.getByTestId('moment-edit-text');
+    await expect(box).toBeFocused();
+    // "Add note" starts on a new line under the title.
+    await expect(box).toHaveValue(/cathedral steps.*\n$/s);
+    await page.keyboard.type('Light was soft on the stone.');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-    await expect(note).toHaveCount(0);
+    await expect(box).toHaveCount(0);
     await expect(page.getByText('Light was soft on the stone.')).toBeVisible();
+    // Photos can be added straight from the card, without opening the editor.
+    await expect(page.getByTestId('moment-add-photo').first()).toBeVisible();
   });
 });
