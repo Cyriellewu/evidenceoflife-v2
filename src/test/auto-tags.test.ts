@@ -17,4 +17,13 @@ describe('detectAutoTags', () => {
     expect(detectAutoTags('walking by the river')).toContain('🚶 Walk');
     expect(detectAutoTags('quick café stop')).toContain('☕ Coffee');
   });
+  it('tags food words as Dine, without catching "phone" or "photo"', () => {
+    expect(detectAutoTags('pho')).toContain('🍳 Dine');
+    expect(detectAutoTags('pho 999 Pho, Reno')).toContain('🍳 Dine');
+    expect(detectAutoTags('吃了越南粉')).toContain('🍳 Dine');
+    expect(detectAutoTags('ramen with Sam')).toContain('🍳 Dine');
+    expect(detectAutoTags('took a photo')).not.toContain('🍳 Dine');
+    expect(detectAutoTags('phone died')).not.toContain('🍳 Dine');
+    expect(detectAutoTags('great meeting')).not.toContain('🍳 Dine');
+  });
 });

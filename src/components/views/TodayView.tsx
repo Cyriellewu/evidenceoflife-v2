@@ -178,7 +178,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const { addReminder } = useReminders();
 
   // Auto-detect tags from text
-  const autoDetectedTags = useMemo(() => detectAutoTags(text), [text]);
+  // The place counts too: "pho" at "999 Pho", or anything logged at a restaurant.
+  const autoDetectedTags = useMemo(() => {
+    const fromPlace = selectedLocation?.category === 'restaurant' ? ['🍳 Dine']
+      : selectedLocation?.category === 'coffee' ? ['☕ Coffee']
+      : selectedLocation?.category === 'grocery' ? ['🛒 Shop']
+      : [];
+    return [...new Set([...detectAutoTags(`${text} ${selectedLocation?.name ?? ''}`), ...fromPlace])];
+  }, [text, selectedLocation]);
   const allFinalTags = useMemo(() => [...new Set([...selectedTags, ...autoDetectedTags])], [selectedTags, autoDetectedTags]);
 
 
@@ -2460,7 +2467,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
                                     {/* Evidence tag chips */}
                                     {(() => {
-                                      const displayTags = getMomentDisplayTags(moment.tags);
+                                      // Moments saved before a keyword was known ("pho") still get
+                                      // their tag on screen: infer it when none was stored. Display only.
+                                      const savedTags = getMomentDisplayTags(moment.tags);
+                                      const displayTags = savedTags.length > 0
+                                        ? savedTags
+                                        : detectAutoTags(`${subtitle} ${moment.location?.name ?? ''}`);
                                       if (displayTags.length === 0) return null;
                                       return (
                                         <div className="flex flex-wrap items-center gap-1 mt-1.5">
