@@ -50,7 +50,8 @@ function PlaceRow({
     typeof place.distance_m === 'number'
       ? formatDistanceLabel(place.distance_m, lang === 'zh' ? 'zh' : 'en')
       : '';
-  const meta = [subtitle || place.city, dist].filter(Boolean).join(' · ');
+  // The brand/operator explains why a search for "hilton" found a place not named Hilton.
+  const meta = [place.alias, subtitle || place.city, dist].filter(Boolean).join(' · ');
 
   return (
     <button

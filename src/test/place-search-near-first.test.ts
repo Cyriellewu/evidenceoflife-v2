@@ -4,7 +4,7 @@
  * position must not outlive a trip.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { bboxAround, mergeSearchResults, placeMatchesQuery } from '@/lib/geoClient';
+import { bboxAround, mapOverpassElements, mergeSearchResults, placeMatchScore, placeMatchesQuery } from '@/lib/geoClient';
 import { GEO_COORDS_MAX_AGE_MS, readCachedGeoCoords, writeCachedGeoCoords } from '@/lib/geoCoords';
 
 const tahoe = { lat: 38.96, lng: -119.94 };
@@ -49,6 +49,37 @@ describe('only places whose name matches what was typed', () => {
     expect(placeMatchesQuery('Hanoi Pho Restaurant', 'ha noi pho')).toBe(true);
     expect(placeMatchesQuery('Hilton Vacation Club Lake Tahoe', 'hilton')).toBe(true);
     expect(placeMatchesQuery('星巴克 南湖店', '星巴克')).toBe(true);
+  });
+});
+
+describe('brand / operator names ("hilton club" → Lake Tahoe Vacation Resort)', () => {
+  const elements = [
+    { lat: 38.957, lon: -119.943, tags: { name: 'Lake Tahoe Vacation Resort', tourism: 'hotel', brand: 'Hilton Grand Vacations', operator: 'Hilton Vacation Club' } },
+    { lat: 38.93, lon: -119.98, tags: { name: 'Tahoe Paradise Golf Club', leisure: 'golf_course' } },
+  ];
+
+  it('keeps the brand and operator as an alias', () => {
+    const [resort] = mapOverpassElements(elements, tahoe, 10);
+    expect(resort.name).toContain('Lake Tahoe Vacation Resort');
+    expect(resort.alias).toContain('Hilton');
+  });
+
+  it('matches on the alias and ranks the better match first', () => {
+    const places = mapOverpassElements(elements, tahoe, 10);
+    const resort = places.find(p => p.name.includes('Vacation Resort'))!;
+    const golf = places.find(p => p.name.includes('Golf'))!;
+    expect(placeMatchesQuery(resort.name, 'hilton club', resort.alias)).toBe(true);
+    expect(placeMatchesQuery(resort.name, 'hilton club')).toBe(false); // the name alone doesn't say Hilton
+    expect(placeMatchScore(resort, 'hilton club')).toBeGreaterThan(placeMatchScore(golf, 'hilton club'));
+    const out = mergeSearchResults([[golf, resort]], tahoe, 10, 60_000, 'hilton club');
+    expect(out[0].name).toContain('Lake Tahoe Vacation Resort');
+  });
+
+  it('a far place that matches every word does not beat a near one that matches the brand', () => {
+    const far = { name: 'Hilton Grand Vacations Club Pool', lat: 33.7, lng: -117.1, category: 'other' };
+    const near = mapOverpassElements(elements, tahoe, 10)[0];
+    const out = mergeSearchResults([[far], [near]], tahoe, 10, 60_000, 'hilton club');
+    expect(out.map(r => r.name)[0]).toContain('Lake Tahoe Vacation Resort');
   });
 });
 
