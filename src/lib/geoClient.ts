@@ -370,7 +370,9 @@ async function photonNearby(coords: GeoCoords, lang?: string): Promise<GeoPlaceR
  */
 /** Named places matching the query within ~30 km, from OSM directly (catches hotels/clubs Photon misses). */
 async function overpassNameSearch(q: string, coords: GeoCoords, limit = 10): Promise<GeoPlaceResult[]> {
-  const safe = q.replace(/[\\"]/g, ' ').replace(/[.*+?^${}()|[\]]/g, '\\$&').trim();
+  // Only letters, digits, spaces, ' and - reach the Overpass query: nothing
+  // that could end the string or act as a regex operator, so no escaping needed.
+  const safe = q.replace(/[^\p{L}\p{N}\s'-]+/gu, ' ').replace(/\s+/g, ' ').trim();
   if (safe.length < 2) return [];
   const r = 30_000;
   const query = `[out:json][timeout:6];nwr["name"~"${safe}",i](around:${r},${coords.lat},${coords.lng});out center ${limit * 3};`;
