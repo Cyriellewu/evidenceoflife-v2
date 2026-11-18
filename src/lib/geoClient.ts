@@ -9,6 +9,8 @@ export type GeoPlaceResult = {
   category: string;
   distance_m?: number;
   city?: string;
+  /** Other names the place goes by: brand, operator, alternative names. */
+  alias?: string;
 };
 
 type SearchOpts = {
@@ -38,13 +40,26 @@ const compactFold = (v: string) => fold(v).replace(/[^\p{L}\p{N}]+/gu, '');
  * ignored ("Phở" matches "pho"); words of 1–2 Latin letters ("ha") are too
  * common to count on their own.
  */
-export function placeMatchesQuery(name: string, q: string): boolean {
-  const nameC = compactFold(name);
+/** Query words that count on their own: 3+ Latin letters, or any non-Latin text. */
+function queryWords(q: string): string[] {
+  return fold(q).split(/[^\p{L}\p{N}]+/u).filter(w => w && (/[^\p{ASCII}]/u.test(w) || w.length >= 3));
+}
+
+/**
+ * How well a place matches what was typed: one point per query word found in
+ * its name or alias (brand / operator / other names), plus two when the whole
+ * query appears. 0 = unrelated.
+ */
+export function placeMatchScore(place: { name: string; alias?: string }, q: string): number {
+  const text = compactFold(`${place.name} ${place.alias ?? ''}`);
   const qC = compactFold(q);
-  if (!nameC || !qC) return false;
-  if (nameC.includes(qC)) return true;
-  const words = fold(q).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  return words.some(w => (/[^\p{ASCII}]/u.test(w) || w.length >= 3) && nameC.includes(compactFold(w)));
+  if (!text || !qC) return 0;
+  const words = queryWords(q).filter(w => text.includes(compactFold(w))).length;
+  return words + (text.includes(qC) ? 2 : 0);
+}
+
+export function placeMatchesQuery(name: string, q: string, alias?: string): boolean {
+  return placeMatchScore({ name, alias }, q) > 0;
 }
 
 /**
@@ -57,6 +72,8 @@ export function mergeSearchResults(
   origin: GeoCoords | null,
   limit: number,
   nearM = LOCAL_SEARCH_RADIUS_M,
+  /** When given, better matches come first within "near" and within "far". */
+  q?: string,
 ): GeoPlaceResult[] {
   const seen = new Set<string>();
   const all: GeoPlaceResult[] = [];
@@ -70,8 +87,11 @@ export function mergeSearchResults(
     }
   }
   if (!origin) return all.slice(0, limit);
-  const near = all.filter(r => (r.distance_m ?? Infinity) <= nearM).sort((a, b) => a.distance_m! - b.distance_m!);
-  const far = all.filter(r => (r.distance_m ?? Infinity) > nearM).sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
+  const score = (r: GeoPlaceResult) => (q ? placeMatchScore(r, q) : 0);
+  const order = (a: GeoPlaceResult, b: GeoPlaceResult) =>
+    score(b) - score(a) || (a.distance_m ?? 0) - (b.distance_m ?? 0);
+  const near = all.filter(r => (r.distance_m ?? Infinity) <= nearM).sort(order);
+  const far = all.filter(r => (r.distance_m ?? Infinity) > nearM).sort(order);
   return [...near, ...far].slice(0, limit);
 }
 
@@ -172,6 +192,13 @@ export function mapOverpassElements(
       ? sanitizePlaceName(`${rawName}, ${city}`, rawName)
       : sanitizePlaceName(rawName, rawName);
     if (!name) continue;
+    // Brand / operator / other names: "Lake Tahoe Vacation Resort" is a Hilton
+    // property, and people search for it as "hilton".
+    const alias = [...new Set(
+      [tags.brand, tags.operator, tags.alt_name, tags.official_name, tags.short_name, tags.old_name]
+        .map(v => (v ?? '').trim())
+        .filter(v => v && !rawName.toLowerCase().includes(v.toLowerCase())),
+    )].join(' · ');
     mapped.push({
       name,
       lat,
@@ -179,6 +206,7 @@ export function mapOverpassElements(
       category: overpassCategory(tags),
       distance_m: Math.round(haversineMeters(origin, { lat, lng })),
       ...(city ? { city } : {}),
+      ...(alias ? { alias } : {}),
     });
   }
   mapped.sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
@@ -375,12 +403,23 @@ async function overpassNameSearch(q: string, coords: GeoCoords, limit = 10): Pro
   const safe = q.replace(/[^\p{L}\p{N}\s'-]+/gu, ' ').replace(/\s+/g, ' ').trim();
   if (safe.length < 2) return [];
   const r = 30_000;
-  const query = `[out:json][timeout:6];nwr["name"~"${safe}",i](around:${r},${coords.lat},${coords.lng});out center ${limit * 3};`;
+  // Match each real word of the query against the name AND the brand /
+  // operator / other-name tags, then rank by how many words matched.
+  const words = queryWords(safe).slice(0, 3);
+  const terms = words.length > 0 ? words : [safe.toLowerCase()];
+  const keys = '^(name|name:en|alt_name|official_name|short_name|old_name|brand|operator)$';
+  const filters = terms
+    .map(t => `nwr[~"${keys}"~"${t}",i](around:${r},${coords.lat},${coords.lng});`)
+    .join('');
+  const query = `[out:json][timeout:6];(${filters});out center tags 60;`;
   const body = new URLSearchParams({ data: query });
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const json = (await fetchJson(endpoint, { method: 'POST', body }, 6_000)) as { elements?: OverpassElement[] };
-      return mapOverpassElements(json.elements ?? [], coords, limit);
+      return mapOverpassElements(json.elements ?? [], coords, 60)
+        .filter(p => placeMatchScore(p, q) > 0)
+        .sort((a, b) => placeMatchScore(b, q) - placeMatchScore(a, q) || (a.distance_m ?? 0) - (b.distance_m ?? 0))
+        .slice(0, limit);
     } catch {
       /* next mirror */
     }
@@ -404,8 +443,9 @@ export async function searchPlaces(opts: SearchOpts): Promise<GeoPlaceResult[]> 
       within(overpassNameSearch(q, opts.coords), 4_500, [] as GeoPlaceResult[]),
       within(photonSearch({ ...opts, q, limit: 8 }), 5_000, [] as GeoPlaceResult[]),
     ]);
-    const relevant = (list: GeoPlaceResult[]) => list.filter(r => placeMatchesQuery(r.name, q));
-    const merged = mergeSearchResults([relevant(local), relevant(nameNear), relevant(global)], opts.coords, limit);
+    const relevant = (list: GeoPlaceResult[]) => list.filter(r => placeMatchesQuery(r.name, q, r.alias));
+    // OSM-by-name first so its brand/operator alias survives de-duplication.
+    const merged = mergeSearchResults([relevant(nameNear), relevant(local), relevant(global)], opts.coords, limit, LOCAL_SEARCH_RADIUS_M, q);
     if (merged.length > 0) return merged;
     return relevant(await edgeSearch(opts).catch(() => [] as GeoPlaceResult[]));
   }
