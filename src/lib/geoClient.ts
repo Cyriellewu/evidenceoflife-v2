@@ -28,6 +28,25 @@ export function bboxAround(c: GeoCoords, radiusM = LOCAL_SEARCH_RADIUS_M): [numb
   return [c.lng - dLng, c.lat - dLat, c.lng + dLng, c.lat + dLat];
 }
 
+const fold = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const compactFold = (v: string) => fold(v).replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * Does a place name actually match what was typed? Free geocoders answer any
+ * query with *something* nearby ("ha noi pho" → "Lake Tahoe Vacation Resort"),
+ * so results that share no real word with the query are dropped. Accents are
+ * ignored ("Phở" matches "pho"); words of 1–2 Latin letters ("ha") are too
+ * common to count on their own.
+ */
+export function placeMatchesQuery(name: string, q: string): boolean {
+  const nameC = compactFold(name);
+  const qC = compactFold(q);
+  if (!nameC || !qC) return false;
+  if (nameC.includes(qC)) return true;
+  const words = fold(q).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return words.some(w => (/[^\p{ASCII}]/u.test(w) || w.length >= 3) && nameC.includes(compactFold(w)));
+}
+
 /**
  * Merge result lists: places near the person first (closest first), then the
  * rest (closest first), without duplicates. A famous Hilton 4,000 km away
@@ -383,9 +402,10 @@ export async function searchPlaces(opts: SearchOpts): Promise<GeoPlaceResult[]> 
       within(overpassNameSearch(q, opts.coords), 4_500, [] as GeoPlaceResult[]),
       within(photonSearch({ ...opts, q, limit: 8 }), 5_000, [] as GeoPlaceResult[]),
     ]);
-    const merged = mergeSearchResults([local, nameNear, global], opts.coords, limit);
+    const relevant = (list: GeoPlaceResult[]) => list.filter(r => placeMatchesQuery(r.name, q));
+    const merged = mergeSearchResults([relevant(local), relevant(nameNear), relevant(global)], opts.coords, limit);
     if (merged.length > 0) return merged;
-    return edgeSearch(opts).catch(() => []);
+    return relevant(await edgeSearch(opts).catch(() => [] as GeoPlaceResult[]));
   }
   try {
     const photon = await photonSearch(opts);

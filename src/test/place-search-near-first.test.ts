@@ -4,7 +4,7 @@
  * position must not outlive a trip.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { bboxAround, mergeSearchResults } from '@/lib/geoClient';
+import { bboxAround, mergeSearchResults, placeMatchesQuery } from '@/lib/geoClient';
 import { GEO_COORDS_MAX_AGE_MS, readCachedGeoCoords, writeCachedGeoCoords } from '@/lib/geoCoords';
 
 const tahoe = { lat: 38.96, lng: -119.94 };
@@ -36,6 +36,19 @@ describe('near-first place search', () => {
     expect(maxLat).toBeGreaterThan(tahoe.lat);
     expect(minLon).toBeLessThan(tahoe.lng);
     expect(maxLon).toBeGreaterThan(tahoe.lng);
+  });
+});
+
+describe('only places whose name matches what was typed', () => {
+  it('drops the nearby junk a fuzzy geocoder returns', () => {
+    expect(placeMatchesQuery('Lake Tahoe Vacation Resort', 'ha noi pho')).toBe(false);
+    expect(placeMatchesQuery('Cafe Fiore', 'ha noi pho')).toBe(false);
+  });
+  it('keeps real matches, ignoring accents and spacing', () => {
+    expect(placeMatchesQuery('Phở Hà Nội', 'ha noi pho')).toBe(true);
+    expect(placeMatchesQuery('Hanoi Pho Restaurant', 'ha noi pho')).toBe(true);
+    expect(placeMatchesQuery('Hilton Vacation Club Lake Tahoe', 'hilton')).toBe(true);
+    expect(placeMatchesQuery('星巴克 南湖店', '星巴克')).toBe(true);
   });
 });
 

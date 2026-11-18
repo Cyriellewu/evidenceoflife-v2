@@ -265,6 +265,16 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       onClose();
     }, [search, onSelect, onClose, ensureCoords]);
 
+    // Save exactly what was typed, at the current position — for the places
+    // the free map data doesn't know (a new restaurant, a friend's flat).
+    const handleUseTyped = useCallback(async () => {
+      const name = search.trim();
+      if (!name) return;
+      const coords = coordsRef.current ?? (await ensureCoords(false)).coords;
+      onSelect({ name, lat: coords?.lat ?? 0, lng: coords?.lng ?? 0, category: 'other' });
+      onClose();
+    }, [search, onSelect, onClose, ensureCoords]);
+
     const hasQuery = search.trim().length >= 2;
     const headerTitle = lang === 'zh' ? '选择地点' : 'Choose a place';
     const useCurrentLabel = hasQuery
@@ -305,6 +315,19 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       <div className={cn('overflow-y-auto overscroll-contain', asSheet ? 'min-h-0 flex-1' : 'max-h-[min(280px,42vh)]')}>
         {results.length > 0 ? (
           <div className="divide-y divide-border/35 py-1">
+            {hasQuery && !isSearching && (
+              <button
+                type="button"
+                onClick={() => { void handleUseTyped(); }}
+                data-testid="place-use-typed"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[hsl(var(--surface-soft))]"
+              >
+                <MapPin size={15} className="flex-shrink-0 text-primary/70" />
+                <span className="min-w-0 truncate text-[14px] text-primary/85">
+                  {lang === 'zh' ? `用「${search.trim()}」（就在这里）` : `Use “${search.trim()}” (here)`}
+                </span>
+              </button>
+            )}
             {results.map((r, i) => (
               <PlaceRow
                 key={`${r.lat}-${r.lng}-${r.name}`}
@@ -323,7 +346,8 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
         ) : search.trim().length >= 2 ? (
           <button
             type="button"
-            onClick={() => { void handleAddManual(); }}
+            onClick={() => { void handleUseTyped(); }}
+            data-testid="place-use-typed"
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[hsl(var(--surface-soft))]"
           >
             <MapPin size={15} className="flex-shrink-0 text-primary/70" />
