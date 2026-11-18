@@ -7,10 +7,19 @@ import { LocationPopover } from '@/components/LocationPopover';
 import { useLanguage } from '@/hooks/useLanguage';
 
 // Auto-tag detection keywords
-const AUTO_TAG_RULES: { keywords: string[]; tag: string; unless?: RegExp }[] = [
+const AUTO_TAG_RULES: { keywords: string[]; tag: string; unless?: RegExp; /** whole words only ("pho", not "phone" / "photo") */ exact?: string[] }[] = [
   { keywords: ['gym', 'workout', 'exercise', '健身', '运动', '锻炼', '跑步'], tag: '🏋️ Gym' },
   { keywords: ['study', 'learn', '学习', '看书', '读书', '复习'], tag: '📚 Study' },
-  { keywords: ['cook', 'dinner', 'lunch', 'breakfast', '做饭', '吃饭', '晚餐', '午餐', '早餐', 'dine'], tag: '🍳 Dine' },
+  {
+    keywords: [
+      'cook', 'dinner', 'lunch', 'breakfast', 'brunch', 'dine', 'restaurant', 'meal', 'noodle', 'ramen', 'sushi',
+      'pizza', 'burger', 'taco', 'burrito', 'dumpling', 'hotpot', 'hot pot', 'barbecue', 'takeout', 'sandwich',
+      '做饭', '吃饭', '晚餐', '午餐', '早餐', '早饭', '午饭', '晚饭', '夜宵', '吃了', '吃的', '好吃', '餐厅', '饭店', '外卖',
+      '火锅', '烧烤', '拉面', '面条', '牛肉面', '米粉', '米线', '河粉', '越南粉', '寿司', '饺子', '披萨', '汉堡',
+    ],
+    exact: ['pho', 'eat', 'ate', 'eating', 'bbq', 'food', 'curry', 'salad', 'steak', 'soup', 'rice'],
+    tag: '🍳 Dine',
+  },
   { keywords: ['coffee', 'café', 'cafe', '咖啡'], tag: '☕ Coffee' },
   { keywords: ['walk', 'hike', '散步', '徒步'], tag: '🚶 Walk' },
   { keywords: ['clean', 'laundry', '打扫', '洗衣', '清洁', '床单'], tag: '🧹 Clean' },
@@ -33,12 +42,16 @@ function hasKeyword(lower: string, kw: string): boolean {
   return lower.includes(kw);
 }
 
+function hasWholeWord(lower: string, kw: string): boolean {
+  return new RegExp(`(?<![a-zà-ÿ])${escapeRe(kw)}(?![a-zà-ÿ])`).test(lower);
+}
+
 export function detectAutoTags(text: string): string[] {
   const lower = text.toLowerCase();
   const detected: string[] = [];
   AUTO_TAG_RULES.forEach(rule => {
     if (rule.unless?.test(lower)) return;
-    if (rule.keywords.some(kw => hasKeyword(lower, kw))) {
+    if (rule.keywords.some(kw => hasKeyword(lower, kw)) || rule.exact?.some(kw => hasWholeWord(lower, kw))) {
       detected.push(rule.tag);
     }
   });
