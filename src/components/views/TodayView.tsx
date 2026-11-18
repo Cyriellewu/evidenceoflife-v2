@@ -303,6 +303,15 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const [expandedStreamIds, setExpandedStreamIds] = useState<Set<string>>(new Set());
   const toggleStreamExpand = (id: string) => setExpandedStreamIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [editText, setEditText] = useState('');
+  // The editor is one text box like the composer: first line = title, the rest = note.
+  const [editBody, setEditBody] = useState('');
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const setEditBodyText = useCallback((v: string) => {
+    setEditBody(v);
+    const nl = v.indexOf('\n');
+    setEditText(nl === -1 ? v : v.slice(0, nl));
+    setEditDetailText(nl === -1 ? '' : v.slice(nl + 1));
+  }, []);
   const [editDetailText, setEditDetailText] = useState<string | null>(null);
   const [editEmoji, setEditEmoji] = useState<string | null>(null);
   const [editLocation, setEditLocation] = useState<{ name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' } | null>(null);
@@ -920,6 +929,8 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     setEditFocus(focus);
     setEditText(subtitle);
     setEditDetailText(detail ?? '');
+    // "Add note" on a moment without one: start on a fresh line under the title.
+    setEditBody(detail?.trim() ? `${subtitle}\n${detail}` : focus === 'notes' ? `${subtitle}\n` : subtitle);
     setEditEmoji(moment.emoji || null);
     setEditLocation(moment.location ? { ...moment.location, category: moment.location.category || 'other' } : null);
     setEditPhotos(uniquePhotoList(moment.photos || []));
@@ -948,6 +959,31 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       reader.readAsDataURL(file);
     });
     
+  };
+
+  // "+" after a moment's photos: pick photos and save them straight onto the
+  // moment — no need to open the editor first.
+  const quickPhotoInputRef = useRef<HTMLInputElement>(null);
+  const quickPhotoMomentRef = useRef<Moment | null>(null);
+  const openQuickPhoto = (moment: Moment) => {
+    quickPhotoMomentRef.current = moment;
+    quickPhotoInputRef.current?.click();
+  };
+  const handleQuickPhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.currentTarget.files || []);
+    e.currentTarget.value = '';
+    const moment = quickPhotoMomentRef.current;
+    if (!moment || !files.length || !onEditMoment) return;
+    const valid = files.filter(f => validatePhotoFile(f));
+    if (!canAddMorePhotos(moment.photos.length, valid.length)) return;
+    const urls = await Promise.all(valid.map(file => new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve((ev.target?.result as string) || '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    })));
+    const added = urls.filter(Boolean);
+    if (added.length) onEditMoment(moment.id, { photos: uniquePhotoList([...moment.photos, ...added]) } as Partial<Moment>);
   };
 
   const removeEditPhoto = (index: number) => {
@@ -989,6 +1025,21 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     setEditingMoment(null);
   };
   saveEditRef.current = saveEdit;
+
+  // Opening the editor from "Add note" / a note puts the caret at the end (in
+  // the note); from the title, at the end of the first line.
+  useEffect(() => {
+    if (!editingMoment) return;
+    const id = requestAnimationFrame(() => {
+      const el = editTextareaRef.current;
+      if (!el) return;
+      const nl = el.value.indexOf('\n');
+      const pos = editFocus === 'notes' || nl === -1 ? el.value.length : nl;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [editingMoment, editFocus]);
 
   useEffect(() => {
     if (todayMode === 'plan') return;
@@ -1057,6 +1108,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       )}
 
       {/* Photo lightbox — swipe / arrows; counter instead of N dots for large sets */}
+      <input ref={quickPhotoInputRef} type="file" accept="image/*" multiple onChange={(e) => { void handleQuickPhotoChange(e); }} className="hidden" />
       {lightboxPhotos && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in"
@@ -2214,12 +2266,21 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                             >
                               {editingMoment === moment.id ? (
                                 /* ── Inline edit mode ── */
-                                <div ref={editRef} data-edit-popover="true" className="space-y-2">
-                                  <div className="overflow-hidden rounded-xl border border-border/60 transition-colors focus-within:border-primary/40">
-                                  <textarea
-                                    autoFocus={editFocus === 'title'}
-                                    value={editText}
-                                    onChange={e => setEditText(e.target.value)}
+                                /* ── Edit = the same composer used to write it ── */
+                                <div ref={editRef} data-edit-popover="true">
+                                  <Composer
+                                    value={editBody}
+                                    onChange={setEditBodyText}
+                                    onSubmit={saveEdit}
+                                    canSubmit
+                                    sendLabel={lang === 'zh' ? '保存' : 'Save'}
+                                    sendIcon={<Check size={18} strokeWidth={2.6} />}
+                                    autoFocus
+                                    textareaRef={editTextareaRef}
+                                    testId="moment-edit-text"
+                                    ariaLabel={lang === 'zh' ? '编辑记录' : 'Edit moment'}
+                                    placeholder={lang === 'zh' ? '第一行是标题，下面写备注' : 'First line is the title; the rest is the note'}
+                                    maxRows={{ phone: 8, desktop: 12 }}
                                     onPaste={(e) => {
                                       const items = e.clipboardData?.items;
                                       if (!items) return;
@@ -2237,25 +2298,22 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         }
                                       }
                                     }}
-                                    placeholder={lang === 'zh' ? '标题' : 'Title'}
-                                    // Grow with the text so a long title is never clipped.
-                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
-                                    className="block w-full resize-none overflow-hidden bg-transparent px-3 pb-2 pt-2.5 text-[15px] font-medium leading-[1.4] text-foreground placeholder:text-muted-foreground/55 focus:outline-none sm:text-[16px] sm:font-semibold"
-                                    rows={1}
-                                  />
-                                  <textarea
-                                    autoFocus={editFocus === 'notes'}
-                                    value={editDetailText ?? ''}
-                                    onChange={e => setEditDetailText(e.target.value)}
-                                    placeholder={lang === 'zh' ? '写点什么…' : 'Write a note…'}
-                                    aria-label={lang === 'zh' ? '备注' : 'Note'}
-                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${Math.max(el.scrollHeight, 48)}px`; } }}
-                                    className="block w-full resize-none overflow-hidden border-t border-border/40 bg-transparent px-3 py-2 text-[15px] leading-relaxed text-foreground/80 placeholder:text-muted-foreground/55 focus:outline-none"
-                                    rows={2}
-                                  />
-                                  </div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {editTimeStart !== null && (
+                                    onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); setEditingMoment(null); } }}
+                                    attachments={(editPhotos.length > 0 || editLocation || editTimeStart !== null || editTags.length > 0) ? (
+                                      <div className="space-y-2">
+                                        {/* Same photo thumbnails as when writing a moment. */}
+                                        {editPhotos.length > 0 && (
+                                          <div className="flex gap-2 overflow-x-auto">
+                                            {editPhotos.map((photo, pi) => (
+                                              <div key={pi} className="relative flex-shrink-0">
+                                                <StorageImage src={photo} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                                                <button type="button" onClick={() => removeEditPhoto(pi)} aria-label={lang === 'zh' ? '移除照片' : 'Remove photo'} className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background"><X size={12} /></button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          {editTimeStart !== null && (
                                       // Native time fields: iOS shows its wheel picker, so nobody has to type ":".
                                       <div className="inline-flex h-8 items-center gap-1 rounded-full bg-secondary/40 pl-2.5 pr-2 text-[12px] tabular-nums text-foreground">
                                         <Clock size={13} className="flex-shrink-0 text-muted-foreground" />
@@ -2276,99 +2334,70 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         />
                                       </div>
                                     )}
-                                    {isMobile ? (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => setEditLocationOpen(true)}
-                                          className={cn(
-                                            "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[12px] transition-colors",
-                                            editLocation
-                                              ? "bg-[hsl(var(--surface-inset))] text-foreground"
-                                              : "bg-secondary/40 text-muted-foreground hover:text-foreground"
+                                          {editLocation && (
+                                            <div className="flex items-center gap-1 rounded-full bg-[hsl(var(--surface-inset))] pl-2.5 pr-1 text-[13px]">
+                                              <button type="button" onClick={() => setEditLocationOpen(true)} className="flex min-w-0 items-center gap-1.5 py-1" title={lang === 'zh' ? '换个地点' : 'Change place'}>
+                                                <MapPin size={12} className="flex-shrink-0 text-primary/80" />
+                                                <span className="max-w-[55vw] truncate sm:max-w-[220px]">{editLocation.name}</span>
+                                              </button>
+                                              <button type="button" onClick={() => setEditLocation(null)} className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground" aria-label={lang === 'zh' ? '去掉地点' : 'Remove place'}>
+                                                <X size={12} />
+                                              </button>
+                                            </div>
                                           )}
-                                          title="Add location"
-                                        >
-                                          <MapPin size={13} className="flex-shrink-0" />
-                                          <span className="min-w-0 max-w-[min(52vw,180px)] truncate">
-                                            {editLocation ? editLocation.name : (lang === 'zh' ? '添加地点' : 'Add location')}
-                                          </span>
-                                        </button>
-                                        {editLocationOpen && (
-                                          <LocationPopover
-                                            presentation="sheet"
-                                            onSelect={(loc) => { setEditLocation(loc); setEditLocationOpen(false); }}
-                                            onClose={() => setEditLocationOpen(false)}
-                                          />
-                                        )}
-                                      </>
-                                    ) : (
-                                      <Popover open={editLocationOpen} onOpenChange={setEditLocationOpen}>
-                                        <PopoverTrigger asChild>
-                                          <button
-                                            className={cn(
-                                              "inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] transition-colors",
-                                              editLocation
-                                                ? "bg-[hsl(var(--surface-inset))] text-foreground"
-                                                : "bg-secondary/40 text-muted-foreground hover:text-foreground"
-                                            )}
-                                            title="Add location"
-                                          >
-                                            <MapPin size={13} />
-                                            <span className="max-w-[160px] truncate">
-                                              {editLocation ? editLocation.name : (lang === 'zh' ? '添加地点' : 'Add location')}
+                                          {editTags.map((tag, ti) => (
+                                            <span key={ti} className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] text-primary">
+                                              {tag}
+                                              <button type="button" onClick={() => setEditTags(prev => prev.filter((_, i) => i !== ti))} aria-label={lang === 'zh' ? '去掉标签' : 'Remove tag'}><X size={10} /></button>
                                             </span>
-                                          </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-80 p-0 bg-transparent border-0 shadow-none z-50" align="start" side="bottom">
-                                          <LocationPopover
-                                            presentation="popover"
-                                            onSelect={(loc) => { setEditLocation(loc); setEditLocationOpen(false); }}
-                                            onClose={() => setEditLocationOpen(false)}
-                                          />
-                                        </PopoverContent>
-                                      </Popover>
-                                    )}
-                                  </div>
-                                  {/* Photos and "add photo" live together, so there's one place for them. */}
-                                  <div className="flex gap-1.5 overflow-x-auto pt-1">
-                                    {editPhotos.map((photo, pi) => (
-                                      <div key={pi} className="relative flex-shrink-0">
-                                        <StorageImage src={photo} alt="" className="h-14 w-14 rounded-lg object-cover" />
-                                        <button onClick={() => removeEditPhoto(pi)} aria-label={lang === 'zh' ? '移除照片' : 'Remove photo'} className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background"><X size={11} /></button>
+                                          ))}
+                                        </div>
                                       </div>
-                                    ))}
-                                    <button
-                                      type="button"
-                                      onClick={() => editFileInputRef.current?.click()}
-                                      aria-label={lang === 'zh' ? '添加照片' : 'Add photo'}
-                                      className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-border/70 text-muted-foreground hover:text-foreground"
-                                    >
-                                      <Image size={16} />
-                                    </button>
-                                    <input ref={editFileInputRef} type="file" accept="image/*" multiple onChange={handleEditFileChange} className="hidden" />
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {editTags.map((tag, ti) => (
-                                      <span key={ti} className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary flex items-center gap-1">
-                                        {tag}
-                                        <button onClick={() => setEditTags(prev => prev.filter((_, i) => i !== ti))}><X size={8} /></button>
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <div className="flex items-center gap-2 pt-1">
-                                    {onDeleteMoment && (
-                                      <button onClick={() => { onDeleteMoment(moment.id); setEditingMoment(null); }} className="px-1 py-1.5 text-[13px] text-destructive/80 hover:text-destructive">
-                                        {lang === 'zh' ? '删除' : 'Delete'}
-                                      </button>
-                                    )}
-                                    <div className="flex-1" />
-                                    <button onClick={() => setEditingMoment(null)} className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground">{lang === 'zh' ? '取消' : 'Cancel'}</button>
-                                    <button onClick={saveEdit} className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90">{lang === 'zh' ? '保存' : 'Save'}</button>
-                                  </div>
+                                    ) : undefined}
+                                    leading={
+                                      <>
+                                        <ComposerIconButton onClick={() => editFileInputRef.current?.click()} ariaLabel={lang === 'zh' ? '添加照片' : 'Add photo'} testId="moment-edit-photo">
+                                          <Image size={17} />
+                                        </ComposerIconButton>
+                                        <ComposerIconButton onClick={() => setEditLocationOpen(true)} active={!!editLocation} ariaLabel={lang === 'zh' ? '地点' : 'Place'}>
+                                          <MapPin size={17} />
+                                        </ComposerIconButton>
+                                      </>
+                                    }
+                                    trailing={
+                                      <>
+                                        {onDeleteMoment && (
+                                          <ComposerIconButton onClick={() => { onDeleteMoment(moment.id); setEditingMoment(null); }} ariaLabel={lang === 'zh' ? '删除' : 'Delete'} className="hover:!text-destructive">
+                                            <Trash2 size={16} />
+                                          </ComposerIconButton>
+                                        )}
+                                        <ComposerIconButton onClick={() => setEditingMoment(null)} ariaLabel={lang === 'zh' ? '取消' : 'Cancel'}>
+                                          <X size={18} />
+                                        </ComposerIconButton>
+                                      </>
+                                    }
+                                  />
+                                  <input ref={editFileInputRef} type="file" accept="image/*" multiple onChange={handleEditFileChange} className="hidden" />
+                                  {editLocationOpen && (
+                                    <LocationPopover
+                                      presentation="sheet"
+                                      onSelect={(loc) => { setEditLocation(loc); setEditLocationOpen(false); }}
+                                      onClose={() => setEditLocationOpen(false)}
+                                    />
+                                  )}
                                 </div>
                               ) : (
-                                <div className="group/card relative flex flex-col gap-2.5">
+                                <div
+                                  className="group/card relative flex cursor-pointer flex-col gap-2.5"
+                                  // Tap anywhere on the moment to edit it — the same editor
+                                  // whichever part you tapped. Photos, links, place and the
+                                  // small action buttons keep their own taps.
+                                  onClick={(e) => {
+                                    const target = e.target as HTMLElement;
+                                    if (target.closest('button, a, input, textarea, [role="button"]')) return;
+                                    startEdit(moment);
+                                  }}
+                                >
                                   <div className="min-w-0">
                                     {/* Title — full content width; ~16px is normal mobile “medium-large” */}
                                     <div className="relative flex items-start gap-2 min-w-0 pr-0 sm:pr-16">
@@ -2501,6 +2530,17 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                           </button>
                                         );
                                       })}
+                                      {onEditMoment && (
+                                        <button
+                                          type="button"
+                                          onClick={() => openQuickPhoto(moment)}
+                                          aria-label={lang === 'zh' ? '添加照片' : 'Add photo'}
+                                          data-testid="moment-add-photo"
+                                          className="flex h-14 w-14 flex-shrink-0 snap-start items-center justify-center self-center rounded-xl border border-dashed border-border/60 text-muted-foreground/70 transition-colors hover:text-foreground"
+                                        >
+                                          <Plus size={18} />
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>
