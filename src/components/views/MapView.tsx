@@ -24,6 +24,7 @@ import { CityLandmark, LifeMapMark, landmarkFor } from "@/components/CityLandmar
 import { resolveMomentPhotoUrls } from "@/lib/momentPhotos";
 import { isNewYorkCity, loadNewYorkNeighborhoods, areaColorIndexes, localizedAreaName, visitedAreas, type NeighborhoodCollection } from '@/lib/neighborhoods';
 import { momentTitle, parseSubtitleDetail } from '@/components/views/today/todayHelpers';
+import { getCachedCityName, resolveCityName } from '@/lib/cityName';
 
 interface MapViewProps {
   moments: Moment[];
@@ -713,6 +714,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           if (dist < 30) { resolvedName = dbCity.name; break; }
         }
       }
+      // A name looked up on an earlier visit is on the device: use it right away.
+      if (!resolvedName) resolvedName = getCachedCityName(c.centerLat, c.centerLng, lang);
       c.cityName = normalizeMunicipalityDistrict(resolvedName, lang.startsWith('zh')) || `Area ${i + 1}`;
     });
     setCities(initialCities);
@@ -736,26 +739,25 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         const resolved = [...initialCities];
         const unresolvedCities = initialCities.filter(c => needsResolve(c.cityName));
         if (unresolvedCities.length > 0) {
+          // Each name is shown as soon as it is known (and remembered on the
+          // device by resolveCityName). Waiting for all of them meant any
+          // re-render in between threw the whole batch away and the cards
+          // stayed "Area 3", "Area 5"…
           for (let i = 0; i < resolved.length; i++) {
             if (geoSeqCancelled) return;
             // Skip cities that already have a proper municipal name
             if (!needsResolve(resolved[i].cityName)) continue;
-            try {
-              const { data } = await supabase.functions.invoke('geo', {
-                body: { type: 'reverse', lat: resolved[i].centerLat, lng: resolved[i].centerLng, lang },
-              });
-              if (data?.city && data.city.trim()) {
-                resolved[i] = { ...resolved[i], cityName: normalizeMunicipalityDistrict(data.city.trim(), lang.startsWith('zh')) };
-              } else if (data?.name) {
-                const parts = String(data.name).split(',').map((s: string) => s.trim()).filter(Boolean);
-                if (parts.length >= 3) resolved[i] = { ...resolved[i], cityName: parts[parts.length - 2] };
-                else if (parts.length >= 2) resolved[i] = { ...resolved[i], cityName: parts[parts.length - 1] };
-                else if (parts[0]) resolved[i] = { ...resolved[i], cityName: parts[0] };
-              }
-            } catch { /* keep fallback name */ }
-            if (i < resolved.length - 1) await new Promise(r => setTimeout(r, 1500));
+            const { centerLat, centerLng } = resolved[i];
+            const wasCached = !!getCachedCityName(centerLat, centerLng, lang);
+            const name = await resolveCityName(centerLat, centerLng, lang);
+            if (geoSeqCancelled) return;
+            if (name) {
+              resolved[i] = { ...resolved[i], cityName: normalizeMunicipalityDistrict(name, lang.startsWith('zh')) };
+              setCities([...resolved]);
+            }
+            // Be polite to the free geocoder; cached answers need no pause.
+            if (!wasCached && i < resolved.length - 1) await new Promise(r => setTimeout(r, 250));
           }
-          if (!geoSeqCancelled) setCities(resolved);
         }
 
         if (geoSeqCancelled) return;
